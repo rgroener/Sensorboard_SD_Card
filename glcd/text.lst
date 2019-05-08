@@ -1,0 +1,1618 @@
+   1               		.file	"text.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	glcd_set_font
+  12               	glcd_set_font:
+  13               	.LVL0:
+  14               	.LFB7:
+  15               		.file 1 "glcd/text.c"
+   1:glcd/text.c   **** 
+   2:glcd/text.c   **** /**
+   3:glcd/text.c   ****    \file text.c
+   4:glcd/text.c   ****    \brief Functions relating to using text fonts of all sizes.
+   5:glcd/text.c   ****    \author Andy Gock
+   6:glcd/text.c   ****  */ 
+   7:glcd/text.c   **** 
+   8:glcd/text.c   **** /*
+   9:glcd/text.c   **** 	Copyright (c) 2012, Andy Gock
+  10:glcd/text.c   **** 
+  11:glcd/text.c   **** 	All rights reserved.
+  12:glcd/text.c   **** 
+  13:glcd/text.c   **** 	Redistribution and use in source and binary forms, with or without
+  14:glcd/text.c   **** 	modification, are permitted provided that the following conditions are met:
+  15:glcd/text.c   **** 		* Redistributions of source code must retain the above copyright
+  16:glcd/text.c   **** 		  notice, this list of conditions and the following disclaimer.
+  17:glcd/text.c   **** 		* Redistributions in binary form must reproduce the above copyright
+  18:glcd/text.c   **** 		  notice, this list of conditions and the following disclaimer in the
+  19:glcd/text.c   **** 		  documentation and/or other materials provided with the distribution.
+  20:glcd/text.c   **** 		* Neither the name of Andy Gock nor the
+  21:glcd/text.c   **** 		  names of its contributors may be used to endorse or promote products
+  22:glcd/text.c   **** 		  derived from this software without specific prior written permission.
+  23:glcd/text.c   **** 
+  24:glcd/text.c   **** 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  25:glcd/text.c   **** 	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  26:glcd/text.c   **** 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  27:glcd/text.c   **** 	DISCLAIMED. IN NO EVENT SHALL ANDY GOCK BE LIABLE FOR ANY
+  28:glcd/text.c   **** 	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  29:glcd/text.c   **** 	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  30:glcd/text.c   **** 	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  31:glcd/text.c   **** 	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  32:glcd/text.c   **** 	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  33:glcd/text.c   **** 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  34:glcd/text.c   **** */
+  35:glcd/text.c   **** 
+  36:glcd/text.c   **** #include "glcd.h"
+  37:glcd/text.c   **** 
+  38:glcd/text.c   **** extern uint8_t *glcd_buffer_selected;
+  39:glcd/text.c   **** extern glcd_BoundingBox_t *glcd_bbox_selected;
+  40:glcd/text.c   **** 
+  41:glcd/text.c   **** glcd_FontConfig_t font_current;
+  42:glcd/text.c   **** 
+  43:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)
+  44:glcd/text.c   **** void glcd_set_font(PGM_P font_table, uint8_t width, uint8_t height, char start_char, char end_char)
+  45:glcd/text.c   **** #else
+  46:glcd/text.c   **** void glcd_set_font(const char * font_table, uint8_t width, uint8_t height, char start_char, char en
+  47:glcd/text.c   **** #endif
+  48:glcd/text.c   **** {
+  16               		.loc 1 48 1 view -0
+  17               		.cfi_startproc
+  18               		.loc 1 48 1 is_stmt 0 view .LVU1
+  19 0000 0F93      		push r16
+  20               	.LCFI0:
+  21               		.cfi_def_cfa_offset 3
+  22               		.cfi_offset 16, -2
+  23               	/* prologue: function */
+  24               	/* frame size = 0 */
+  25               	/* stack size = 1 */
+  26               	.L__stack_usage = 1
+  49:glcd/text.c   **** 	/* Supports variable width fonts */
+  50:glcd/text.c   **** 	font_current.font_table = font_table;
+  27               		.loc 1 50 2 is_stmt 1 view .LVU2
+  28               		.loc 1 50 26 is_stmt 0 view .LVU3
+  29 0002 E0E0      		ldi r30,lo8(font_current)
+  30 0004 F0E0      		ldi r31,hi8(font_current)
+  31 0006 9183      		std Z+1,r25
+  32 0008 8083      		st Z,r24
+  51:glcd/text.c   **** 	font_current.width = width;
+  33               		.loc 1 51 2 is_stmt 1 view .LVU4
+  34               		.loc 1 51 21 is_stmt 0 view .LVU5
+  35 000a 6283      		std Z+2,r22
+  52:glcd/text.c   **** 	font_current.height = height;
+  36               		.loc 1 52 2 is_stmt 1 view .LVU6
+  37               		.loc 1 52 22 is_stmt 0 view .LVU7
+  38 000c 4383      		std Z+3,r20
+  53:glcd/text.c   **** 	font_current.start_char = start_char;
+  39               		.loc 1 53 2 is_stmt 1 view .LVU8
+  40               		.loc 1 53 26 is_stmt 0 view .LVU9
+  41 000e 2483      		std Z+4,r18
+  54:glcd/text.c   **** 	font_current.end_char = end_char;
+  42               		.loc 1 54 2 is_stmt 1 view .LVU10
+  43               		.loc 1 54 24 is_stmt 0 view .LVU11
+  44 0010 0583      		std Z+5,r16
+  55:glcd/text.c   **** 	font_current.table_type = MIKRO; /* Only supports MikroElektronika generated format at the moment 
+  45               		.loc 1 55 2 is_stmt 1 view .LVU12
+  46               		.loc 1 55 26 is_stmt 0 view .LVU13
+  47 0012 81E0      		ldi r24,lo8(1)
+  48               	.LVL1:
+  49               		.loc 1 55 26 view .LVU14
+  50 0014 8683      		std Z+6,r24
+  51               	/* epilogue start */
+  56:glcd/text.c   **** }
+  52               		.loc 1 56 1 view .LVU15
+  53 0016 0F91      		pop r16
+  54               	.LVL2:
+  55               		.loc 1 56 1 view .LVU16
+  56 0018 0895      		ret
+  57               		.cfi_endproc
+  58               	.LFE7:
+  60               	.global	glcd_font
+  62               	glcd_font:
+  63               	.LVL3:
+  64               	.LFB8:
+  57:glcd/text.c   **** 
+  58:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)
+  59:glcd/text.c   **** void glcd_font(PGM_P font_table, uint8_t width, uint8_t height, char start_char, char end_char, fon
+  60:glcd/text.c   **** #else
+  61:glcd/text.c   **** void glcd_font(const char * font_table, uint8_t width, uint8_t height, char start_char, char end_ch
+  62:glcd/text.c   **** #endif
+  63:glcd/text.c   **** {
+  65               		.loc 1 63 1 is_stmt 1 view -0
+  66               		.cfi_startproc
+  67               		.loc 1 63 1 is_stmt 0 view .LVU18
+  68 001a EF92      		push r14
+  69               	.LCFI1:
+  70               		.cfi_def_cfa_offset 3
+  71               		.cfi_offset 14, -2
+  72 001c 0F93      		push r16
+  73               	.LCFI2:
+  74               		.cfi_def_cfa_offset 4
+  75               		.cfi_offset 16, -3
+  76               	/* prologue: function */
+  77               	/* frame size = 0 */
+  78               	/* stack size = 2 */
+  79               	.L__stack_usage = 2
+  64:glcd/text.c   **** 	/* Supports variable width fonts */
+  65:glcd/text.c   **** 	font_current.font_table = font_table;
+  80               		.loc 1 65 2 is_stmt 1 view .LVU19
+  81               		.loc 1 65 26 is_stmt 0 view .LVU20
+  82 001e E0E0      		ldi r30,lo8(font_current)
+  83 0020 F0E0      		ldi r31,hi8(font_current)
+  84 0022 9183      		std Z+1,r25
+  85 0024 8083      		st Z,r24
+  66:glcd/text.c   **** 	font_current.width = width;
+  86               		.loc 1 66 2 is_stmt 1 view .LVU21
+  87               		.loc 1 66 21 is_stmt 0 view .LVU22
+  88 0026 6283      		std Z+2,r22
+  67:glcd/text.c   **** 	font_current.height = height;
+  89               		.loc 1 67 2 is_stmt 1 view .LVU23
+  90               		.loc 1 67 22 is_stmt 0 view .LVU24
+  91 0028 4383      		std Z+3,r20
+  68:glcd/text.c   **** 	font_current.start_char = start_char;
+  92               		.loc 1 68 2 is_stmt 1 view .LVU25
+  93               		.loc 1 68 26 is_stmt 0 view .LVU26
+  94 002a 2483      		std Z+4,r18
+  69:glcd/text.c   **** 	font_current.end_char = end_char;
+  95               		.loc 1 69 2 is_stmt 1 view .LVU27
+  96               		.loc 1 69 24 is_stmt 0 view .LVU28
+  97 002c 0583      		std Z+5,r16
+  70:glcd/text.c   **** 	font_current.table_type = type; /* Only supports MikroElektronika generated format at the moment *
+  98               		.loc 1 70 2 is_stmt 1 view .LVU29
+  99               		.loc 1 70 26 is_stmt 0 view .LVU30
+ 100 002e E682      		std Z+6,r14
+ 101               	/* epilogue start */
+  71:glcd/text.c   **** }
+ 102               		.loc 1 71 1 view .LVU31
+ 103 0030 0F91      		pop r16
+ 104               	.LVL4:
+ 105               		.loc 1 71 1 view .LVU32
+ 106 0032 EF90      		pop r14
+ 107               	.LVL5:
+ 108               		.loc 1 71 1 view .LVU33
+ 109 0034 0895      		ret
+ 110               		.cfi_endproc
+ 111               	.LFE8:
+ 113               	.global	glcd_draw_char_xy
+ 115               	glcd_draw_char_xy:
+ 116               	.LVL6:
+ 117               	.LFB9:
+  72:glcd/text.c   **** 
+  73:glcd/text.c   **** uint8_t glcd_draw_char_xy(uint8_t x, uint8_t y, char c)
+  74:glcd/text.c   **** {
+ 118               		.loc 1 74 1 is_stmt 1 view -0
+ 119               		.cfi_startproc
+ 120               		.loc 1 74 1 is_stmt 0 view .LVU35
+ 121 0036 2F92      		push r2
+ 122               	.LCFI3:
+ 123               		.cfi_def_cfa_offset 3
+ 124               		.cfi_offset 2, -2
+ 125 0038 3F92      		push r3
+ 126               	.LCFI4:
+ 127               		.cfi_def_cfa_offset 4
+ 128               		.cfi_offset 3, -3
+ 129 003a 4F92      		push r4
+ 130               	.LCFI5:
+ 131               		.cfi_def_cfa_offset 5
+ 132               		.cfi_offset 4, -4
+ 133 003c 5F92      		push r5
+ 134               	.LCFI6:
+ 135               		.cfi_def_cfa_offset 6
+ 136               		.cfi_offset 5, -5
+ 137 003e 6F92      		push r6
+ 138               	.LCFI7:
+ 139               		.cfi_def_cfa_offset 7
+ 140               		.cfi_offset 6, -6
+ 141 0040 7F92      		push r7
+ 142               	.LCFI8:
+ 143               		.cfi_def_cfa_offset 8
+ 144               		.cfi_offset 7, -7
+ 145 0042 8F92      		push r8
+ 146               	.LCFI9:
+ 147               		.cfi_def_cfa_offset 9
+ 148               		.cfi_offset 8, -8
+ 149 0044 9F92      		push r9
+ 150               	.LCFI10:
+ 151               		.cfi_def_cfa_offset 10
+ 152               		.cfi_offset 9, -9
+ 153 0046 AF92      		push r10
+ 154               	.LCFI11:
+ 155               		.cfi_def_cfa_offset 11
+ 156               		.cfi_offset 10, -10
+ 157 0048 BF92      		push r11
+ 158               	.LCFI12:
+ 159               		.cfi_def_cfa_offset 12
+ 160               		.cfi_offset 11, -11
+ 161 004a CF92      		push r12
+ 162               	.LCFI13:
+ 163               		.cfi_def_cfa_offset 13
+ 164               		.cfi_offset 12, -12
+ 165 004c DF92      		push r13
+ 166               	.LCFI14:
+ 167               		.cfi_def_cfa_offset 14
+ 168               		.cfi_offset 13, -13
+ 169 004e EF92      		push r14
+ 170               	.LCFI15:
+ 171               		.cfi_def_cfa_offset 15
+ 172               		.cfi_offset 14, -14
+ 173 0050 FF92      		push r15
+ 174               	.LCFI16:
+ 175               		.cfi_def_cfa_offset 16
+ 176               		.cfi_offset 15, -15
+ 177 0052 0F93      		push r16
+ 178               	.LCFI17:
+ 179               		.cfi_def_cfa_offset 17
+ 180               		.cfi_offset 16, -16
+ 181 0054 1F93      		push r17
+ 182               	.LCFI18:
+ 183               		.cfi_def_cfa_offset 18
+ 184               		.cfi_offset 17, -17
+ 185 0056 CF93      		push r28
+ 186               	.LCFI19:
+ 187               		.cfi_def_cfa_offset 19
+ 188               		.cfi_offset 28, -18
+ 189 0058 DF93      		push r29
+ 190               	.LCFI20:
+ 191               		.cfi_def_cfa_offset 20
+ 192               		.cfi_offset 29, -19
+ 193 005a CDB7      		in r28,__SP_L__
+ 194 005c DEB7      		in r29,__SP_H__
+ 195               	.LCFI21:
+ 196               		.cfi_def_cfa_register 28
+ 197 005e 2997      		sbiw r28,9
+ 198               	.LCFI22:
+ 199               		.cfi_def_cfa_offset 29
+ 200 0060 0FB6      		in __tmp_reg__,__SREG__
+ 201 0062 F894      		cli
+ 202 0064 DEBF      		out __SP_H__,r29
+ 203 0066 0FBE      		out __SREG__,__tmp_reg__
+ 204 0068 CDBF      		out __SP_L__,r28
+ 205               	/* prologue: function */
+ 206               	/* frame size = 9 */
+ 207               	/* stack size = 27 */
+ 208               	.L__stack_usage = 27
+ 209 006a 482E      		mov r4,r24
+ 210 006c 6887      		std Y+8,r22
+  75:glcd/text.c   **** 	if (c < font_current.start_char || c > font_current.end_char) {
+ 211               		.loc 1 75 2 is_stmt 1 view .LVU36
+ 212               		.loc 1 75 22 is_stmt 0 view .LVU37
+ 213 006e 2091 0000 		lds r18,font_current+4
+ 214               		.loc 1 75 5 view .LVU38
+ 215 0072 4217      		cp r20,r18
+ 216 0074 00F0      		brlo .L29
+ 217               		.loc 1 75 34 discriminator 1 view .LVU39
+ 218 0076 8091 0000 		lds r24,font_current+5
+ 219               	.LVL7:
+ 220               		.loc 1 75 34 discriminator 1 view .LVU40
+ 221 007a 8417      		cp r24,r20
+ 222 007c 00F4      		brsh .L4
+ 223               	.L29:
+  76:glcd/text.c   **** 		c = '.';
+ 224               		.loc 1 76 5 view .LVU41
+ 225 007e 4EE2      		ldi r20,lo8(46)
+ 226               	.LVL8:
+ 227               	.L4:
+  77:glcd/text.c   **** 	}
+  78:glcd/text.c   **** 	
+  79:glcd/text.c   **** 	if (font_current.table_type == STANG) {
+ 228               		.loc 1 79 2 is_stmt 1 view .LVU42
+ 229               		.loc 1 79 18 is_stmt 0 view .LVU43
+ 230 0080 3091 0000 		lds r19,font_current+6
+ 231 0084 3983      		std Y+1,r19
+ 232               		.loc 1 79 5 view .LVU44
+ 233 0086 3323      		tst r19
+ 234 0088 01F4      		brne .+2
+ 235 008a 00C0      		rjmp .L30
+  80:glcd/text.c   **** 		/* Font table in Pascal Stang format (single byte height with with no width specifier) */
+  81:glcd/text.c   **** 		/* Maximum height of 8 bits only */
+  82:glcd/text.c   **** 			
+  83:glcd/text.c   **** 		uint8_t i;
+  84:glcd/text.c   **** 		for ( i = 0; i < font_current.width; i++ ) {
+  85:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+  86:glcd/text.c   **** 			uint8_t dat = pgm_read_byte( font_current.font_table + ((c - font_current.start_char) * (font_cu
+  87:glcd/text.c   **** #else
+  88:glcd/text.c   **** 			uint8_t dat = *( font_current.font_table + ((c - font_current.start_char) * (font_current.width)
+  89:glcd/text.c   **** #endif
+  90:glcd/text.c   **** 			uint8_t j;
+  91:glcd/text.c   **** 			for (j = 0; j < 8; j++) {
+  92:glcd/text.c   **** 				/* Set pixel color for each bit of the column (8-bits) */
+  93:glcd/text.c   **** 				if (x+i >= GLCD_LCD_WIDTH || y+j >= GLCD_LCD_HEIGHT) {
+  94:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+  95:glcd/text.c   **** 					return 0;
+  96:glcd/text.c   **** 				}
+  97:glcd/text.c   **** 				if (dat & (1<<j)) {
+  98:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,BLACK);
+  99:glcd/text.c   **** 				} else {
+ 100:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,WHITE);
+ 101:glcd/text.c   **** 				}
+ 102:glcd/text.c   **** 			}
+ 103:glcd/text.c   **** 		}
+ 104:glcd/text.c   **** 		
+ 105:glcd/text.c   **** 		/* always return how many pixels of width were written */
+ 106:glcd/text.c   **** 		/* here for "stang" format fonts, it is always fixed */
+ 107:glcd/text.c   **** 		return font_current.width;
+ 108:glcd/text.c   **** 		
+ 109:glcd/text.c   **** 	} else if (font_current.table_type == MIKRO) {
+ 236               		.loc 1 109 9 is_stmt 1 view .LVU45
+ 237               		.loc 1 109 12 is_stmt 0 view .LVU46
+ 238 008c 5981      		ldd r21,Y+1
+ 239 008e 5130      		cpi r21,lo8(1)
+ 240 0090 01F0      		breq .+2
+ 241 0092 00C0      		rjmp .L13
+ 242               	.LBB2:
+ 110:glcd/text.c   **** 		/* Font table in MikroElecktronica format
+ 111:glcd/text.c   **** 		   - multi row fonts allowed (more than 8 pixels high)
+ 112:glcd/text.c   **** 		   - variable width fonts allowed
+ 113:glcd/text.c   **** 		   a complete column is written before moving to the next */
+ 114:glcd/text.c   **** 		
+ 115:glcd/text.c   **** 		uint8_t i;
+ 243               		.loc 1 115 3 is_stmt 1 view .LVU47
+ 116:glcd/text.c   **** 		uint8_t var_width;
+ 244               		.loc 1 116 3 view .LVU48
+ 117:glcd/text.c   **** 		uint8_t bytes_high;
+ 245               		.loc 1 117 3 view .LVU49
+ 118:glcd/text.c   **** 		
+ 119:glcd/text.c   **** 		if ((font_current.height % 8) > 0){
+ 246               		.loc 1 119 3 view .LVU50
+ 247               		.loc 1 119 20 is_stmt 0 view .LVU51
+ 248 0094 8091 0000 		lds r24,font_current+3
+ 249 0098 982F      		mov r25,r24
+ 250 009a 9695      		lsr r25
+ 251 009c 9695      		lsr r25
+ 252 009e 9695      		lsr r25
+ 253 00a0 9987      		std Y+9,r25
+ 254               		.loc 1 119 33 view .LVU52
+ 255 00a2 8770      		andi r24,lo8(7)
+ 256               		.loc 1 119 6 view .LVU53
+ 257 00a4 01F0      		breq .L14
+ 120:glcd/text.c   **** 			bytes_high = (font_current.height / 8) + 1;
+ 258               		.loc 1 120 4 is_stmt 1 view .LVU54
+ 259               		.loc 1 120 15 is_stmt 0 view .LVU55
+ 260 00a6 9F5F      		subi r25,lo8(-(1))
+ 261 00a8 9987      		std Y+9,r25
+ 262               	.LVL9:
+ 263               	.L14:
+ 121:glcd/text.c   **** 		}
+ 122:glcd/text.c   **** 		else{
+ 123:glcd/text.c   **** 			bytes_high = (font_current.height / 8);
+ 124:glcd/text.c   **** 		}
+ 125:glcd/text.c   **** 		uint8_t bytes_per_char = font_current.width * bytes_high + 1; /* The +1 is the width byte at the 
+ 264               		.loc 1 125 3 is_stmt 1 view .LVU56
+ 126:glcd/text.c   **** 		
+ 127:glcd/text.c   **** 		const char *p;
+ 265               		.loc 1 127 3 view .LVU57
+ 128:glcd/text.c   **** 		p = font_current.font_table + (c - font_current.start_char) * bytes_per_char;
+ 266               		.loc 1 128 3 view .LVU58
+ 125:glcd/text.c   **** 		
+ 267               		.loc 1 125 47 is_stmt 0 view .LVU59
+ 268 00aa 8091 0000 		lds r24,font_current+2
+ 269 00ae E985      		ldd r30,Y+9
+ 270 00b0 E89F      		mul r30,r24
+ 271 00b2 802D      		mov r24,r0
+ 272 00b4 1124      		clr r1
+ 125:glcd/text.c   **** 		
+ 273               		.loc 1 125 11 view .LVU60
+ 274 00b6 8F5F      		subi r24,lo8(-(1))
+ 275               	.LVL10:
+ 276               		.loc 1 128 36 view .LVU61
+ 277 00b8 421B      		sub r20,r18
+ 278 00ba 550B      		sbc r21,r21
+ 279               		.loc 1 128 63 view .LVU62
+ 280 00bc 849F      		mul r24,r20
+ 281 00be 8001      		movw r16,r0
+ 282 00c0 859F      		mul r24,r21
+ 283 00c2 100D      		add r17,r0
+ 284 00c4 1124      		clr __zero_reg__
+ 285               		.loc 1 128 5 view .LVU63
+ 286 00c6 E091 0000 		lds r30,font_current
+ 287 00ca F091 0000 		lds r31,font_current+1
+ 288 00ce E00F      		add r30,r16
+ 289 00d0 F11F      		adc r31,r17
+ 290               	.LVL11:
+ 129:glcd/text.c   **** 
+ 130:glcd/text.c   **** 		/* The first byte per character is always the width of the character */
+ 131:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)		
+ 132:glcd/text.c   **** 		var_width = pgm_read_byte(p);
+ 291               		.loc 1 132 3 is_stmt 1 view .LVU64
+ 292               	.LBB3:
+ 293               		.loc 1 132 15 view .LVU65
+ 294               		.loc 1 132 15 view .LVU66
+ 295               		.loc 1 132 15 view .LVU67
+ 296               	/* #APP */
+ 297               	 ;  132 "glcd/text.c" 1
+ 298 00d2 5490      		lpm r5, Z
+ 299               		
+ 300               	 ;  0 "" 2
+ 301               	.LVL12:
+ 302               		.loc 1 132 15 view .LVU68
+ 303               		.loc 1 132 15 is_stmt 0 view .LVU69
+ 304               	/* #NOAPP */
+ 305               	.LBE3:
+ 133:glcd/text.c   **** #else
+ 134:glcd/text.c   **** 		var_width = *p;
+ 135:glcd/text.c   **** #endif
+ 136:glcd/text.c   **** 		p++; /* Step over the variable width field */
+ 306               		.loc 1 136 3 is_stmt 1 view .LVU70
+ 137:glcd/text.c   **** 
+ 138:glcd/text.c   **** 		/*
+ 139:glcd/text.c   **** 		if (x+var_width >= GLCD_LCD_WIDTH || y+font_current.height >= GLCD_LCD_HEIGHT) {
+ 140:glcd/text.c   **** 			return;
+ 141:glcd/text.c   **** 		}
+ 142:glcd/text.c   **** 		*/
+ 143:glcd/text.c   **** 		
+ 144:glcd/text.c   **** 		for ( i = 0; i < var_width; i++ ) {
+ 307               		.loc 1 144 3 view .LVU71
+ 308               		.loc 1 144 3 is_stmt 0 view .LVU72
+ 309 00d4 3985      		ldd r19,Y+9
+ 310 00d6 232F      		mov r18,r19
+ 311 00d8 30E0      		ldi r19,0
+ 312 00da 3C83      		std Y+4,r19
+ 313 00dc 2B83      		std Y+3,r18
+ 314 00de 8F01      		movw r16,r30
+ 315 00e0 0F5F      		subi r16,-1
+ 316 00e2 1F4F      		sbci r17,-1
+ 317               	.LVL13:
+ 318               		.loc 1 144 3 view .LVU73
+ 319 00e4 C42C      		mov r12,r4
+ 320 00e6 D12C      		mov r13,__zero_reg__
+ 321               	.LBB4:
+ 322               	.LBB5:
+ 145:glcd/text.c   **** 			uint8_t j;
+ 146:glcd/text.c   **** 			for ( j = 0; j < bytes_high; j++ ) {
+ 147:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 148:glcd/text.c   **** 				uint8_t dat = pgm_read_byte( p + i*bytes_high + j );
+ 149:glcd/text.c   **** #else
+ 150:glcd/text.c   **** 				uint8_t dat = *( p + i*bytes_high + j );
+ 151:glcd/text.c   **** #endif
+ 152:glcd/text.c   **** 				uint8_t bit;
+ 153:glcd/text.c   **** 				for (bit = 0; bit < 8; bit++) {
+ 154:glcd/text.c   **** 					
+ 155:glcd/text.c   **** 					if (x+i >= GLCD_LCD_WIDTH || y+j*8+bit >= GLCD_LCD_HEIGHT) {
+ 323               		.loc 1 155 36 view .LVU74
+ 324 00e8 5885      		ldd r21,Y+8
+ 325 00ea 452F      		mov r20,r21
+ 326 00ec 50E0      		ldi r21,0
+ 327 00ee 5F83      		std Y+7,r21
+ 328 00f0 4E83      		std Y+6,r20
+ 329               	.LVL14:
+ 330               	.L15:
+ 331               		.loc 1 155 36 view .LVU75
+ 332 00f2 CA82      		std Y+2,r12
+ 333               	.LBE5:
+ 334               	.LBE4:
+ 144:glcd/text.c   **** 			uint8_t j;
+ 335               		.loc 1 144 3 discriminator 1 view .LVU76
+ 336 00f4 8C2D      		mov r24,r12
+ 337 00f6 8419      		sub r24,r4
+ 338 00f8 8515      		cp r24,r5
+ 339 00fa 00F0      		brlo .+2
+ 340 00fc 00C0      		rjmp .L3
+ 341 00fe 5801      		movw r10,r16
+ 342 0100 912C      		mov r9,__zero_reg__
+ 343 0102 812C      		mov r8,__zero_reg__
+ 344               	.LBB8:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 345               		.loc 1 146 12 view .LVU77
+ 346 0104 1982      		std Y+1,__zero_reg__
+ 347 0106 00C0      		rjmp .L20
+ 348               	.LVL15:
+ 349               	.L11:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 350               		.loc 1 146 12 view .LVU78
+ 351               	.LBE8:
+ 352               	.LBE2:
+ 353               	.LBB10:
+ 354               	.LBB11:
+  86:glcd/text.c   **** #else
+ 355               		.loc 1 86 4 is_stmt 1 view .LVU79
+ 356               	.LBB12:
+  86:glcd/text.c   **** #else
+ 357               		.loc 1 86 18 view .LVU80
+  86:glcd/text.c   **** #else
+ 358               		.loc 1 86 18 view .LVU81
+  86:glcd/text.c   **** #else
+ 359               		.loc 1 86 18 view .LVU82
+ 360 0108 8091 0000 		lds r24,font_current+4
+ 361 010c A301      		movw r20,r6
+ 362 010e 481B      		sub r20,r24
+ 363 0110 5109      		sbc r21,__zero_reg__
+ 364 0112 549E      		mul r5,r20
+ 365 0114 8001      		movw r16,r0
+ 366 0116 559E      		mul r5,r21
+ 367 0118 100D      		add r17,r0
+ 368 011a 1124      		clr __zero_reg__
+ 369 011c 5981      		ldd r21,Y+1
+ 370 011e 852E      		mov r8,r21
+ 371 0120 912C      		mov r9,__zero_reg__
+ 372 0122 080D      		add r16,r8
+ 373 0124 191D      		adc r17,r9
+ 374 0126 E091 0000 		lds r30,font_current
+ 375 012a F091 0000 		lds r31,font_current+1
+ 376 012e E00F      		add r30,r16
+ 377 0130 F11F      		adc r31,r17
+ 378               	/* #APP */
+ 379               	 ;  86 "glcd/text.c" 1
+ 380 0132 E491      		lpm r30, Z
+ 381               		
+ 382               	 ;  0 "" 2
+ 383               	.LVL16:
+  86:glcd/text.c   **** #else
+ 384               		.loc 1 86 18 view .LVU83
+  86:glcd/text.c   **** #else
+ 385               		.loc 1 86 18 is_stmt 0 view .LVU84
+ 386               	/* #NOAPP */
+ 387               	.LBE12:
+  90:glcd/text.c   **** 			for (j = 0; j < 8; j++) {
+ 388               		.loc 1 90 4 is_stmt 1 view .LVU85
+  91:glcd/text.c   **** 				/* Set pixel color for each bit of the column (8-bits) */
+ 389               		.loc 1 91 4 view .LVU86
+ 390               	.LBB13:
+  86:glcd/text.c   **** #else
+ 391               		.loc 1 86 18 is_stmt 0 view .LVU87
+ 392 0134 F12C      		mov r15,__zero_reg__
+ 393 0136 E12C      		mov r14,__zero_reg__
+ 394               	.LBE13:
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 395               		.loc 1 93 10 view .LVU88
+ 396 0138 8C0C      		add r8,r12
+ 397 013a 9D1C      		adc r9,r13
+  97:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,BLACK);
+ 398               		.loc 1 97 9 view .LVU89
+ 399 013c 0E2F      		mov r16,r30
+ 400 013e 10E0      		ldi r17,0
+ 401               	.LVL17:
+ 402               	.L10:
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 403               		.loc 1 93 5 is_stmt 1 view .LVU90
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 404               		.loc 1 93 8 is_stmt 0 view .LVU91
+ 405 0140 84E5      		ldi r24,84
+ 406 0142 8816      		cp r8,r24
+ 407 0144 9104      		cpc r9,__zero_reg__
+ 408 0146 04F0      		brlt .+2
+ 409 0148 00C0      		rjmp .L7
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 410               		.loc 1 93 31 discriminator 1 view .LVU92
+ 411 014a C501      		movw r24,r10
+ 412 014c 8E0D      		add r24,r14
+ 413 014e 9F1D      		adc r25,r15
+ 414 0150 C097      		sbiw r24,48
+ 415 0152 00F0      		brlo .+2
+ 416 0154 00C0      		rjmp .L7
+  97:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,BLACK);
+ 417               		.loc 1 97 5 is_stmt 1 view .LVU93
+ 418 0156 6885      		ldd r22,Y+8
+ 419 0158 6E0D      		add r22,r14
+  97:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,BLACK);
+ 420               		.loc 1 97 9 is_stmt 0 view .LVU94
+ 421 015a C801      		movw r24,r16
+ 422 015c 0E2C      		mov r0,r14
+ 423 015e 00C0      		rjmp 2f
+ 424               		1:
+ 425 0160 9595      		asr r25
+ 426 0162 8795      		ror r24
+ 427               		2:
+ 428 0164 0A94      		dec r0
+ 429 0166 02F4      		brpl 1b
+  98:glcd/text.c   **** 				} else {
+ 430               		.loc 1 98 6 view .LVU95
+ 431 0168 41E0      		ldi r20,lo8(1)
+  97:glcd/text.c   **** 					glcd_set_pixel(x+i,y+j,BLACK);
+ 432               		.loc 1 97 8 view .LVU96
+ 433 016a 80FF      		sbrs r24,0
+ 100:glcd/text.c   **** 				}
+ 434               		.loc 1 100 6 is_stmt 1 view .LVU97
+ 435 016c 40E0      		ldi r20,0
+ 436               	.L40:
+ 437 016e 842D      		mov r24,r4
+ 438 0170 0E94 0000 		call glcd_set_pixel
+ 439               	.LVL18:
+ 100:glcd/text.c   **** 				}
+ 440               		.loc 1 100 6 is_stmt 0 view .LVU98
+ 441 0174 9FEF      		ldi r25,-1
+ 442 0176 E91A      		sub r14,r25
+ 443 0178 F90A      		sbc r15,r25
+ 444               	.LVL19:
+  91:glcd/text.c   **** 				/* Set pixel color for each bit of the column (8-bits) */
+ 445               		.loc 1 91 4 view .LVU99
+ 446 017a E8E0      		ldi r30,8
+ 447 017c EE16      		cp r14,r30
+ 448 017e F104      		cpc r15,__zero_reg__
+ 449 0180 01F4      		brne .L10
+ 450               	.LBE11:
+  84:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+ 451               		.loc 1 84 41 discriminator 2 view .LVU100
+ 452 0182 F981      		ldd r31,Y+1
+ 453 0184 FF5F      		subi r31,lo8(-(1))
+ 454 0186 F983      		std Y+1,r31
+ 455               	.LVL20:
+  84:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+ 456               		.loc 1 84 41 discriminator 2 view .LVU101
+ 457 0188 4394      		inc r4
+ 458               	.LVL21:
+ 459               	.L5:
+  84:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+ 460               		.loc 1 84 32 discriminator 1 view .LVU102
+ 461 018a 5090 0000 		lds r5,font_current+2
+  84:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+ 462               		.loc 1 84 3 discriminator 1 view .LVU103
+ 463 018e 3981      		ldd r19,Y+1
+ 464 0190 3515      		cp r19,r5
+ 465 0192 00F4      		brsh .+2
+ 466 0194 00C0      		rjmp .L11
+ 467               	.LVL22:
+ 468               	.L3:
+  84:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)			
+ 469               		.loc 1 84 3 discriminator 1 view .LVU104
+ 470               	.LBE10:
+ 156:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 157:glcd/text.c   **** 						return 0;
+ 158:glcd/text.c   **** 					}
+ 159:glcd/text.c   **** 					
+ 160:glcd/text.c   **** 					/* We should not write if the y bit exceeds font height */
+ 161:glcd/text.c   **** 					if ((j*8 + bit) >= font_current.height) {
+ 162:glcd/text.c   **** 						/* Skip the bit */
+ 163:glcd/text.c   **** 						continue;
+ 164:glcd/text.c   **** 					}
+ 165:glcd/text.c   **** 					
+ 166:glcd/text.c   **** 					if (dat & (1<<bit)) {
+ 167:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 168:glcd/text.c   **** 					} else {
+ 169:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,WHITE);
+ 170:glcd/text.c   **** 					}
+ 171:glcd/text.c   **** 				}									
+ 172:glcd/text.c   **** 			}				
+ 173:glcd/text.c   **** 		}
+ 174:glcd/text.c   **** 		return var_width;	
+ 175:glcd/text.c   **** 	
+ 176:glcd/text.c   **** 	} else if (font_current.table_type == GLCD_UTILS) {
+ 177:glcd/text.c   **** 		/* Font table format of glcd-utils
+ 178:glcd/text.c   **** 		   - A complete row is written first (not completed columns)
+ 179:glcd/text.c   **** 		   - Width not stored, but we can search and determine it
+ 180:glcd/text.c   **** 		   - Not yet supported */
+ 181:glcd/text.c   **** 		
+ 182:glcd/text.c   **** 		uint8_t var_width, n;
+ 183:glcd/text.c   **** 		uint8_t bytes_high, bytes_per_char;
+ 184:glcd/text.c   **** 		const char *p;
+ 185:glcd/text.c   **** 
+ 186:glcd/text.c   **** 		bytes_high = font_current.height / 8 + 1;
+ 187:glcd/text.c   **** 		bytes_per_char = font_current.width * bytes_high;
+ 188:glcd/text.c   **** 		
+ 189:glcd/text.c   **** 		/* Point to chars first byte */
+ 190:glcd/text.c   **** 		p = font_current.font_table + (c - font_current.start_char) * bytes_per_char;
+ 191:glcd/text.c   **** 
+ 192:glcd/text.c   **** 		/* Determine the width of the character */
+ 193:glcd/text.c   **** 		var_width = font_current.width;
+ 194:glcd/text.c   **** 		
+ 195:glcd/text.c   **** 		n = 0; /* How many columns back from the end */
+ 196:glcd/text.c   **** 		
+ 197:glcd/text.c   **** 		while (1) {
+ 198:glcd/text.c   **** 			uint8_t max_byte = 0;
+ 199:glcd/text.c   **** 			uint8_t row = 0;
+ 200:glcd/text.c   **** 			
+ 201:glcd/text.c   **** 			for (row = 0; row < bytes_high; row++) {
+ 202:glcd/text.c   **** 				uint8_t offset;
+ 203:glcd/text.c   **** 				offset = (font_current.width - 1 - n) * row;
+ 204:glcd/text.c   **** 				max_byte = *(p + offset);
+ 205:glcd/text.c   **** 			}
+ 206:glcd/text.c   **** 			if (max_byte == 0) {
+ 207:glcd/text.c   **** 				/* column is empty for all rows, go left and test again */
+ 208:glcd/text.c   **** 				/* reduce variable width by 1 */
+ 209:glcd/text.c   **** 				var_width--;
+ 210:glcd/text.c   **** 				if (var_width == 0) {
+ 211:glcd/text.c   **** 					break;
+ 212:glcd/text.c   **** 				}
+ 213:glcd/text.c   **** 			} else {
+ 214:glcd/text.c   **** 				break; /* Part of a character was found */
+ 215:glcd/text.c   **** 			}
+ 216:glcd/text.c   **** 			n++;
+ 217:glcd/text.c   **** 		}
+ 218:glcd/text.c   **** 		
+ 219:glcd/text.c   **** 		/* Uncomment line below, to force fixed width, for debugging only */
+ 220:glcd/text.c   **** 		//var_width = font_current.width; // bypass auto width detection, treat as fixed width
+ 221:glcd/text.c   **** 				
+ 222:glcd/text.c   **** 		/* For glcd-utils format, we write one complete row at a time */
+ 223:glcd/text.c   **** 		uint8_t j; /* loop as rows, 1st row, j=0 */
+ 224:glcd/text.c   **** 		for ( j = 0; j < bytes_high; j++ ) {
+ 225:glcd/text.c   **** 			/* Loop one row at a time */
+ 226:glcd/text.c   **** 		
+ 227:glcd/text.c   **** 			uint8_t i;
+ 228:glcd/text.c   **** 			for ( i = 0; i < var_width; i++ ) {
+ 229:glcd/text.c   **** 				/* Loop one column at a time */
+ 230:glcd/text.c   **** 				
+ 231:glcd/text.c   **** 				uint8_t dat, bit;
+ 232:glcd/text.c   **** 				
+ 233:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)
+ 234:glcd/text.c   **** 				dat = pgm_read_byte( p + j*font_current.width + i );
+ 235:glcd/text.c   **** #else
+ 236:glcd/text.c   **** 				dat = *( p + j*font_current.width + i );
+ 237:glcd/text.c   **** #endif
+ 238:glcd/text.c   **** 				
+ 239:glcd/text.c   **** 				for (bit = 0; bit < 8; bit++) {
+ 240:glcd/text.c   **** 					
+ 241:glcd/text.c   **** 					if ((x+i) >= GLCD_LCD_WIDTH || (y+j*8+bit) >= GLCD_LCD_HEIGHT) {
+ 242:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 243:glcd/text.c   **** 						return 0;
+ 244:glcd/text.c   **** 					}
+ 245:glcd/text.c   **** 					
+ 246:glcd/text.c   **** 					/* We should not write if the y bit exceeds font height */
+ 247:glcd/text.c   **** 					if ((j*8 + bit) >= font_current.height) {
+ 248:glcd/text.c   **** 						/* Skip the bit */
+ 249:glcd/text.c   **** 						continue;
+ 250:glcd/text.c   **** 					}
+ 251:glcd/text.c   **** 					
+ 252:glcd/text.c   **** 					if (dat & (1<<bit)) {
+ 253:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 254:glcd/text.c   **** 					} else {
+ 255:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,WHITE);
+ 256:glcd/text.c   **** 					}
+ 257:glcd/text.c   **** 				}									
+ 258:glcd/text.c   **** 			} /* i */
+ 259:glcd/text.c   **** 		} /* j */
+ 260:glcd/text.c   **** 		
+ 261:glcd/text.c   **** 		return var_width; /* Number of columns written to display */
+ 262:glcd/text.c   **** 		
+ 263:glcd/text.c   **** 	} else {
+ 264:glcd/text.c   **** 		/* Don't recognise the font table */
+ 265:glcd/text.c   **** 		return 0;
+ 266:glcd/text.c   **** 		
+ 267:glcd/text.c   **** 	}
+ 268:glcd/text.c   **** 
+ 269:glcd/text.c   **** }
+ 471               		.loc 1 269 1 view .LVU105
+ 472 0196 852D      		mov r24,r5
+ 473               	/* epilogue start */
+ 474 0198 2996      		adiw r28,9
+ 475 019a 0FB6      		in __tmp_reg__,__SREG__
+ 476 019c F894      		cli
+ 477 019e DEBF      		out __SP_H__,r29
+ 478 01a0 0FBE      		out __SREG__,__tmp_reg__
+ 479 01a2 CDBF      		out __SP_L__,r28
+ 480 01a4 DF91      		pop r29
+ 481 01a6 CF91      		pop r28
+ 482 01a8 1F91      		pop r17
+ 483 01aa 0F91      		pop r16
+ 484 01ac FF90      		pop r15
+ 485 01ae EF90      		pop r14
+ 486 01b0 DF90      		pop r13
+ 487 01b2 CF90      		pop r12
+ 488 01b4 BF90      		pop r11
+ 489 01b6 AF90      		pop r10
+ 490 01b8 9F90      		pop r9
+ 491 01ba 8F90      		pop r8
+ 492 01bc 7F90      		pop r7
+ 493 01be 6F90      		pop r6
+ 494 01c0 5F90      		pop r5
+ 495 01c2 4F90      		pop r4
+ 496 01c4 3F90      		pop r3
+ 497 01c6 2F90      		pop r2
+ 498 01c8 0895      		ret
+ 499               	.LVL23:
+ 500               	.L30:
+ 501               	.LBB17:
+ 502               	.LBB15:
+ 503               	.LBB14:
+  86:glcd/text.c   **** #else
+ 504               		.loc 1 86 18 view .LVU106
+ 505 01ca 642E      		mov r6,r20
+ 506 01cc 712C      		mov r7,__zero_reg__
+ 507               	.LBE14:
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 508               		.loc 1 93 10 view .LVU107
+ 509 01ce C42C      		mov r12,r4
+ 510 01d0 D12C      		mov r13,__zero_reg__
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 511               		.loc 1 93 31 view .LVU108
+ 512 01d2 2885      		ldd r18,Y+8
+ 513 01d4 A22E      		mov r10,r18
+ 514 01d6 B12C      		mov r11,__zero_reg__
+ 515 01d8 00C0      		rjmp .L5
+ 516               	.LVL24:
+ 517               	.L19:
+  93:glcd/text.c   **** 					/* Don't try and write past the dimensions of the LCD */
+ 518               		.loc 1 93 31 view .LVU109
+ 519               	.LBE15:
+ 520               	.LBE17:
+ 521               	.LBB18:
+ 522               	.LBB9:
+ 523               	.LBB7:
+ 148:glcd/text.c   **** #else
+ 524               		.loc 1 148 5 is_stmt 1 view .LVU110
+ 525               	.LBB6:
+ 148:glcd/text.c   **** #else
+ 526               		.loc 1 148 19 view .LVU111
+ 148:glcd/text.c   **** #else
+ 527               		.loc 1 148 19 view .LVU112
+ 148:glcd/text.c   **** #else
+ 528               		.loc 1 148 19 view .LVU113
+ 529 01da F501      		movw r30,r10
+ 530               	/* #APP */
+ 531               	 ;  148 "glcd/text.c" 1
+ 532 01dc 6490      		lpm r6, Z
+ 533               		
+ 534               	 ;  0 "" 2
+ 535               	.LVL25:
+ 148:glcd/text.c   **** #else
+ 536               		.loc 1 148 19 view .LVU114
+ 148:glcd/text.c   **** #else
+ 537               		.loc 1 148 19 is_stmt 0 view .LVU115
+ 538               	/* #NOAPP */
+ 539               	.LBE6:
+ 152:glcd/text.c   **** 				for (bit = 0; bit < 8; bit++) {
+ 540               		.loc 1 152 5 is_stmt 1 view .LVU116
+ 153:glcd/text.c   **** 					
+ 541               		.loc 1 153 5 view .LVU117
+ 155:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 542               		.loc 1 155 36 is_stmt 0 view .LVU118
+ 543 01de 2E80      		ldd r2,Y+6
+ 544 01e0 3F80      		ldd r3,Y+7
+ 545 01e2 280C      		add r2,r8
+ 546 01e4 391C      		adc r3,r9
+ 547 01e6 F885      		ldd r31,Y+8
+ 548 01e8 F80D      		add r31,r8
+ 549 01ea FD83      		std Y+5,r31
+ 550 01ec F12C      		mov r15,__zero_reg__
+ 551 01ee E12C      		mov r14,__zero_reg__
+ 166:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 552               		.loc 1 166 10 view .LVU119
+ 553 01f0 712C      		mov r7,__zero_reg__
+ 554               	.LVL26:
+ 555               	.L18:
+ 155:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 556               		.loc 1 155 6 is_stmt 1 view .LVU120
+ 155:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 557               		.loc 1 155 9 is_stmt 0 view .LVU121
+ 558 01f2 24E5      		ldi r18,84
+ 559 01f4 C216      		cp r12,r18
+ 560 01f6 D104      		cpc r13,__zero_reg__
+ 561 01f8 04F0      		brlt .+2
+ 562 01fa 00C0      		rjmp .L7
+ 155:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 563               		.loc 1 155 32 discriminator 1 view .LVU122
+ 564 01fc 9101      		movw r18,r2
+ 565 01fe 2E0D      		add r18,r14
+ 566 0200 3F1D      		adc r19,r15
+ 567 0202 2033      		cpi r18,48
+ 568 0204 3105      		cpc r19,__zero_reg__
+ 569 0206 00F0      		brlo .+2
+ 570 0208 00C0      		rjmp .L7
+ 161:glcd/text.c   **** 						/* Skip the bit */
+ 571               		.loc 1 161 6 is_stmt 1 view .LVU123
+ 161:glcd/text.c   **** 						/* Skip the bit */
+ 572               		.loc 1 161 37 is_stmt 0 view .LVU124
+ 573 020a 9091 0000 		lds r25,font_current+3
+ 161:glcd/text.c   **** 						/* Skip the bit */
+ 574               		.loc 1 161 9 view .LVU125
+ 575 020e 9401      		movw r18,r8
+ 576 0210 2E0D      		add r18,r14
+ 577 0212 3F1D      		adc r19,r15
+ 578 0214 9217      		cp r25,r18
+ 579 0216 1306      		cpc __zero_reg__,r19
+ 580 0218 01F0      		breq .L16
+ 581 021a 04F0      		brlt .L16
+ 166:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 582               		.loc 1 166 6 is_stmt 1 view .LVU126
+ 583 021c 6D81      		ldd r22,Y+5
+ 584 021e 6E0D      		add r22,r14
+ 166:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 585               		.loc 1 166 10 is_stmt 0 view .LVU127
+ 586 0220 A301      		movw r20,r6
+ 587 0222 0E2C      		mov r0,r14
+ 588 0224 00C0      		rjmp 2f
+ 589               		1:
+ 590 0226 5595      		asr r21
+ 591 0228 4795      		ror r20
+ 592               		2:
+ 593 022a 0A94      		dec r0
+ 594 022c 02F4      		brpl 1b
+ 595 022e CA01      		movw r24,r20
+ 167:glcd/text.c   **** 					} else {
+ 596               		.loc 1 167 7 view .LVU128
+ 597 0230 41E0      		ldi r20,lo8(1)
+ 166:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 598               		.loc 1 166 9 view .LVU129
+ 599 0232 80FF      		sbrs r24,0
+ 169:glcd/text.c   **** 					}
+ 600               		.loc 1 169 7 is_stmt 1 view .LVU130
+ 601 0234 40E0      		ldi r20,0
+ 602               	.L41:
+ 603 0236 8A81      		ldd r24,Y+2
+ 604 0238 0E94 0000 		call glcd_set_pixel
+ 605               	.LVL27:
+ 606               	.L16:
+ 169:glcd/text.c   **** 					}
+ 607               		.loc 1 169 7 is_stmt 0 view .LVU131
+ 608 023c 5FEF      		ldi r21,-1
+ 609 023e E51A      		sub r14,r21
+ 610 0240 F50A      		sbc r15,r21
+ 611               	.LVL28:
+ 153:glcd/text.c   **** 					
+ 612               		.loc 1 153 5 discriminator 2 view .LVU132
+ 613 0242 88E0      		ldi r24,8
+ 614 0244 E816      		cp r14,r24
+ 615 0246 F104      		cpc r15,__zero_reg__
+ 616 0248 01F4      		brne .L18
+ 617               	.LBE7:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 618               		.loc 1 146 34 discriminator 2 view .LVU133
+ 619 024a 9981      		ldd r25,Y+1
+ 620 024c 9F5F      		subi r25,lo8(-(1))
+ 621 024e 9983      		std Y+1,r25
+ 622               	.LVL29:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 623               		.loc 1 146 34 discriminator 2 view .LVU134
+ 624 0250 E8E0      		ldi r30,8
+ 625 0252 8E0E      		add r8,r30
+ 626 0254 911C      		adc r9,__zero_reg__
+ 627 0256 FFEF      		ldi r31,-1
+ 628 0258 AF1A      		sub r10,r31
+ 629 025a BF0A      		sbc r11,r31
+ 630               	.LVL30:
+ 631               	.L20:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 632               		.loc 1 146 4 discriminator 1 view .LVU135
+ 633 025c 2985      		ldd r18,Y+9
+ 634 025e 3981      		ldd r19,Y+1
+ 635 0260 2313      		cpse r18,r19
+ 636 0262 00C0      		rjmp .L19
+ 637               	.LVL31:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 638               		.loc 1 146 4 discriminator 1 view .LVU136
+ 639 0264 4B81      		ldd r20,Y+3
+ 640 0266 5C81      		ldd r21,Y+4
+ 641 0268 040F      		add r16,r20
+ 642 026a 151F      		adc r17,r21
+ 643 026c 5FEF      		ldi r21,-1
+ 644 026e C51A      		sub r12,r21
+ 645 0270 D50A      		sbc r13,r21
+ 646               	.LVL32:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 647               		.loc 1 146 4 discriminator 1 view .LVU137
+ 648 0272 00C0      		rjmp .L15
+ 649               	.LVL33:
+ 650               	.L13:
+ 146:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)				
+ 651               		.loc 1 146 4 discriminator 1 view .LVU138
+ 652               	.LBE9:
+ 653               	.LBE18:
+ 176:glcd/text.c   **** 		/* Font table format of glcd-utils
+ 654               		.loc 1 176 9 is_stmt 1 view .LVU139
+ 176:glcd/text.c   **** 		/* Font table format of glcd-utils
+ 655               		.loc 1 176 12 is_stmt 0 view .LVU140
+ 656 0274 8981      		ldd r24,Y+1
+ 657 0276 8230      		cpi r24,lo8(2)
+ 658 0278 01F0      		breq .+2
+ 659 027a 00C0      		rjmp .L7
+ 660               	.LBB19:
+ 182:glcd/text.c   **** 		uint8_t bytes_high, bytes_per_char;
+ 661               		.loc 1 182 3 is_stmt 1 view .LVU141
+ 183:glcd/text.c   **** 		const char *p;
+ 662               		.loc 1 183 3 view .LVU142
+ 184:glcd/text.c   **** 
+ 663               		.loc 1 184 3 view .LVU143
+ 186:glcd/text.c   **** 		bytes_per_char = font_current.width * bytes_high;
+ 664               		.loc 1 186 3 view .LVU144
+ 186:glcd/text.c   **** 		bytes_per_char = font_current.width * bytes_high;
+ 665               		.loc 1 186 40 is_stmt 0 view .LVU145
+ 666 027c 8091 0000 		lds r24,font_current+3
+ 667 0280 8695      		lsr r24
+ 668 0282 8695      		lsr r24
+ 669 0284 8695      		lsr r24
+ 186:glcd/text.c   **** 		bytes_per_char = font_current.width * bytes_high;
+ 670               		.loc 1 186 14 view .LVU146
+ 671 0286 91E0      		ldi r25,lo8(1)
+ 672 0288 980F      		add r25,r24
+ 673 028a 9983      		std Y+1,r25
+ 674               	.LVL34:
+ 187:glcd/text.c   **** 		
+ 675               		.loc 1 187 3 is_stmt 1 view .LVU147
+ 187:glcd/text.c   **** 		
+ 676               		.loc 1 187 32 is_stmt 0 view .LVU148
+ 677 028c 9091 0000 		lds r25,font_current+2
+ 678               	.LVL35:
+ 190:glcd/text.c   **** 
+ 679               		.loc 1 190 3 is_stmt 1 view .LVU149
+ 190:glcd/text.c   **** 
+ 680               		.loc 1 190 36 is_stmt 0 view .LVU150
+ 681 0290 421B      		sub r20,r18
+ 682 0292 550B      		sbc r21,r21
+ 187:glcd/text.c   **** 		
+ 683               		.loc 1 187 18 view .LVU151
+ 684 0294 E981      		ldd r30,Y+1
+ 685 0296 9E9F      		mul r25,r30
+ 686 0298 202D      		mov r18,r0
+ 687 029a 1124      		clr r1
+ 688               	.LVL36:
+ 190:glcd/text.c   **** 
+ 689               		.loc 1 190 63 view .LVU152
+ 690 029c 249F      		mul r18,r20
+ 691 029e 3001      		movw r6,r0
+ 692 02a0 259F      		mul r18,r21
+ 693 02a2 700C      		add r7,r0
+ 694 02a4 1124      		clr __zero_reg__
+ 190:glcd/text.c   **** 
+ 695               		.loc 1 190 5 view .LVU153
+ 696 02a6 2091 0000 		lds r18,font_current
+ 697 02aa 3091 0000 		lds r19,font_current+1
+ 698               	.LVL37:
+ 190:glcd/text.c   **** 
+ 699               		.loc 1 190 5 view .LVU154
+ 700 02ae 620E      		add r6,r18
+ 701 02b0 731E      		adc r7,r19
+ 702               	.LVL38:
+ 193:glcd/text.c   **** 		
+ 703               		.loc 1 193 3 is_stmt 1 view .LVU155
+ 195:glcd/text.c   **** 		
+ 704               		.loc 1 195 3 view .LVU156
+ 193:glcd/text.c   **** 		
+ 705               		.loc 1 193 13 is_stmt 0 view .LVU157
+ 706 02b2 592E      		mov r5,r25
+ 707               	.LBB20:
+ 708               	.LBB21:
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 709               		.loc 1 203 34 view .LVU158
+ 710 02b4 492F      		mov r20,r25
+ 711 02b6 4150      		subi r20,1
+ 712 02b8 550B      		sbc r21,r21
+ 713 02ba 9A01      		movw r18,r20
+ 714               	.LVL39:
+ 715               	.L22:
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 716               		.loc 1 203 34 view .LVU159
+ 717               	.LBE21:
+ 718               	.LBE20:
+ 197:glcd/text.c   **** 			uint8_t max_byte = 0;
+ 719               		.loc 1 197 3 is_stmt 1 view .LVU160
+ 720               	.LBB24:
+ 198:glcd/text.c   **** 			uint8_t row = 0;
+ 721               		.loc 1 198 4 view .LVU161
+ 199:glcd/text.c   **** 			
+ 722               		.loc 1 199 4 view .LVU162
+ 201:glcd/text.c   **** 				uint8_t offset;
+ 723               		.loc 1 201 4 view .LVU163
+ 724               	.LBB22:
+ 202:glcd/text.c   **** 				offset = (font_current.width - 1 - n) * row;
+ 725               		.loc 1 202 5 view .LVU164
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 726               		.loc 1 203 5 view .LVU165
+ 204:glcd/text.c   **** 			}
+ 727               		.loc 1 204 5 view .LVU166
+ 204:glcd/text.c   **** 			}
+ 728               		.loc 1 204 5 is_stmt 0 view .LVU167
+ 729               	.LBE22:
+ 206:glcd/text.c   **** 				/* column is empty for all rows, go left and test again */
+ 730               		.loc 1 206 4 is_stmt 1 view .LVU168
+ 731               	.LBB23:
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 732               		.loc 1 203 38 is_stmt 0 view .LVU169
+ 733 02bc 492F      		mov r20,r25
+ 734 02be 4519      		sub r20,r5
+ 735               	.LVL40:
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 736               		.loc 1 203 38 view .LVU170
+ 737 02c0 F901      		movw r30,r18
+ 738 02c2 E41B      		sub r30,r20
+ 739 02c4 F109      		sbc r31,__zero_reg__
+ 203:glcd/text.c   **** 				max_byte = *(p + offset);
+ 740               		.loc 1 203 12 view .LVU171
+ 741 02c6 8E9F      		mul r24,r30
+ 742 02c8 E02D      		mov r30,r0
+ 743 02ca 1124      		clr r1
+ 204:glcd/text.c   **** 			}
+ 744               		.loc 1 204 14 view .LVU172
+ 745 02cc E60D      		add r30,r6
+ 746 02ce F72D      		mov r31,r7
+ 747 02d0 F11D      		adc r31,__zero_reg__
+ 748               	.LBE23:
+ 206:glcd/text.c   **** 				/* column is empty for all rows, go left and test again */
+ 749               		.loc 1 206 7 view .LVU173
+ 750 02d2 4081      		ld r20,Z
+ 751               	.LVL41:
+ 206:glcd/text.c   **** 				/* column is empty for all rows, go left and test again */
+ 752               		.loc 1 206 7 view .LVU174
+ 753 02d4 4111      		cpse r20,__zero_reg__
+ 754 02d6 00C0      		rjmp .L21
+ 209:glcd/text.c   **** 				if (var_width == 0) {
+ 755               		.loc 1 209 5 is_stmt 1 view .LVU175
+ 209:glcd/text.c   **** 				if (var_width == 0) {
+ 756               		.loc 1 209 14 is_stmt 0 view .LVU176
+ 757 02d8 5A94      		dec r5
+ 758               	.LVL42:
+ 210:glcd/text.c   **** 					break;
+ 759               		.loc 1 210 5 is_stmt 1 view .LVU177
+ 210:glcd/text.c   **** 					break;
+ 760               		.loc 1 210 8 is_stmt 0 view .LVU178
+ 761 02da 5110      		cpse r5,__zero_reg__
+ 762 02dc 00C0      		rjmp .L22
+ 763               	.LVL43:
+ 764               	.L21:
+ 210:glcd/text.c   **** 					break;
+ 765               		.loc 1 210 8 view .LVU179
+ 766               	.LBE24:
+ 223:glcd/text.c   **** 		for ( j = 0; j < bytes_high; j++ ) {
+ 767               		.loc 1 223 3 is_stmt 1 view .LVU180
+ 224:glcd/text.c   **** 			/* Loop one row at a time */
+ 768               		.loc 1 224 3 view .LVU181
+ 224:glcd/text.c   **** 			/* Loop one row at a time */
+ 769               		.loc 1 224 3 is_stmt 0 view .LVU182
+ 770 02de 9885      		ldd r25,Y+8
+ 771               	.LVL44:
+ 224:glcd/text.c   **** 			/* Loop one row at a time */
+ 772               		.loc 1 224 3 view .LVU183
+ 773 02e0 892F      		mov r24,r25
+ 774 02e2 90E0      		ldi r25,0
+ 775 02e4 9C83      		std Y+4,r25
+ 776 02e6 8B83      		std Y+3,r24
+ 777               	.LVL45:
+ 778               	.LBB25:
+ 779               	.LBB26:
+ 780               	.LBB27:
+ 234:glcd/text.c   **** #else
+ 781               		.loc 1 234 11 view .LVU184
+ 782 02e8 912C      		mov r9,__zero_reg__
+ 783 02ea 812C      		mov r8,__zero_reg__
+ 784 02ec B12C      		mov r11,__zero_reg__
+ 785 02ee A12C      		mov r10,__zero_reg__
+ 786               	.LVL46:
+ 787               	.L23:
+ 234:glcd/text.c   **** #else
+ 788               		.loc 1 234 11 view .LVU185
+ 789 02f0 2B81      		ldd r18,Y+3
+ 790 02f2 2A83      		std Y+2,r18
+ 791 02f4 E42C      		mov r14,r4
+ 792 02f6 F12C      		mov r15,__zero_reg__
+ 793 02f8 D12C      		mov r13,__zero_reg__
+ 794 02fa C12C      		mov r12,__zero_reg__
+ 795 02fc 00C0      		rjmp .L28
+ 796               	.LVL47:
+ 797               	.L27:
+ 234:glcd/text.c   **** #else
+ 798               		.loc 1 234 11 view .LVU186
+ 799               	.LBE27:
+ 231:glcd/text.c   **** 				
+ 800               		.loc 1 231 5 is_stmt 1 view .LVU187
+ 234:glcd/text.c   **** #else
+ 801               		.loc 1 234 5 view .LVU188
+ 802               	.LBB28:
+ 234:glcd/text.c   **** #else
+ 803               		.loc 1 234 11 view .LVU189
+ 234:glcd/text.c   **** #else
+ 804               		.loc 1 234 11 view .LVU190
+ 234:glcd/text.c   **** #else
+ 805               		.loc 1 234 11 view .LVU191
+ 806 02fe 8091 0000 		lds r24,font_current+2
+ 807 0302 8A9D      		mul r24,r10
+ 808 0304 F001      		movw r30,r0
+ 809 0306 8B9D      		mul r24,r11
+ 810 0308 F00D      		add r31,r0
+ 811 030a 1124      		clr __zero_reg__
+ 812 030c EC0D      		add r30,r12
+ 813 030e FD1D      		adc r31,r13
+ 814 0310 E60D      		add r30,r6
+ 815 0312 F71D      		adc r31,r7
+ 816               	/* #APP */
+ 817               	 ;  234 "glcd/text.c" 1
+ 818 0314 E491      		lpm r30, Z
+ 819               		
+ 820               	 ;  0 "" 2
+ 821               	.LVL48:
+ 234:glcd/text.c   **** #else
+ 822               		.loc 1 234 11 view .LVU192
+ 234:glcd/text.c   **** #else
+ 823               		.loc 1 234 11 is_stmt 0 view .LVU193
+ 824               	/* #NOAPP */
+ 825               	.LBE28:
+ 239:glcd/text.c   **** 					
+ 826               		.loc 1 239 5 is_stmt 1 view .LVU194
+ 827               	.LBB29:
+ 234:glcd/text.c   **** #else
+ 828               		.loc 1 234 11 is_stmt 0 view .LVU195
+ 829 0316 10E0      		ldi r17,0
+ 830 0318 00E0      		ldi r16,0
+ 831               	.LBE29:
+ 252:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 832               		.loc 1 252 10 view .LVU196
+ 833 031a 2E2E      		mov r2,r30
+ 834 031c 312C      		mov r3,__zero_reg__
+ 835               	.LVL49:
+ 836               	.L26:
+ 241:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 837               		.loc 1 241 6 is_stmt 1 view .LVU197
+ 241:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 838               		.loc 1 241 9 is_stmt 0 view .LVU198
+ 839 031e E4E5      		ldi r30,84
+ 840 0320 EE16      		cp r14,r30
+ 841 0322 F104      		cpc r15,__zero_reg__
+ 842 0324 00F4      		brsh .L7
+ 241:glcd/text.c   **** 						/* Don't write past the dimensions of the LCD, skip the entire char */
+ 843               		.loc 1 241 34 discriminator 1 view .LVU199
+ 844 0326 2B81      		ldd r18,Y+3
+ 845 0328 3C81      		ldd r19,Y+4
+ 846 032a 200F      		add r18,r16
+ 847 032c 311F      		adc r19,r17
+ 848 032e 2033      		cpi r18,48
+ 849 0330 3105      		cpc r19,__zero_reg__
+ 850 0332 04F4      		brge .L7
+ 247:glcd/text.c   **** 						/* Skip the bit */
+ 851               		.loc 1 247 6 is_stmt 1 view .LVU200
+ 247:glcd/text.c   **** 						/* Skip the bit */
+ 852               		.loc 1 247 37 is_stmt 0 view .LVU201
+ 853 0334 9091 0000 		lds r25,font_current+3
+ 247:glcd/text.c   **** 						/* Skip the bit */
+ 854               		.loc 1 247 9 view .LVU202
+ 855 0338 9401      		movw r18,r8
+ 856 033a 200F      		add r18,r16
+ 857 033c 311F      		adc r19,r17
+ 858 033e 9217      		cp r25,r18
+ 859 0340 1306      		cpc __zero_reg__,r19
+ 860 0342 01F0      		breq .L24
+ 861 0344 04F0      		brlt .L24
+ 252:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 862               		.loc 1 252 6 is_stmt 1 view .LVU203
+ 863 0346 6A81      		ldd r22,Y+2
+ 864 0348 600F      		add r22,r16
+ 252:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 865               		.loc 1 252 10 is_stmt 0 view .LVU204
+ 866 034a 9101      		movw r18,r2
+ 867 034c 002E      		mov r0,r16
+ 868 034e 00C0      		rjmp 2f
+ 869               		1:
+ 870 0350 3595      		asr r19
+ 871 0352 2795      		ror r18
+ 872               		2:
+ 873 0354 0A94      		dec r0
+ 874 0356 02F4      		brpl 1b
+ 253:glcd/text.c   **** 					} else {
+ 875               		.loc 1 253 7 view .LVU205
+ 876 0358 41E0      		ldi r20,lo8(1)
+ 252:glcd/text.c   **** 						glcd_set_pixel(x+i,y+j*8+bit,BLACK);
+ 877               		.loc 1 252 9 view .LVU206
+ 878 035a 20FF      		sbrs r18,0
+ 255:glcd/text.c   **** 					}
+ 879               		.loc 1 255 7 is_stmt 1 view .LVU207
+ 880 035c 40E0      		ldi r20,0
+ 881               	.L42:
+ 882 035e 8E2D      		mov r24,r14
+ 883 0360 0E94 0000 		call glcd_set_pixel
+ 884               	.LVL50:
+ 885               	.L24:
+ 255:glcd/text.c   **** 					}
+ 886               		.loc 1 255 7 is_stmt 0 view .LVU208
+ 887 0364 0F5F      		subi r16,-1
+ 888 0366 1F4F      		sbci r17,-1
+ 889               	.LVL51:
+ 239:glcd/text.c   **** 					
+ 890               		.loc 1 239 5 discriminator 2 view .LVU209
+ 891 0368 0830      		cpi r16,8
+ 892 036a 1105      		cpc r17,__zero_reg__
+ 893 036c 01F4      		brne .L26
+ 894               	.LVL52:
+ 239:glcd/text.c   **** 					
+ 895               		.loc 1 239 5 discriminator 2 view .LVU210
+ 896 036e 3FEF      		ldi r19,-1
+ 897 0370 C31A      		sub r12,r19
+ 898 0372 D30A      		sbc r13,r19
+ 899               	.LVL53:
+ 239:glcd/text.c   **** 					
+ 900               		.loc 1 239 5 discriminator 2 view .LVU211
+ 901 0374 4FEF      		ldi r20,-1
+ 902 0376 E41A      		sub r14,r20
+ 903 0378 F40A      		sbc r15,r20
+ 904               	.LVL54:
+ 905               	.L28:
+ 239:glcd/text.c   **** 					
+ 906               		.loc 1 239 5 discriminator 2 view .LVU212
+ 907               	.LBE26:
+ 228:glcd/text.c   **** 				/* Loop one column at a time */
+ 908               		.loc 1 228 4 discriminator 1 view .LVU213
+ 909 037a C514      		cp r12,r5
+ 910 037c 00F4      		brsh .+2
+ 911 037e 00C0      		rjmp .L27
+ 912               	.LVL55:
+ 228:glcd/text.c   **** 				/* Loop one column at a time */
+ 913               		.loc 1 228 4 discriminator 1 view .LVU214
+ 914 0380 5FEF      		ldi r21,-1
+ 915 0382 A51A      		sub r10,r21
+ 916 0384 B50A      		sbc r11,r21
+ 917               	.LVL56:
+ 228:glcd/text.c   **** 				/* Loop one column at a time */
+ 918               		.loc 1 228 4 discriminator 1 view .LVU215
+ 919 0386 88E0      		ldi r24,8
+ 920 0388 880E      		add r8,r24
+ 921 038a 911C      		adc r9,__zero_reg__
+ 922 038c EB81      		ldd r30,Y+3
+ 923 038e FC81      		ldd r31,Y+4
+ 924 0390 3896      		adiw r30,8
+ 925 0392 FC83      		std Y+4,r31
+ 926 0394 EB83      		std Y+3,r30
+ 927               	.LBE25:
+ 224:glcd/text.c   **** 			/* Loop one row at a time */
+ 928               		.loc 1 224 3 discriminator 2 view .LVU216
+ 929 0396 F981      		ldd r31,Y+1
+ 930 0398 AF16      		cp r10,r31
+ 931 039a 00F4      		brsh .+2
+ 932 039c 00C0      		rjmp .L23
+ 933 039e 00C0      		rjmp .L3
+ 934               	.LVL57:
+ 935               	.L7:
+ 224:glcd/text.c   **** 			/* Loop one row at a time */
+ 936               		.loc 1 224 3 discriminator 2 view .LVU217
+ 937               	.LBE19:
+ 938               	.LBB30:
+ 939               	.LBB16:
+  95:glcd/text.c   **** 				}
+ 940               		.loc 1 95 13 view .LVU218
+ 941 03a0 512C      		mov r5,__zero_reg__
+ 942 03a2 00C0      		rjmp .L3
+ 943               	.LBE16:
+ 944               	.LBE30:
+ 945               		.cfi_endproc
+ 946               	.LFE9:
+ 948               	.global	glcd_draw_string_xy
+ 950               	glcd_draw_string_xy:
+ 951               	.LVL58:
+ 952               	.LFB10:
+ 270:glcd/text.c   **** 
+ 271:glcd/text.c   **** void glcd_draw_string_xy(uint8_t x, uint8_t y, char *c)
+ 272:glcd/text.c   **** {
+ 953               		.loc 1 272 1 is_stmt 1 view -0
+ 954               		.cfi_startproc
+ 955               		.loc 1 272 1 is_stmt 0 view .LVU220
+ 956 03a4 0F93      		push r16
+ 957               	.LCFI23:
+ 958               		.cfi_def_cfa_offset 3
+ 959               		.cfi_offset 16, -2
+ 960 03a6 1F93      		push r17
+ 961               	.LCFI24:
+ 962               		.cfi_def_cfa_offset 4
+ 963               		.cfi_offset 17, -3
+ 964 03a8 CF93      		push r28
+ 965               	.LCFI25:
+ 966               		.cfi_def_cfa_offset 5
+ 967               		.cfi_offset 28, -4
+ 968 03aa DF93      		push r29
+ 969               	.LCFI26:
+ 970               		.cfi_def_cfa_offset 6
+ 971               		.cfi_offset 29, -5
+ 972               	/* prologue: function */
+ 973               	/* frame size = 0 */
+ 974               	/* stack size = 4 */
+ 975               	.L__stack_usage = 4
+ 976 03ac 182F      		mov r17,r24
+ 977 03ae 062F      		mov r16,r22
+ 273:glcd/text.c   **** 	uint8_t width;
+ 978               		.loc 1 273 2 is_stmt 1 view .LVU221
+ 274:glcd/text.c   **** 
+ 275:glcd/text.c   **** 	if (y > (GLCD_LCD_HEIGHT - font_current.height - 1)) {
+ 979               		.loc 1 275 2 view .LVU222
+ 980               		.loc 1 275 41 is_stmt 0 view .LVU223
+ 981 03b0 2091 0000 		lds r18,font_current+3
+ 982               		.loc 1 275 49 view .LVU224
+ 983 03b4 8FE2      		ldi r24,lo8(47)
+ 984 03b6 90E0      		ldi r25,0
+ 985               	.LVL59:
+ 986               		.loc 1 275 49 view .LVU225
+ 987 03b8 821B      		sub r24,r18
+ 988 03ba 9109      		sbc r25,__zero_reg__
+ 989 03bc EA01      		movw r28,r20
+ 990               		.loc 1 275 5 view .LVU226
+ 991 03be 6817      		cp r22,r24
+ 992 03c0 1906      		cpc __zero_reg__,r25
+ 993 03c2 01F0      		breq .L45
+ 994 03c4 04F0      		brlt .L45
+ 995               	.LVL60:
+ 996               	.L43:
+ 997               	/* epilogue start */
+ 276:glcd/text.c   **** 		/* Character won't fit */
+ 277:glcd/text.c   **** 		return;
+ 278:glcd/text.c   **** 	}
+ 279:glcd/text.c   **** 
+ 280:glcd/text.c   **** 	while (*c) {
+ 281:glcd/text.c   **** 		width = glcd_draw_char_xy(x,y,*c);
+ 282:glcd/text.c   **** 		x += (width + 1);
+ 283:glcd/text.c   **** 		c++;
+ 284:glcd/text.c   **** 	}		
+ 285:glcd/text.c   **** }
+ 998               		.loc 1 285 1 view .LVU227
+ 999 03c6 DF91      		pop r29
+ 1000 03c8 CF91      		pop r28
+ 1001 03ca 1F91      		pop r17
+ 1002               	.LVL61:
+ 1003               		.loc 1 285 1 view .LVU228
+ 1004 03cc 0F91      		pop r16
+ 1005               	.LVL62:
+ 1006               		.loc 1 285 1 view .LVU229
+ 1007 03ce 0895      		ret
+ 1008               	.LVL63:
+ 1009               	.L46:
+ 281:glcd/text.c   **** 		x += (width + 1);
+ 1010               		.loc 1 281 3 is_stmt 1 view .LVU230
+ 281:glcd/text.c   **** 		x += (width + 1);
+ 1011               		.loc 1 281 11 is_stmt 0 view .LVU231
+ 1012 03d0 602F      		mov r22,r16
+ 1013 03d2 812F      		mov r24,r17
+ 1014 03d4 0E94 0000 		call glcd_draw_char_xy
+ 1015               	.LVL64:
+ 282:glcd/text.c   **** 		c++;
+ 1016               		.loc 1 282 3 is_stmt 1 view .LVU232
+ 282:glcd/text.c   **** 		c++;
+ 1017               		.loc 1 282 5 is_stmt 0 view .LVU233
+ 1018 03d8 8F5F      		subi r24,lo8(-(1))
+ 1019               	.LVL65:
+ 282:glcd/text.c   **** 		c++;
+ 1020               		.loc 1 282 5 view .LVU234
+ 1021 03da 180F      		add r17,r24
+ 1022               	.LVL66:
+ 283:glcd/text.c   **** 	}		
+ 1023               		.loc 1 283 3 is_stmt 1 view .LVU235
+ 1024               	.L45:
+ 280:glcd/text.c   **** 		width = glcd_draw_char_xy(x,y,*c);
+ 1025               		.loc 1 280 9 is_stmt 0 view .LVU236
+ 1026 03dc 4991      		ld r20,Y+
+ 1027               	.LVL67:
+ 280:glcd/text.c   **** 		width = glcd_draw_char_xy(x,y,*c);
+ 1028               		.loc 1 280 8 view .LVU237
+ 1029 03de 4111      		cpse r20,__zero_reg__
+ 1030 03e0 00C0      		rjmp .L46
+ 280:glcd/text.c   **** 		width = glcd_draw_char_xy(x,y,*c);
+ 1031               		.loc 1 280 8 view .LVU238
+ 1032 03e2 00C0      		rjmp .L43
+ 1033               		.cfi_endproc
+ 1034               	.LFE10:
+ 1036               	.global	glcd_draw_string_xy_P
+ 1038               	glcd_draw_string_xy_P:
+ 1039               	.LVL68:
+ 1040               	.LFB11:
+ 286:glcd/text.c   **** 
+ 287:glcd/text.c   **** void glcd_draw_string_xy_P(uint8_t x, uint8_t y, const char *str)
+ 288:glcd/text.c   **** {
+ 1041               		.loc 1 288 1 is_stmt 1 view -0
+ 1042               		.cfi_startproc
+ 1043               		.loc 1 288 1 is_stmt 0 view .LVU240
+ 1044 03e4 0F93      		push r16
+ 1045               	.LCFI27:
+ 1046               		.cfi_def_cfa_offset 3
+ 1047               		.cfi_offset 16, -2
+ 1048 03e6 1F93      		push r17
+ 1049               	.LCFI28:
+ 1050               		.cfi_def_cfa_offset 4
+ 1051               		.cfi_offset 17, -3
+ 1052 03e8 CF93      		push r28
+ 1053               	.LCFI29:
+ 1054               		.cfi_def_cfa_offset 5
+ 1055               		.cfi_offset 28, -4
+ 1056 03ea DF93      		push r29
+ 1057               	.LCFI30:
+ 1058               		.cfi_def_cfa_offset 6
+ 1059               		.cfi_offset 29, -5
+ 1060               	/* prologue: function */
+ 1061               	/* frame size = 0 */
+ 1062               	/* stack size = 4 */
+ 1063               	.L__stack_usage = 4
+ 1064 03ec 182F      		mov r17,r24
+ 1065 03ee 062F      		mov r16,r22
+ 289:glcd/text.c   **** 	uint8_t width;
+ 1066               		.loc 1 289 2 is_stmt 1 view .LVU241
+ 290:glcd/text.c   **** 
+ 291:glcd/text.c   **** 	if (y > (GLCD_LCD_HEIGHT - font_current.height - 1)) {
+ 1067               		.loc 1 291 2 view .LVU242
+ 1068               		.loc 1 291 41 is_stmt 0 view .LVU243
+ 1069 03f0 2091 0000 		lds r18,font_current+3
+ 1070               		.loc 1 291 49 view .LVU244
+ 1071 03f4 8FE2      		ldi r24,lo8(47)
+ 1072 03f6 90E0      		ldi r25,0
+ 1073               	.LVL69:
+ 1074               		.loc 1 291 49 view .LVU245
+ 1075 03f8 821B      		sub r24,r18
+ 1076 03fa 9109      		sbc r25,__zero_reg__
+ 1077               		.loc 1 291 5 view .LVU246
+ 1078 03fc 6817      		cp r22,r24
+ 1079 03fe 1906      		cpc __zero_reg__,r25
+ 1080 0400 01F0      		breq .+2
+ 1081 0402 04F4      		brge .L47
+ 1082 0404 EA01      		movw r28,r20
+ 1083               	.LVL70:
+ 1084               	.L49:
+ 292:glcd/text.c   **** 		/* Character won't fit */
+ 293:glcd/text.c   **** 		return;
+ 294:glcd/text.c   **** 	}
+ 295:glcd/text.c   **** 
+ 296:glcd/text.c   **** 	while (1) {
+ 1085               		.loc 1 296 2 is_stmt 1 view .LVU247
+ 1086               	.LBB31:
+ 297:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)		
+ 298:glcd/text.c   **** 		char c = pgm_read_byte(str++);
+ 1087               		.loc 1 298 3 view .LVU248
+ 1088               	.LBB32:
+ 1089               		.loc 1 298 12 view .LVU249
+ 1090               		.loc 1 298 12 view .LVU250
+ 1091               		.loc 1 298 12 view .LVU251
+ 1092 0406 FE01      		movw r30,r28
+ 1093               	/* #APP */
+ 1094               	 ;  298 "glcd/text.c" 1
+ 1095 0408 4491      		lpm r20, Z
+ 1096               		
+ 1097               	 ;  0 "" 2
+ 1098               	.LVL71:
+ 1099               		.loc 1 298 12 view .LVU252
+ 1100               		.loc 1 298 12 is_stmt 0 view .LVU253
+ 1101               	/* #NOAPP */
+ 1102               	.LBE32:
+ 299:glcd/text.c   **** #else
+ 300:glcd/text.c   **** 		char c = *(str++);
+ 301:glcd/text.c   **** #endif
+ 302:glcd/text.c   **** 		if (!c)
+ 1103               		.loc 1 302 3 is_stmt 1 view .LVU254
+ 1104 040a 2196      		adiw r28,1
+ 1105               	.LVL72:
+ 1106               		.loc 1 302 6 is_stmt 0 view .LVU255
+ 1107 040c 4423      		tst r20
+ 1108 040e 01F0      		breq .L47
+ 303:glcd/text.c   **** 			return;
+ 304:glcd/text.c   **** 					
+ 305:glcd/text.c   **** 		width = glcd_draw_char_xy(x,y,c);
+ 1109               		.loc 1 305 3 is_stmt 1 view .LVU256
+ 1110               		.loc 1 305 11 is_stmt 0 view .LVU257
+ 1111 0410 602F      		mov r22,r16
+ 1112 0412 812F      		mov r24,r17
+ 1113 0414 0E94 0000 		call glcd_draw_char_xy
+ 1114               	.LVL73:
+ 306:glcd/text.c   **** 		x += (width + 1);
+ 1115               		.loc 1 306 3 is_stmt 1 view .LVU258
+ 1116               		.loc 1 306 5 is_stmt 0 view .LVU259
+ 1117 0418 8F5F      		subi r24,lo8(-(1))
+ 1118               	.LVL74:
+ 1119               		.loc 1 306 5 view .LVU260
+ 1120 041a 180F      		add r17,r24
+ 1121               	.LVL75:
+ 307:glcd/text.c   **** 		c++;
+ 1122               		.loc 1 307 3 is_stmt 1 view .LVU261
+ 1123               		.loc 1 307 3 is_stmt 0 view .LVU262
+ 1124               	.LBE31:
+ 296:glcd/text.c   **** #if defined(GLCD_DEVICE_AVR8)		
+ 1125               		.loc 1 296 12 view .LVU263
+ 1126 041c 00C0      		rjmp .L49
+ 1127               	.LVL76:
+ 1128               	.L47:
+ 1129               	/* epilogue start */
+ 308:glcd/text.c   **** 	}		
+ 309:glcd/text.c   **** }
+ 1130               		.loc 1 309 1 view .LVU264
+ 1131 041e DF91      		pop r29
+ 1132 0420 CF91      		pop r28
+ 1133 0422 1F91      		pop r17
+ 1134               	.LVL77:
+ 1135               		.loc 1 309 1 view .LVU265
+ 1136 0424 0F91      		pop r16
+ 1137               	.LVL78:
+ 1138               		.loc 1 309 1 view .LVU266
+ 1139 0426 0895      		ret
+ 1140               		.cfi_endproc
+ 1141               	.LFE11:
+ 1143               		.comm	font_current,7,1
+ 1144               	.Letext0:
+ 1145               		.file 2 "/usr/avr/include/stdint.h"
+ 1146               		.file 3 "glcd/glcd.h"
+ 1147               		.file 4 "glcd/unit_tests.h"
+ 1148               		.file 5 "glcd/glcd_graphics.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 text.c
+     /tmp/ccxG5S2W.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccxG5S2W.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccxG5S2W.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccxG5S2W.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccxG5S2W.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccxG5S2W.s:12     .text:0000000000000000 glcd_set_font
+                            *COM*:0000000000000007 font_current
+     /tmp/ccxG5S2W.s:62     .text:000000000000001a glcd_font
+     /tmp/ccxG5S2W.s:115    .text:0000000000000036 glcd_draw_char_xy
+     /tmp/ccxG5S2W.s:950    .text:00000000000003a4 glcd_draw_string_xy
+     /tmp/ccxG5S2W.s:1038   .text:00000000000003e4 glcd_draw_string_xy_P
+
+UNDEFINED SYMBOLS
+glcd_set_pixel
+__do_clear_bss

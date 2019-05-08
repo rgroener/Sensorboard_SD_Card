@@ -1,0 +1,3588 @@
+   1               		.file	"sd_raw.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  11               	sd_raw_send_byte:
+  12               	.LVL0:
+  13               	.LFB3:
+  14               		.file 1 "sd_raw.c"
+   1:sd_raw.c      **** 
+   2:sd_raw.c      **** /*
+   3:sd_raw.c      ****  * Copyright (c) 2006-2012 by Roland Riegel <feedback@roland-riegel.de>
+   4:sd_raw.c      ****  *
+   5:sd_raw.c      ****  * This file is free software; you can redistribute it and/or modify
+   6:sd_raw.c      ****  * it under the terms of either the GNU General Public License version 2
+   7:sd_raw.c      ****  * or the GNU Lesser General Public License version 2.1, both as
+   8:sd_raw.c      ****  * published by the Free Software Foundation.
+   9:sd_raw.c      ****  */
+  10:sd_raw.c      **** 
+  11:sd_raw.c      **** #include <string.h>
+  12:sd_raw.c      **** #include <avr/io.h>
+  13:sd_raw.c      **** #include "sd_raw.h"
+  14:sd_raw.c      **** 
+  15:sd_raw.c      **** /**
+  16:sd_raw.c      ****  * \addtogroup sd_raw MMC/SD/SDHC card raw access
+  17:sd_raw.c      ****  *
+  18:sd_raw.c      ****  * This module implements read and write access to MMC, SD
+  19:sd_raw.c      ****  * and SDHC cards. It serves as a low-level driver for the
+  20:sd_raw.c      ****  * higher level modules such as partition and file system
+  21:sd_raw.c      ****  * access.
+  22:sd_raw.c      ****  *
+  23:sd_raw.c      ****  * @{
+  24:sd_raw.c      ****  */
+  25:sd_raw.c      **** /**
+  26:sd_raw.c      ****  * \file
+  27:sd_raw.c      ****  * MMC/SD/SDHC raw access implementation (license: GPLv2 or LGPLv2.1)
+  28:sd_raw.c      ****  *
+  29:sd_raw.c      ****  * \author Roland Riegel
+  30:sd_raw.c      ****  */
+  31:sd_raw.c      **** 
+  32:sd_raw.c      **** /**
+  33:sd_raw.c      ****  * \addtogroup sd_raw_config MMC/SD configuration
+  34:sd_raw.c      ****  * Preprocessor defines to configure the MMC/SD support.
+  35:sd_raw.c      ****  */
+  36:sd_raw.c      **** 
+  37:sd_raw.c      **** /**
+  38:sd_raw.c      ****  * @}
+  39:sd_raw.c      ****  */
+  40:sd_raw.c      **** 
+  41:sd_raw.c      **** /* commands available in SPI mode */
+  42:sd_raw.c      **** 
+  43:sd_raw.c      **** /* CMD0: response R1 */
+  44:sd_raw.c      **** #define CMD_GO_IDLE_STATE 0x00
+  45:sd_raw.c      **** /* CMD1: response R1 */
+  46:sd_raw.c      **** #define CMD_SEND_OP_COND 0x01
+  47:sd_raw.c      **** /* CMD8: response R7 */
+  48:sd_raw.c      **** #define CMD_SEND_IF_COND 0x08
+  49:sd_raw.c      **** /* CMD9: response R1 */
+  50:sd_raw.c      **** #define CMD_SEND_CSD 0x09
+  51:sd_raw.c      **** /* CMD10: response R1 */
+  52:sd_raw.c      **** #define CMD_SEND_CID 0x0a
+  53:sd_raw.c      **** /* CMD12: response R1 */
+  54:sd_raw.c      **** #define CMD_STOP_TRANSMISSION 0x0c
+  55:sd_raw.c      **** /* CMD13: response R2 */
+  56:sd_raw.c      **** #define CMD_SEND_STATUS 0x0d
+  57:sd_raw.c      **** /* CMD16: arg0[31:0]: block length, response R1 */
+  58:sd_raw.c      **** #define CMD_SET_BLOCKLEN 0x10
+  59:sd_raw.c      **** /* CMD17: arg0[31:0]: data address, response R1 */
+  60:sd_raw.c      **** #define CMD_READ_SINGLE_BLOCK 0x11
+  61:sd_raw.c      **** /* CMD18: arg0[31:0]: data address, response R1 */
+  62:sd_raw.c      **** #define CMD_READ_MULTIPLE_BLOCK 0x12
+  63:sd_raw.c      **** /* CMD24: arg0[31:0]: data address, response R1 */
+  64:sd_raw.c      **** #define CMD_WRITE_SINGLE_BLOCK 0x18
+  65:sd_raw.c      **** /* CMD25: arg0[31:0]: data address, response R1 */
+  66:sd_raw.c      **** #define CMD_WRITE_MULTIPLE_BLOCK 0x19
+  67:sd_raw.c      **** /* CMD27: response R1 */
+  68:sd_raw.c      **** #define CMD_PROGRAM_CSD 0x1b
+  69:sd_raw.c      **** /* CMD28: arg0[31:0]: data address, response R1b */
+  70:sd_raw.c      **** #define CMD_SET_WRITE_PROT 0x1c
+  71:sd_raw.c      **** /* CMD29: arg0[31:0]: data address, response R1b */
+  72:sd_raw.c      **** #define CMD_CLR_WRITE_PROT 0x1d
+  73:sd_raw.c      **** /* CMD30: arg0[31:0]: write protect data address, response R1 */
+  74:sd_raw.c      **** #define CMD_SEND_WRITE_PROT 0x1e
+  75:sd_raw.c      **** /* CMD32: arg0[31:0]: data address, response R1 */
+  76:sd_raw.c      **** #define CMD_TAG_SECTOR_START 0x20
+  77:sd_raw.c      **** /* CMD33: arg0[31:0]: data address, response R1 */
+  78:sd_raw.c      **** #define CMD_TAG_SECTOR_END 0x21
+  79:sd_raw.c      **** /* CMD34: arg0[31:0]: data address, response R1 */
+  80:sd_raw.c      **** #define CMD_UNTAG_SECTOR 0x22
+  81:sd_raw.c      **** /* CMD35: arg0[31:0]: data address, response R1 */
+  82:sd_raw.c      **** #define CMD_TAG_ERASE_GROUP_START 0x23
+  83:sd_raw.c      **** /* CMD36: arg0[31:0]: data address, response R1 */
+  84:sd_raw.c      **** #define CMD_TAG_ERASE_GROUP_END 0x24
+  85:sd_raw.c      **** /* CMD37: arg0[31:0]: data address, response R1 */
+  86:sd_raw.c      **** #define CMD_UNTAG_ERASE_GROUP 0x25
+  87:sd_raw.c      **** /* CMD38: arg0[31:0]: stuff bits, response R1b */
+  88:sd_raw.c      **** #define CMD_ERASE 0x26
+  89:sd_raw.c      **** /* ACMD41: arg0[31:0]: OCR contents, response R1 */
+  90:sd_raw.c      **** #define CMD_SD_SEND_OP_COND 0x29
+  91:sd_raw.c      **** /* CMD42: arg0[31:0]: stuff bits, response R1b */
+  92:sd_raw.c      **** #define CMD_LOCK_UNLOCK 0x2a
+  93:sd_raw.c      **** /* CMD55: arg0[31:0]: stuff bits, response R1 */
+  94:sd_raw.c      **** #define CMD_APP 0x37
+  95:sd_raw.c      **** /* CMD58: arg0[31:0]: stuff bits, response R3 */
+  96:sd_raw.c      **** #define CMD_READ_OCR 0x3a
+  97:sd_raw.c      **** /* CMD59: arg0[31:1]: stuff bits, arg0[0:0]: crc option, response R1 */
+  98:sd_raw.c      **** #define CMD_CRC_ON_OFF 0x3b
+  99:sd_raw.c      **** 
+ 100:sd_raw.c      **** /* command responses */
+ 101:sd_raw.c      **** /* R1: size 1 byte */
+ 102:sd_raw.c      **** #define R1_IDLE_STATE 0
+ 103:sd_raw.c      **** #define R1_ERASE_RESET 1
+ 104:sd_raw.c      **** #define R1_ILL_COMMAND 2
+ 105:sd_raw.c      **** #define R1_COM_CRC_ERR 3
+ 106:sd_raw.c      **** #define R1_ERASE_SEQ_ERR 4
+ 107:sd_raw.c      **** #define R1_ADDR_ERR 5
+ 108:sd_raw.c      **** #define R1_PARAM_ERR 6
+ 109:sd_raw.c      **** /* R1b: equals R1, additional busy bytes */
+ 110:sd_raw.c      **** /* R2: size 2 bytes */
+ 111:sd_raw.c      **** #define R2_CARD_LOCKED 0
+ 112:sd_raw.c      **** #define R2_WP_ERASE_SKIP 1
+ 113:sd_raw.c      **** #define R2_ERR 2
+ 114:sd_raw.c      **** #define R2_CARD_ERR 3
+ 115:sd_raw.c      **** #define R2_CARD_ECC_FAIL 4
+ 116:sd_raw.c      **** #define R2_WP_VIOLATION 5
+ 117:sd_raw.c      **** #define R2_INVAL_ERASE 6
+ 118:sd_raw.c      **** #define R2_OUT_OF_RANGE 7
+ 119:sd_raw.c      **** #define R2_CSD_OVERWRITE 7
+ 120:sd_raw.c      **** #define R2_IDLE_STATE (R1_IDLE_STATE + 8)
+ 121:sd_raw.c      **** #define R2_ERASE_RESET (R1_ERASE_RESET + 8)
+ 122:sd_raw.c      **** #define R2_ILL_COMMAND (R1_ILL_COMMAND + 8)
+ 123:sd_raw.c      **** #define R2_COM_CRC_ERR (R1_COM_CRC_ERR + 8)
+ 124:sd_raw.c      **** #define R2_ERASE_SEQ_ERR (R1_ERASE_SEQ_ERR + 8)
+ 125:sd_raw.c      **** #define R2_ADDR_ERR (R1_ADDR_ERR + 8)
+ 126:sd_raw.c      **** #define R2_PARAM_ERR (R1_PARAM_ERR + 8)
+ 127:sd_raw.c      **** /* R3: size 5 bytes */
+ 128:sd_raw.c      **** #define R3_OCR_MASK (0xffffffffUL)
+ 129:sd_raw.c      **** #define R3_IDLE_STATE (R1_IDLE_STATE + 32)
+ 130:sd_raw.c      **** #define R3_ERASE_RESET (R1_ERASE_RESET + 32)
+ 131:sd_raw.c      **** #define R3_ILL_COMMAND (R1_ILL_COMMAND + 32)
+ 132:sd_raw.c      **** #define R3_COM_CRC_ERR (R1_COM_CRC_ERR + 32)
+ 133:sd_raw.c      **** #define R3_ERASE_SEQ_ERR (R1_ERASE_SEQ_ERR + 32)
+ 134:sd_raw.c      **** #define R3_ADDR_ERR (R1_ADDR_ERR + 32)
+ 135:sd_raw.c      **** #define R3_PARAM_ERR (R1_PARAM_ERR + 32)
+ 136:sd_raw.c      **** /* Data Response: size 1 byte */
+ 137:sd_raw.c      **** #define DR_STATUS_MASK 0x0e
+ 138:sd_raw.c      **** #define DR_STATUS_ACCEPTED 0x05
+ 139:sd_raw.c      **** #define DR_STATUS_CRC_ERR 0x0a
+ 140:sd_raw.c      **** #define DR_STATUS_WRITE_ERR 0x0c
+ 141:sd_raw.c      **** 
+ 142:sd_raw.c      **** /* status bits for card types */
+ 143:sd_raw.c      **** #define SD_RAW_SPEC_1 0
+ 144:sd_raw.c      **** #define SD_RAW_SPEC_2 1
+ 145:sd_raw.c      **** #define SD_RAW_SPEC_SDHC 2
+ 146:sd_raw.c      **** 
+ 147:sd_raw.c      **** #if !SD_RAW_SAVE_RAM
+ 148:sd_raw.c      **** /* static data buffer for acceleration */
+ 149:sd_raw.c      **** static uint8_t raw_block[512];
+ 150:sd_raw.c      **** /* offset where the data within raw_block lies on the card */
+ 151:sd_raw.c      **** static offset_t raw_block_address;
+ 152:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 153:sd_raw.c      **** /* flag to remember if raw_block was written to the card */
+ 154:sd_raw.c      **** static uint8_t raw_block_written;
+ 155:sd_raw.c      **** #endif
+ 156:sd_raw.c      **** #endif
+ 157:sd_raw.c      **** 
+ 158:sd_raw.c      **** /* card type state */
+ 159:sd_raw.c      **** static uint8_t sd_raw_card_type;
+ 160:sd_raw.c      **** 
+ 161:sd_raw.c      **** /* private helper functions */
+ 162:sd_raw.c      **** static void sd_raw_send_byte(uint8_t b);
+ 163:sd_raw.c      **** static uint8_t sd_raw_rec_byte(void);
+ 164:sd_raw.c      **** static uint8_t sd_raw_send_command(uint8_t command, uint32_t arg);
+ 165:sd_raw.c      **** 
+ 166:sd_raw.c      **** /**
+ 167:sd_raw.c      ****  * \ingroup sd_raw
+ 168:sd_raw.c      ****  * Initializes memory card communication.
+ 169:sd_raw.c      ****  *
+ 170:sd_raw.c      ****  * \returns 0 on failure, 1 on success.
+ 171:sd_raw.c      ****  */
+ 172:sd_raw.c      **** uint8_t sd_raw_init()
+ 173:sd_raw.c      **** {
+ 174:sd_raw.c      ****     /* enable inputs for reading card status */
+ 175:sd_raw.c      ****     configure_pin_available();
+ 176:sd_raw.c      ****     configure_pin_locked();
+ 177:sd_raw.c      **** 
+ 178:sd_raw.c      ****     /* enable outputs for MOSI, SCK, SS, input for MISO */
+ 179:sd_raw.c      ****     configure_pin_mosi();
+ 180:sd_raw.c      ****     configure_pin_sck();
+ 181:sd_raw.c      ****     configure_pin_ss();
+ 182:sd_raw.c      ****     configure_pin_miso();
+ 183:sd_raw.c      **** 
+ 184:sd_raw.c      ****     unselect_card();
+ 185:sd_raw.c      **** 
+ 186:sd_raw.c      ****     /* initialize SPI with lowest frequency; max. 400kHz during identification mode of card */
+ 187:sd_raw.c      ****     SPCR = (0 << SPIE) | /* SPI Interrupt Enable */
+ 188:sd_raw.c      ****            (1 << SPE)  | /* SPI Enable */
+ 189:sd_raw.c      ****            (0 << DORD) | /* Data Order: MSB first */
+ 190:sd_raw.c      ****            (1 << MSTR) | /* Master mode */
+ 191:sd_raw.c      ****            (0 << CPOL) | /* Clock Polarity: SCK low when idle */
+ 192:sd_raw.c      ****            (0 << CPHA) | /* Clock Phase: sample on rising SCK edge */
+ 193:sd_raw.c      ****            (1 << SPR1) | /* Clock Frequency: f_OSC / 128 */
+ 194:sd_raw.c      ****            (1 << SPR0);
+ 195:sd_raw.c      ****     SPSR &= ~(1 << SPI2X); /* No doubled clock frequency */
+ 196:sd_raw.c      **** 
+ 197:sd_raw.c      ****     /* initialization procedure */
+ 198:sd_raw.c      ****     sd_raw_card_type = 0;
+ 199:sd_raw.c      ****     
+ 200:sd_raw.c      ****     if(!sd_raw_available())
+ 201:sd_raw.c      ****         return 0;
+ 202:sd_raw.c      **** 
+ 203:sd_raw.c      ****     /* card needs 74 cycles minimum to start up */
+ 204:sd_raw.c      ****     for(uint8_t i = 0; i < 10; ++i)
+ 205:sd_raw.c      ****     {
+ 206:sd_raw.c      ****         /* wait 8 clock cycles */
+ 207:sd_raw.c      ****         sd_raw_rec_byte();
+ 208:sd_raw.c      ****     }
+ 209:sd_raw.c      **** 
+ 210:sd_raw.c      ****     /* address card */
+ 211:sd_raw.c      ****     select_card();
+ 212:sd_raw.c      **** 
+ 213:sd_raw.c      ****     /* reset card */
+ 214:sd_raw.c      ****     uint8_t response;
+ 215:sd_raw.c      ****     for(uint16_t i = 0; ; ++i)
+ 216:sd_raw.c      ****     {
+ 217:sd_raw.c      ****         response = sd_raw_send_command(CMD_GO_IDLE_STATE, 0);
+ 218:sd_raw.c      ****         if(response == (1 << R1_IDLE_STATE))
+ 219:sd_raw.c      ****             break;
+ 220:sd_raw.c      **** 
+ 221:sd_raw.c      ****         if(i == 0x1ff)
+ 222:sd_raw.c      ****         {
+ 223:sd_raw.c      ****             unselect_card();
+ 224:sd_raw.c      ****             return 0;
+ 225:sd_raw.c      ****         }
+ 226:sd_raw.c      ****     }
+ 227:sd_raw.c      **** 
+ 228:sd_raw.c      **** #if SD_RAW_SDHC
+ 229:sd_raw.c      ****     /* check for version of SD card specification */
+ 230:sd_raw.c      ****     response = sd_raw_send_command(CMD_SEND_IF_COND, 0x100 /* 2.7V - 3.6V */ | 0xaa /* test pattern
+ 231:sd_raw.c      ****     if((response & (1 << R1_ILL_COMMAND)) == 0)
+ 232:sd_raw.c      ****     {
+ 233:sd_raw.c      ****         sd_raw_rec_byte();
+ 234:sd_raw.c      ****         sd_raw_rec_byte();
+ 235:sd_raw.c      ****         if((sd_raw_rec_byte() & 0x01) == 0)
+ 236:sd_raw.c      ****             return 0; /* card operation voltage range doesn't match */
+ 237:sd_raw.c      ****         if(sd_raw_rec_byte() != 0xaa)
+ 238:sd_raw.c      ****             return 0; /* wrong test pattern */
+ 239:sd_raw.c      **** 
+ 240:sd_raw.c      ****         /* card conforms to SD 2 card specification */
+ 241:sd_raw.c      ****         sd_raw_card_type |= (1 << SD_RAW_SPEC_2);
+ 242:sd_raw.c      ****     }
+ 243:sd_raw.c      ****     else
+ 244:sd_raw.c      **** #endif
+ 245:sd_raw.c      ****     {
+ 246:sd_raw.c      ****         /* determine SD/MMC card type */
+ 247:sd_raw.c      ****         sd_raw_send_command(CMD_APP, 0);
+ 248:sd_raw.c      ****         response = sd_raw_send_command(CMD_SD_SEND_OP_COND, 0);
+ 249:sd_raw.c      ****         if((response & (1 << R1_ILL_COMMAND)) == 0)
+ 250:sd_raw.c      ****         {
+ 251:sd_raw.c      ****             /* card conforms to SD 1 card specification */
+ 252:sd_raw.c      ****             sd_raw_card_type |= (1 << SD_RAW_SPEC_1);
+ 253:sd_raw.c      ****         }
+ 254:sd_raw.c      ****         else
+ 255:sd_raw.c      ****         {
+ 256:sd_raw.c      ****             /* MMC card */
+ 257:sd_raw.c      ****         }
+ 258:sd_raw.c      ****     }
+ 259:sd_raw.c      **** 
+ 260:sd_raw.c      ****     /* wait for card to get ready */
+ 261:sd_raw.c      ****     for(uint16_t i = 0; ; ++i)
+ 262:sd_raw.c      ****     {
+ 263:sd_raw.c      ****         if(sd_raw_card_type & ((1 << SD_RAW_SPEC_1) | (1 << SD_RAW_SPEC_2)))
+ 264:sd_raw.c      ****         {
+ 265:sd_raw.c      ****             uint32_t arg = 0;
+ 266:sd_raw.c      **** #if SD_RAW_SDHC
+ 267:sd_raw.c      ****             if(sd_raw_card_type & (1 << SD_RAW_SPEC_2))
+ 268:sd_raw.c      ****                 arg = 0x40000000;
+ 269:sd_raw.c      **** #endif
+ 270:sd_raw.c      ****             sd_raw_send_command(CMD_APP, 0);
+ 271:sd_raw.c      ****             response = sd_raw_send_command(CMD_SD_SEND_OP_COND, arg);
+ 272:sd_raw.c      ****         }
+ 273:sd_raw.c      ****         else
+ 274:sd_raw.c      ****         {
+ 275:sd_raw.c      ****             response = sd_raw_send_command(CMD_SEND_OP_COND, 0);
+ 276:sd_raw.c      ****         }
+ 277:sd_raw.c      **** 
+ 278:sd_raw.c      ****         if((response & (1 << R1_IDLE_STATE)) == 0)
+ 279:sd_raw.c      ****             break;
+ 280:sd_raw.c      **** 
+ 281:sd_raw.c      ****         if(i == 0x7fff)
+ 282:sd_raw.c      ****         {
+ 283:sd_raw.c      ****             unselect_card();
+ 284:sd_raw.c      ****             return 0;
+ 285:sd_raw.c      ****         }
+ 286:sd_raw.c      ****     }
+ 287:sd_raw.c      **** 
+ 288:sd_raw.c      **** #if SD_RAW_SDHC
+ 289:sd_raw.c      ****     if(sd_raw_card_type & (1 << SD_RAW_SPEC_2))
+ 290:sd_raw.c      ****     {
+ 291:sd_raw.c      ****         if(sd_raw_send_command(CMD_READ_OCR, 0))
+ 292:sd_raw.c      ****         {
+ 293:sd_raw.c      ****             unselect_card();
+ 294:sd_raw.c      ****             return 0;
+ 295:sd_raw.c      ****         }
+ 296:sd_raw.c      **** 
+ 297:sd_raw.c      ****         if(sd_raw_rec_byte() & 0x40)
+ 298:sd_raw.c      ****             sd_raw_card_type |= (1 << SD_RAW_SPEC_SDHC);
+ 299:sd_raw.c      **** 
+ 300:sd_raw.c      ****         sd_raw_rec_byte();
+ 301:sd_raw.c      ****         sd_raw_rec_byte();
+ 302:sd_raw.c      ****         sd_raw_rec_byte();
+ 303:sd_raw.c      ****     }
+ 304:sd_raw.c      **** #endif
+ 305:sd_raw.c      **** 
+ 306:sd_raw.c      ****     /* set block size to 512 bytes */
+ 307:sd_raw.c      ****     if(sd_raw_send_command(CMD_SET_BLOCKLEN, 512))
+ 308:sd_raw.c      ****     {
+ 309:sd_raw.c      ****         unselect_card();
+ 310:sd_raw.c      ****         return 0;
+ 311:sd_raw.c      ****     }
+ 312:sd_raw.c      **** 
+ 313:sd_raw.c      ****     /* deaddress card */
+ 314:sd_raw.c      ****     unselect_card();
+ 315:sd_raw.c      **** 
+ 316:sd_raw.c      ****     /* switch to highest SPI frequency possible */
+ 317:sd_raw.c      ****     SPCR &= ~((1 << SPR1) | (1 << SPR0)); /* Clock Frequency: f_OSC / 4 */
+ 318:sd_raw.c      ****     SPSR |= (1 << SPI2X); /* Doubled Clock Frequency: f_OSC / 2 */
+ 319:sd_raw.c      **** 
+ 320:sd_raw.c      **** #if !SD_RAW_SAVE_RAM
+ 321:sd_raw.c      ****     /* the first block is likely to be accessed first, so precache it here */
+ 322:sd_raw.c      ****     raw_block_address = (offset_t) -1;
+ 323:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 324:sd_raw.c      ****     raw_block_written = 1;
+ 325:sd_raw.c      **** #endif
+ 326:sd_raw.c      ****     if(!sd_raw_read(0, raw_block, sizeof(raw_block)))
+ 327:sd_raw.c      ****         return 0;
+ 328:sd_raw.c      **** #endif
+ 329:sd_raw.c      **** 
+ 330:sd_raw.c      ****     return 1;
+ 331:sd_raw.c      **** }
+ 332:sd_raw.c      **** 
+ 333:sd_raw.c      **** /**
+ 334:sd_raw.c      ****  * \ingroup sd_raw
+ 335:sd_raw.c      ****  * Checks wether a memory card is located in the slot.
+ 336:sd_raw.c      ****  *
+ 337:sd_raw.c      ****  * \returns 1 if the card is available, 0 if it is not.
+ 338:sd_raw.c      ****  */
+ 339:sd_raw.c      **** uint8_t sd_raw_available()
+ 340:sd_raw.c      **** {
+ 341:sd_raw.c      ****     return get_pin_available() == 0x00;
+ 342:sd_raw.c      **** }
+ 343:sd_raw.c      **** 
+ 344:sd_raw.c      **** /**
+ 345:sd_raw.c      ****  * \ingroup sd_raw
+ 346:sd_raw.c      ****  * Checks wether the memory card is locked for write access.
+ 347:sd_raw.c      ****  *
+ 348:sd_raw.c      ****  * \returns 1 if the card is locked, 0 if it is not.
+ 349:sd_raw.c      ****  */
+ 350:sd_raw.c      **** uint8_t sd_raw_locked()
+ 351:sd_raw.c      **** {
+ 352:sd_raw.c      ****     return get_pin_locked() == 0x00;
+ 353:sd_raw.c      **** }
+ 354:sd_raw.c      **** 
+ 355:sd_raw.c      **** /**
+ 356:sd_raw.c      ****  * \ingroup sd_raw
+ 357:sd_raw.c      ****  * Sends a raw byte to the memory card.
+ 358:sd_raw.c      ****  *
+ 359:sd_raw.c      ****  * \param[in] b The byte to sent.
+ 360:sd_raw.c      ****  * \see sd_raw_rec_byte
+ 361:sd_raw.c      ****  */
+ 362:sd_raw.c      **** void sd_raw_send_byte(uint8_t b)
+ 363:sd_raw.c      **** {
+  15               		.loc 1 363 1 view -0
+  16               		.cfi_startproc
+  17               	/* prologue: function */
+  18               	/* frame size = 0 */
+  19               	/* stack size = 0 */
+  20               	.L__stack_usage = 0
+ 364:sd_raw.c      ****     SPDR = b;
+  21               		.loc 1 364 5 view .LVU1
+  22               		.loc 1 364 10 is_stmt 0 view .LVU2
+  23 0000 8EBD      		out 0x2e,r24
+ 365:sd_raw.c      ****     /* wait for byte to be shifted out */
+ 366:sd_raw.c      ****     while(!(SPSR & (1 << SPIF)));
+  24               		.loc 1 366 5 is_stmt 1 view .LVU3
+  25               	.L2:
+  26               		.loc 1 366 33 discriminator 1 view .LVU4
+  27               		.loc 1 366 10 is_stmt 0 discriminator 1 view .LVU5
+  28 0002 0DB4      		in __tmp_reg__,0x2d
+  29 0004 07FE      		sbrs __tmp_reg__,7
+  30 0006 00C0      		rjmp .L2
+ 367:sd_raw.c      ****     SPSR &= ~(1 << SPIF);
+  31               		.loc 1 367 5 is_stmt 1 view .LVU6
+  32               		.loc 1 367 10 is_stmt 0 view .LVU7
+  33 0008 8DB5      		in r24,0x2d
+  34               	.LVL1:
+  35               		.loc 1 367 10 view .LVU8
+  36 000a 8F77      		andi r24,lo8(127)
+  37 000c 8DBD      		out 0x2d,r24
+  38               	.LVL2:
+  39               	/* epilogue start */
+ 368:sd_raw.c      **** }
+  40               		.loc 1 368 1 view .LVU9
+  41 000e 0895      		ret
+  42               		.cfi_endproc
+  43               	.LFE3:
+  46               	sd_raw_rec_byte:
+  47               	.LFB4:
+ 369:sd_raw.c      **** 
+ 370:sd_raw.c      **** /**
+ 371:sd_raw.c      ****  * \ingroup sd_raw
+ 372:sd_raw.c      ****  * Receives a raw byte from the memory card.
+ 373:sd_raw.c      ****  *
+ 374:sd_raw.c      ****  * \returns The byte which should be read.
+ 375:sd_raw.c      ****  * \see sd_raw_send_byte
+ 376:sd_raw.c      ****  */
+ 377:sd_raw.c      **** uint8_t sd_raw_rec_byte(void)
+ 378:sd_raw.c      **** {
+  48               		.loc 1 378 1 is_stmt 1 view -0
+  49               		.cfi_startproc
+  50               	/* prologue: function */
+  51               	/* frame size = 0 */
+  52               	/* stack size = 0 */
+  53               	.L__stack_usage = 0
+ 379:sd_raw.c      ****     /* send dummy data for receiving some */
+ 380:sd_raw.c      ****     SPDR = 0xff;
+  54               		.loc 1 380 5 view .LVU11
+  55               		.loc 1 380 10 is_stmt 0 view .LVU12
+  56 0010 8FEF      		ldi r24,lo8(-1)
+  57 0012 8EBD      		out 0x2e,r24
+ 381:sd_raw.c      ****     while(!(SPSR & (1 << SPIF)));
+  58               		.loc 1 381 5 is_stmt 1 view .LVU13
+  59               	.L5:
+  60               		.loc 1 381 33 discriminator 1 view .LVU14
+  61               		.loc 1 381 10 is_stmt 0 discriminator 1 view .LVU15
+  62 0014 0DB4      		in __tmp_reg__,0x2d
+  63 0016 07FE      		sbrs __tmp_reg__,7
+  64 0018 00C0      		rjmp .L5
+ 382:sd_raw.c      ****     SPSR &= ~(1 << SPIF);
+  65               		.loc 1 382 5 is_stmt 1 view .LVU16
+  66               		.loc 1 382 10 is_stmt 0 view .LVU17
+  67 001a 8DB5      		in r24,0x2d
+  68 001c 8F77      		andi r24,lo8(127)
+  69 001e 8DBD      		out 0x2d,r24
+ 383:sd_raw.c      **** 
+ 384:sd_raw.c      ****     return SPDR;
+  70               		.loc 1 384 5 is_stmt 1 view .LVU18
+  71               		.loc 1 384 12 is_stmt 0 view .LVU19
+  72 0020 8EB5      		in r24,0x2e
+  73               	/* epilogue start */
+ 385:sd_raw.c      **** }
+  74               		.loc 1 385 1 view .LVU20
+  75 0022 0895      		ret
+  76               		.cfi_endproc
+  77               	.LFE4:
+  80               	sd_raw_send_command:
+  81               	.LVL3:
+  82               	.LFB5:
+ 386:sd_raw.c      **** 
+ 387:sd_raw.c      **** /**
+ 388:sd_raw.c      ****  * \ingroup sd_raw
+ 389:sd_raw.c      ****  * Send a command to the memory card which responses with a R1 response (and possibly others).
+ 390:sd_raw.c      ****  *
+ 391:sd_raw.c      ****  * \param[in] command The command to send.
+ 392:sd_raw.c      ****  * \param[in] arg The argument for command.
+ 393:sd_raw.c      ****  * \returns The command answer.
+ 394:sd_raw.c      ****  */
+ 395:sd_raw.c      **** uint8_t sd_raw_send_command(uint8_t command, uint32_t arg)
+ 396:sd_raw.c      **** {
+  83               		.loc 1 396 1 is_stmt 1 view -0
+  84               		.cfi_startproc
+  85               		.loc 1 396 1 is_stmt 0 view .LVU22
+  86 0024 FF92      		push r15
+  87               	.LCFI0:
+  88               		.cfi_def_cfa_offset 3
+  89               		.cfi_offset 15, -2
+  90 0026 0F93      		push r16
+  91               	.LCFI1:
+  92               		.cfi_def_cfa_offset 4
+  93               		.cfi_offset 16, -3
+  94 0028 1F93      		push r17
+  95               	.LCFI2:
+  96               		.cfi_def_cfa_offset 5
+  97               		.cfi_offset 17, -4
+  98 002a CF93      		push r28
+  99               	.LCFI3:
+ 100               		.cfi_def_cfa_offset 6
+ 101               		.cfi_offset 28, -5
+ 102 002c DF93      		push r29
+ 103               	.LCFI4:
+ 104               		.cfi_def_cfa_offset 7
+ 105               		.cfi_offset 29, -6
+ 106               	/* prologue: function */
+ 107               	/* frame size = 0 */
+ 108               	/* stack size = 5 */
+ 109               	.L__stack_usage = 5
+ 110 002e C82F      		mov r28,r24
+ 111 0030 D42F      		mov r29,r20
+ 112 0032 152F      		mov r17,r21
+ 113 0034 062F      		mov r16,r22
+ 114 0036 F72E      		mov r15,r23
+ 397:sd_raw.c      ****     uint8_t response;
+ 115               		.loc 1 397 5 is_stmt 1 view .LVU23
+ 398:sd_raw.c      **** 
+ 399:sd_raw.c      ****     /* wait some clock cycles */
+ 400:sd_raw.c      ****     sd_raw_rec_byte();
+ 116               		.loc 1 400 5 view .LVU24
+ 117 0038 0E94 0000 		call sd_raw_rec_byte
+ 118               	.LVL4:
+ 401:sd_raw.c      **** 
+ 402:sd_raw.c      ****     /* send command via SPI */
+ 403:sd_raw.c      ****     sd_raw_send_byte(0x40 | command);
+ 119               		.loc 1 403 5 view .LVU25
+ 120 003c 8C2F      		mov r24,r28
+ 121 003e 8064      		ori r24,lo8(64)
+ 122 0040 0E94 0000 		call sd_raw_send_byte
+ 123               	.LVL5:
+ 404:sd_raw.c      ****     sd_raw_send_byte((arg >> 24) & 0xff);
+ 124               		.loc 1 404 5 view .LVU26
+ 125 0044 8F2D      		mov r24,r15
+ 126 0046 0E94 0000 		call sd_raw_send_byte
+ 127               	.LVL6:
+ 405:sd_raw.c      ****     sd_raw_send_byte((arg >> 16) & 0xff);
+ 128               		.loc 1 405 5 view .LVU27
+ 129 004a 802F      		mov r24,r16
+ 130 004c 0E94 0000 		call sd_raw_send_byte
+ 131               	.LVL7:
+ 406:sd_raw.c      ****     sd_raw_send_byte((arg >> 8) & 0xff);
+ 132               		.loc 1 406 5 view .LVU28
+ 133 0050 812F      		mov r24,r17
+ 134 0052 0E94 0000 		call sd_raw_send_byte
+ 135               	.LVL8:
+ 407:sd_raw.c      ****     sd_raw_send_byte((arg >> 0) & 0xff);
+ 136               		.loc 1 407 5 view .LVU29
+ 137 0056 8D2F      		mov r24,r29
+ 138 0058 0E94 0000 		call sd_raw_send_byte
+ 139               	.LVL9:
+ 408:sd_raw.c      ****     switch(command)
+ 140               		.loc 1 408 5 view .LVU30
+ 409:sd_raw.c      ****     {
+ 410:sd_raw.c      ****         case CMD_GO_IDLE_STATE:
+ 411:sd_raw.c      ****            sd_raw_send_byte(0x95);
+ 141               		.loc 1 411 12 is_stmt 0 view .LVU31
+ 142 005c 85E9      		ldi r24,lo8(-107)
+ 408:sd_raw.c      ****     switch(command)
+ 143               		.loc 1 408 5 view .LVU32
+ 144 005e CC23      		tst r28
+ 145 0060 01F0      		breq .L16
+ 412:sd_raw.c      ****            break;
+ 413:sd_raw.c      ****         case CMD_SEND_IF_COND:
+ 414:sd_raw.c      ****            sd_raw_send_byte(0x87);
+ 146               		.loc 1 414 12 view .LVU33
+ 147 0062 87E8      		ldi r24,lo8(-121)
+ 408:sd_raw.c      ****     {
+ 148               		.loc 1 408 5 view .LVU34
+ 149 0064 C830      		cpi r28,lo8(8)
+ 150 0066 01F0      		breq .L16
+ 415:sd_raw.c      ****            break;
+ 416:sd_raw.c      ****         default:
+ 417:sd_raw.c      ****            sd_raw_send_byte(0xff);
+ 151               		.loc 1 417 12 is_stmt 1 view .LVU35
+ 152 0068 8FEF      		ldi r24,lo8(-1)
+ 153               	.L16:
+ 154 006a 0E94 0000 		call sd_raw_send_byte
+ 155               	.LVL10:
+ 418:sd_raw.c      ****            break;
+ 156               		.loc 1 418 12 view .LVU36
+ 396:sd_raw.c      ****     uint8_t response;
+ 157               		.loc 1 396 1 is_stmt 0 view .LVU37
+ 158 006e CAE0      		ldi r28,lo8(10)
+ 159               	.LVL11:
+ 160               	.L13:
+ 161               	.LBB16:
+ 419:sd_raw.c      ****     }
+ 420:sd_raw.c      ****     
+ 421:sd_raw.c      ****     /* receive response */
+ 422:sd_raw.c      ****     for(uint8_t i = 0; i < 10; ++i)
+ 423:sd_raw.c      ****     {
+ 424:sd_raw.c      ****         response = sd_raw_rec_byte();
+ 162               		.loc 1 424 9 is_stmt 1 view .LVU38
+ 163               		.loc 1 424 20 is_stmt 0 view .LVU39
+ 164 0070 0E94 0000 		call sd_raw_rec_byte
+ 165               	.LVL12:
+ 425:sd_raw.c      ****         if(response != 0xff)
+ 166               		.loc 1 425 9 is_stmt 1 view .LVU40
+ 167               		.loc 1 425 11 is_stmt 0 view .LVU41
+ 168 0074 8F3F      		cpi r24,lo8(-1)
+ 169 0076 01F4      		brne .L7
+ 170               	.LVL13:
+ 171               		.loc 1 425 11 view .LVU42
+ 172 0078 C150      		subi r28,lo8(-(-1))
+ 173               	.LVL14:
+ 422:sd_raw.c      ****     {
+ 174               		.loc 1 422 5 discriminator 2 view .LVU43
+ 175 007a 01F4      		brne .L13
+ 176               	.LVL15:
+ 177               	.L7:
+ 178               	/* epilogue start */
+ 422:sd_raw.c      ****     {
+ 179               		.loc 1 422 5 discriminator 2 view .LVU44
+ 180               	.LBE16:
+ 426:sd_raw.c      ****             break;
+ 427:sd_raw.c      ****     }
+ 428:sd_raw.c      **** 
+ 429:sd_raw.c      ****     return response;
+ 430:sd_raw.c      **** }
+ 181               		.loc 1 430 1 view .LVU45
+ 182 007c DF91      		pop r29
+ 183 007e CF91      		pop r28
+ 184 0080 1F91      		pop r17
+ 185 0082 0F91      		pop r16
+ 186 0084 FF90      		pop r15
+ 187 0086 0895      		ret
+ 188               		.cfi_endproc
+ 189               	.LFE5:
+ 191               	.global	sd_raw_available
+ 193               	sd_raw_available:
+ 194               	.LFB1:
+ 340:sd_raw.c      ****     return get_pin_available() == 0x00;
+ 195               		.loc 1 340 1 is_stmt 1 view -0
+ 196               		.cfi_startproc
+ 197               	/* prologue: function */
+ 198               	/* frame size = 0 */
+ 199               	/* stack size = 0 */
+ 200               	.L__stack_usage = 0
+ 341:sd_raw.c      **** }
+ 201               		.loc 1 341 5 view .LVU47
+ 341:sd_raw.c      **** }
+ 202               		.loc 1 341 12 is_stmt 0 view .LVU48
+ 203 0088 83B1      		in r24,0x3
+ 341:sd_raw.c      **** }
+ 204               		.loc 1 341 32 view .LVU49
+ 205 008a 8095      		com r24
+ 342:sd_raw.c      **** 
+ 206               		.loc 1 342 1 view .LVU50
+ 207 008c 881F      		rol r24
+ 208 008e 8827      		clr r24
+ 209 0090 881F      		rol r24
+ 210               	/* epilogue start */
+ 211 0092 0895      		ret
+ 212               		.cfi_endproc
+ 213               	.LFE1:
+ 215               	.global	sd_raw_locked
+ 217               	sd_raw_locked:
+ 218               	.LFB2:
+ 351:sd_raw.c      ****     return get_pin_locked() == 0x00;
+ 219               		.loc 1 351 1 is_stmt 1 view -0
+ 220               		.cfi_startproc
+ 221               	/* prologue: function */
+ 222               	/* frame size = 0 */
+ 223               	/* stack size = 0 */
+ 224               	.L__stack_usage = 0
+ 352:sd_raw.c      **** }
+ 225               		.loc 1 352 5 view .LVU52
+ 352:sd_raw.c      **** }
+ 226               		.loc 1 352 12 is_stmt 0 view .LVU53
+ 227 0094 86B1      		in r24,0x6
+ 352:sd_raw.c      **** }
+ 228               		.loc 1 352 29 view .LVU54
+ 229 0096 85FB      		bst r24,5
+ 230 0098 8827      		clr r24
+ 231 009a 80F9      		bld r24,0
+ 353:sd_raw.c      **** 
+ 232               		.loc 1 353 1 view .LVU55
+ 233 009c 91E0      		ldi r25,lo8(1)
+ 234 009e 8927      		eor r24,r25
+ 235               	/* epilogue start */
+ 236 00a0 0895      		ret
+ 237               		.cfi_endproc
+ 238               	.LFE2:
+ 240               	.global	sd_raw_sync
+ 242               	sd_raw_sync:
+ 243               	.LFB10:
+ 431:sd_raw.c      **** 
+ 432:sd_raw.c      **** /**
+ 433:sd_raw.c      ****  * \ingroup sd_raw
+ 434:sd_raw.c      ****  * Reads raw data from the card.
+ 435:sd_raw.c      ****  *
+ 436:sd_raw.c      ****  * \param[in] offset The offset from which to read.
+ 437:sd_raw.c      ****  * \param[out] buffer The buffer into which to write the data.
+ 438:sd_raw.c      ****  * \param[in] length The number of bytes to read.
+ 439:sd_raw.c      ****  * \returns 0 on failure, 1 on success.
+ 440:sd_raw.c      ****  * \see sd_raw_read_interval, sd_raw_write, sd_raw_write_interval
+ 441:sd_raw.c      ****  */
+ 442:sd_raw.c      **** uint8_t sd_raw_read(offset_t offset, uint8_t* buffer, uintptr_t length)
+ 443:sd_raw.c      **** {
+ 444:sd_raw.c      ****     offset_t block_address;
+ 445:sd_raw.c      ****     uint16_t block_offset;
+ 446:sd_raw.c      ****     uint16_t read_length;
+ 447:sd_raw.c      ****     while(length > 0)
+ 448:sd_raw.c      ****     {
+ 449:sd_raw.c      ****         /* determine byte count to read at once */
+ 450:sd_raw.c      ****         block_offset = offset & 0x01ff;
+ 451:sd_raw.c      ****         block_address = offset - block_offset;
+ 452:sd_raw.c      ****         read_length = 512 - block_offset; /* read up to block border */
+ 453:sd_raw.c      ****         if(read_length > length)
+ 454:sd_raw.c      ****             read_length = length;
+ 455:sd_raw.c      ****         
+ 456:sd_raw.c      **** #if !SD_RAW_SAVE_RAM
+ 457:sd_raw.c      ****         /* check if the requested data is cached */
+ 458:sd_raw.c      ****         if(block_address != raw_block_address)
+ 459:sd_raw.c      **** #endif
+ 460:sd_raw.c      ****         {
+ 461:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 462:sd_raw.c      ****             if(!sd_raw_sync())
+ 463:sd_raw.c      ****                 return 0;
+ 464:sd_raw.c      **** #endif
+ 465:sd_raw.c      **** 
+ 466:sd_raw.c      ****             /* address card */
+ 467:sd_raw.c      ****             select_card();
+ 468:sd_raw.c      **** 
+ 469:sd_raw.c      ****             /* send single block request */
+ 470:sd_raw.c      **** #if SD_RAW_SDHC
+ 471:sd_raw.c      ****             if(sd_raw_send_command(CMD_READ_SINGLE_BLOCK, (sd_raw_card_type & (1 << SD_RAW_SPEC_SDH
+ 472:sd_raw.c      **** #else
+ 473:sd_raw.c      ****             if(sd_raw_send_command(CMD_READ_SINGLE_BLOCK, block_address))
+ 474:sd_raw.c      **** #endif
+ 475:sd_raw.c      ****             {
+ 476:sd_raw.c      ****                 unselect_card();
+ 477:sd_raw.c      ****                 return 0;
+ 478:sd_raw.c      ****             }
+ 479:sd_raw.c      **** 
+ 480:sd_raw.c      ****             /* wait for data block (start byte 0xfe) */
+ 481:sd_raw.c      ****             while(sd_raw_rec_byte() != 0xfe);
+ 482:sd_raw.c      **** 
+ 483:sd_raw.c      **** #if SD_RAW_SAVE_RAM
+ 484:sd_raw.c      ****             /* read byte block */
+ 485:sd_raw.c      ****             uint16_t read_to = block_offset + read_length;
+ 486:sd_raw.c      ****             for(uint16_t i = 0; i < 512; ++i)
+ 487:sd_raw.c      ****             {
+ 488:sd_raw.c      ****                 uint8_t b = sd_raw_rec_byte();
+ 489:sd_raw.c      ****                 if(i >= block_offset && i < read_to)
+ 490:sd_raw.c      ****                     *buffer++ = b;
+ 491:sd_raw.c      ****             }
+ 492:sd_raw.c      **** #else
+ 493:sd_raw.c      ****             /* read byte block */
+ 494:sd_raw.c      ****             uint8_t* cache = raw_block;
+ 495:sd_raw.c      ****             for(uint16_t i = 0; i < 512; ++i)
+ 496:sd_raw.c      ****                 *cache++ = sd_raw_rec_byte();
+ 497:sd_raw.c      ****             raw_block_address = block_address;
+ 498:sd_raw.c      **** 
+ 499:sd_raw.c      ****             memcpy(buffer, raw_block + block_offset, read_length);
+ 500:sd_raw.c      ****             buffer += read_length;
+ 501:sd_raw.c      **** #endif
+ 502:sd_raw.c      ****             
+ 503:sd_raw.c      ****             /* read crc16 */
+ 504:sd_raw.c      ****             sd_raw_rec_byte();
+ 505:sd_raw.c      ****             sd_raw_rec_byte();
+ 506:sd_raw.c      ****             
+ 507:sd_raw.c      ****             /* deaddress card */
+ 508:sd_raw.c      ****             unselect_card();
+ 509:sd_raw.c      **** 
+ 510:sd_raw.c      ****             /* let card some time to finish */
+ 511:sd_raw.c      ****             sd_raw_rec_byte();
+ 512:sd_raw.c      ****         }
+ 513:sd_raw.c      **** #if !SD_RAW_SAVE_RAM
+ 514:sd_raw.c      ****         else
+ 515:sd_raw.c      ****         {
+ 516:sd_raw.c      ****             /* use cached data */
+ 517:sd_raw.c      ****             memcpy(buffer, raw_block + block_offset, read_length);
+ 518:sd_raw.c      ****             buffer += read_length;
+ 519:sd_raw.c      ****         }
+ 520:sd_raw.c      **** #endif
+ 521:sd_raw.c      **** 
+ 522:sd_raw.c      ****         length -= read_length;
+ 523:sd_raw.c      ****         offset += read_length;
+ 524:sd_raw.c      ****     }
+ 525:sd_raw.c      **** 
+ 526:sd_raw.c      ****     return 1;
+ 527:sd_raw.c      **** }
+ 528:sd_raw.c      **** 
+ 529:sd_raw.c      **** /**
+ 530:sd_raw.c      ****  * \ingroup sd_raw
+ 531:sd_raw.c      ****  * Continuously reads units of \c interval bytes and calls a callback function.
+ 532:sd_raw.c      ****  *
+ 533:sd_raw.c      ****  * This function starts reading at the specified offset. Every \c interval bytes,
+ 534:sd_raw.c      ****  * it calls the callback function with the associated data buffer.
+ 535:sd_raw.c      ****  *
+ 536:sd_raw.c      ****  * By returning zero, the callback may stop reading.
+ 537:sd_raw.c      ****  *
+ 538:sd_raw.c      ****  * \note Within the callback function, you can not start another read or
+ 539:sd_raw.c      ****  *       write operation.
+ 540:sd_raw.c      ****  * \note This function only works if the following conditions are met:
+ 541:sd_raw.c      ****  *       - (offset - (offset % 512)) % interval == 0
+ 542:sd_raw.c      ****  *       - length % interval == 0
+ 543:sd_raw.c      ****  *
+ 544:sd_raw.c      ****  * \param[in] offset Offset from which to start reading.
+ 545:sd_raw.c      ****  * \param[in] buffer Pointer to a buffer which is at least interval bytes in size.
+ 546:sd_raw.c      ****  * \param[in] interval Number of bytes to read before calling the callback function.
+ 547:sd_raw.c      ****  * \param[in] length Number of bytes to read altogether.
+ 548:sd_raw.c      ****  * \param[in] callback The function to call every interval bytes.
+ 549:sd_raw.c      ****  * \param[in] p An opaque pointer directly passed to the callback function.
+ 550:sd_raw.c      ****  * \returns 0 on failure, 1 on success
+ 551:sd_raw.c      ****  * \see sd_raw_write_interval, sd_raw_read, sd_raw_write
+ 552:sd_raw.c      ****  */
+ 553:sd_raw.c      **** uint8_t sd_raw_read_interval(offset_t offset, uint8_t* buffer, uintptr_t interval, uintptr_t length
+ 554:sd_raw.c      **** {
+ 555:sd_raw.c      ****     if(!buffer || interval == 0 || length < interval || !callback)
+ 556:sd_raw.c      ****         return 0;
+ 557:sd_raw.c      **** 
+ 558:sd_raw.c      **** #if !SD_RAW_SAVE_RAM
+ 559:sd_raw.c      ****     while(length >= interval)
+ 560:sd_raw.c      ****     {
+ 561:sd_raw.c      ****         /* as reading is now buffered, we directly
+ 562:sd_raw.c      ****          * hand over the request to sd_raw_read()
+ 563:sd_raw.c      ****          */
+ 564:sd_raw.c      ****         if(!sd_raw_read(offset, buffer, interval))
+ 565:sd_raw.c      ****             return 0;
+ 566:sd_raw.c      ****         if(!callback(buffer, offset, p))
+ 567:sd_raw.c      ****             break;
+ 568:sd_raw.c      ****         offset += interval;
+ 569:sd_raw.c      ****         length -= interval;
+ 570:sd_raw.c      ****     }
+ 571:sd_raw.c      **** 
+ 572:sd_raw.c      ****     return 1;
+ 573:sd_raw.c      **** #else
+ 574:sd_raw.c      ****     /* address card */
+ 575:sd_raw.c      ****     select_card();
+ 576:sd_raw.c      **** 
+ 577:sd_raw.c      ****     uint16_t block_offset;
+ 578:sd_raw.c      ****     uint16_t read_length;
+ 579:sd_raw.c      ****     uint8_t* buffer_cur;
+ 580:sd_raw.c      ****     uint8_t finished = 0;
+ 581:sd_raw.c      ****     do
+ 582:sd_raw.c      ****     {
+ 583:sd_raw.c      ****         /* determine byte count to read at once */
+ 584:sd_raw.c      ****         block_offset = offset & 0x01ff;
+ 585:sd_raw.c      ****         read_length = 512 - block_offset;
+ 586:sd_raw.c      ****         
+ 587:sd_raw.c      ****         /* send single block request */
+ 588:sd_raw.c      **** #if SD_RAW_SDHC
+ 589:sd_raw.c      ****         if(sd_raw_send_command(CMD_READ_SINGLE_BLOCK, (sd_raw_card_type & (1 << SD_RAW_SPEC_SDHC) ?
+ 590:sd_raw.c      **** #else
+ 591:sd_raw.c      ****         if(sd_raw_send_command(CMD_READ_SINGLE_BLOCK, offset - block_offset))
+ 592:sd_raw.c      **** #endif
+ 593:sd_raw.c      ****         {
+ 594:sd_raw.c      ****             unselect_card();
+ 595:sd_raw.c      ****             return 0;
+ 596:sd_raw.c      ****         }
+ 597:sd_raw.c      **** 
+ 598:sd_raw.c      ****         /* wait for data block (start byte 0xfe) */
+ 599:sd_raw.c      ****         while(sd_raw_rec_byte() != 0xfe);
+ 600:sd_raw.c      **** 
+ 601:sd_raw.c      ****         /* read up to the data of interest */
+ 602:sd_raw.c      ****         for(uint16_t i = 0; i < block_offset; ++i)
+ 603:sd_raw.c      ****             sd_raw_rec_byte();
+ 604:sd_raw.c      **** 
+ 605:sd_raw.c      ****         /* read interval bytes of data and execute the callback */
+ 606:sd_raw.c      ****         do
+ 607:sd_raw.c      ****         {
+ 608:sd_raw.c      ****             if(read_length < interval || length < interval)
+ 609:sd_raw.c      ****                 break;
+ 610:sd_raw.c      **** 
+ 611:sd_raw.c      ****             buffer_cur = buffer;
+ 612:sd_raw.c      ****             for(uint16_t i = 0; i < interval; ++i)
+ 613:sd_raw.c      ****                 *buffer_cur++ = sd_raw_rec_byte();
+ 614:sd_raw.c      **** 
+ 615:sd_raw.c      ****             if(!callback(buffer, offset + (512 - read_length), p))
+ 616:sd_raw.c      ****             {
+ 617:sd_raw.c      ****                 finished = 1;
+ 618:sd_raw.c      ****                 break;
+ 619:sd_raw.c      ****             }
+ 620:sd_raw.c      **** 
+ 621:sd_raw.c      ****             read_length -= interval;
+ 622:sd_raw.c      ****             length -= interval;
+ 623:sd_raw.c      **** 
+ 624:sd_raw.c      ****         } while(read_length > 0 && length > 0);
+ 625:sd_raw.c      ****         
+ 626:sd_raw.c      ****         /* read rest of data block */
+ 627:sd_raw.c      ****         while(read_length-- > 0)
+ 628:sd_raw.c      ****             sd_raw_rec_byte();
+ 629:sd_raw.c      ****         
+ 630:sd_raw.c      ****         /* read crc16 */
+ 631:sd_raw.c      ****         sd_raw_rec_byte();
+ 632:sd_raw.c      ****         sd_raw_rec_byte();
+ 633:sd_raw.c      **** 
+ 634:sd_raw.c      ****         if(length < interval)
+ 635:sd_raw.c      ****             break;
+ 636:sd_raw.c      **** 
+ 637:sd_raw.c      ****         offset = offset - block_offset + 512;
+ 638:sd_raw.c      **** 
+ 639:sd_raw.c      ****     } while(!finished);
+ 640:sd_raw.c      ****     
+ 641:sd_raw.c      ****     /* deaddress card */
+ 642:sd_raw.c      ****     unselect_card();
+ 643:sd_raw.c      **** 
+ 644:sd_raw.c      ****     /* let card some time to finish */
+ 645:sd_raw.c      ****     sd_raw_rec_byte();
+ 646:sd_raw.c      **** 
+ 647:sd_raw.c      ****     return 1;
+ 648:sd_raw.c      **** #endif
+ 649:sd_raw.c      **** }
+ 650:sd_raw.c      **** 
+ 651:sd_raw.c      **** #if DOXYGEN || SD_RAW_WRITE_SUPPORT
+ 652:sd_raw.c      **** /**
+ 653:sd_raw.c      ****  * \ingroup sd_raw
+ 654:sd_raw.c      ****  * Writes raw data to the card.
+ 655:sd_raw.c      ****  *
+ 656:sd_raw.c      ****  * \note If write buffering is enabled, you might have to
+ 657:sd_raw.c      ****  *       call sd_raw_sync() before disconnecting the card
+ 658:sd_raw.c      ****  *       to ensure all remaining data has been written.
+ 659:sd_raw.c      ****  *
+ 660:sd_raw.c      ****  * \param[in] offset The offset where to start writing.
+ 661:sd_raw.c      ****  * \param[in] buffer The buffer containing the data to be written.
+ 662:sd_raw.c      ****  * \param[in] length The number of bytes to write.
+ 663:sd_raw.c      ****  * \returns 0 on failure, 1 on success.
+ 664:sd_raw.c      ****  * \see sd_raw_write_interval, sd_raw_read, sd_raw_read_interval
+ 665:sd_raw.c      ****  */
+ 666:sd_raw.c      **** uint8_t sd_raw_write(offset_t offset, const uint8_t* buffer, uintptr_t length)
+ 667:sd_raw.c      **** {
+ 668:sd_raw.c      ****     if(sd_raw_locked())
+ 669:sd_raw.c      ****         return 0;
+ 670:sd_raw.c      **** 
+ 671:sd_raw.c      ****     offset_t block_address;
+ 672:sd_raw.c      ****     uint16_t block_offset;
+ 673:sd_raw.c      ****     uint16_t write_length;
+ 674:sd_raw.c      ****     while(length > 0)
+ 675:sd_raw.c      ****     {
+ 676:sd_raw.c      ****         /* determine byte count to write at once */
+ 677:sd_raw.c      ****         block_offset = offset & 0x01ff;
+ 678:sd_raw.c      ****         block_address = offset - block_offset;
+ 679:sd_raw.c      ****         write_length = 512 - block_offset; /* write up to block border */
+ 680:sd_raw.c      ****         if(write_length > length)
+ 681:sd_raw.c      ****             write_length = length;
+ 682:sd_raw.c      ****         
+ 683:sd_raw.c      ****         /* Merge the data to write with the content of the block.
+ 684:sd_raw.c      ****          * Use the cached block if available.
+ 685:sd_raw.c      ****          */
+ 686:sd_raw.c      ****         if(block_address != raw_block_address)
+ 687:sd_raw.c      ****         {
+ 688:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 689:sd_raw.c      ****             if(!sd_raw_sync())
+ 690:sd_raw.c      ****                 return 0;
+ 691:sd_raw.c      **** #endif
+ 692:sd_raw.c      **** 
+ 693:sd_raw.c      ****             if(block_offset || write_length < 512)
+ 694:sd_raw.c      ****             {
+ 695:sd_raw.c      ****                 if(!sd_raw_read(block_address, raw_block, sizeof(raw_block)))
+ 696:sd_raw.c      ****                     return 0;
+ 697:sd_raw.c      ****             }
+ 698:sd_raw.c      ****             raw_block_address = block_address;
+ 699:sd_raw.c      ****         }
+ 700:sd_raw.c      **** 
+ 701:sd_raw.c      ****         if(buffer != raw_block)
+ 702:sd_raw.c      ****         {
+ 703:sd_raw.c      ****             memcpy(raw_block + block_offset, buffer, write_length);
+ 704:sd_raw.c      **** 
+ 705:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 706:sd_raw.c      ****             raw_block_written = 0;
+ 707:sd_raw.c      **** 
+ 708:sd_raw.c      ****             if(length == write_length)
+ 709:sd_raw.c      ****                 return 1;
+ 710:sd_raw.c      **** #endif
+ 711:sd_raw.c      ****         }
+ 712:sd_raw.c      **** 
+ 713:sd_raw.c      ****         /* address card */
+ 714:sd_raw.c      ****         select_card();
+ 715:sd_raw.c      **** 
+ 716:sd_raw.c      ****         /* send single block request */
+ 717:sd_raw.c      **** #if SD_RAW_SDHC
+ 718:sd_raw.c      ****         if(sd_raw_send_command(CMD_WRITE_SINGLE_BLOCK, (sd_raw_card_type & (1 << SD_RAW_SPEC_SDHC) 
+ 719:sd_raw.c      **** #else
+ 720:sd_raw.c      ****         if(sd_raw_send_command(CMD_WRITE_SINGLE_BLOCK, block_address))
+ 721:sd_raw.c      **** #endif
+ 722:sd_raw.c      ****         {
+ 723:sd_raw.c      ****             unselect_card();
+ 724:sd_raw.c      ****             return 0;
+ 725:sd_raw.c      ****         }
+ 726:sd_raw.c      **** 
+ 727:sd_raw.c      ****         /* send start byte */
+ 728:sd_raw.c      ****         sd_raw_send_byte(0xfe);
+ 729:sd_raw.c      **** 
+ 730:sd_raw.c      ****         /* write byte block */
+ 731:sd_raw.c      ****         uint8_t* cache = raw_block;
+ 732:sd_raw.c      ****         for(uint16_t i = 0; i < 512; ++i)
+ 733:sd_raw.c      ****             sd_raw_send_byte(*cache++);
+ 734:sd_raw.c      **** 
+ 735:sd_raw.c      ****         /* write dummy crc16 */
+ 736:sd_raw.c      ****         sd_raw_send_byte(0xff);
+ 737:sd_raw.c      ****         sd_raw_send_byte(0xff);
+ 738:sd_raw.c      **** 
+ 739:sd_raw.c      ****         /* wait while card is busy */
+ 740:sd_raw.c      ****         while(sd_raw_rec_byte() != 0xff);
+ 741:sd_raw.c      ****         sd_raw_rec_byte();
+ 742:sd_raw.c      **** 
+ 743:sd_raw.c      ****         /* deaddress card */
+ 744:sd_raw.c      ****         unselect_card();
+ 745:sd_raw.c      **** 
+ 746:sd_raw.c      ****         buffer += write_length;
+ 747:sd_raw.c      ****         offset += write_length;
+ 748:sd_raw.c      ****         length -= write_length;
+ 749:sd_raw.c      **** 
+ 750:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 751:sd_raw.c      ****         raw_block_written = 1;
+ 752:sd_raw.c      **** #endif
+ 753:sd_raw.c      ****     }
+ 754:sd_raw.c      **** 
+ 755:sd_raw.c      ****     return 1;
+ 756:sd_raw.c      **** }
+ 757:sd_raw.c      **** #endif
+ 758:sd_raw.c      **** 
+ 759:sd_raw.c      **** #if DOXYGEN || SD_RAW_WRITE_SUPPORT
+ 760:sd_raw.c      **** /**
+ 761:sd_raw.c      ****  * \ingroup sd_raw
+ 762:sd_raw.c      ****  * Writes a continuous data stream obtained from a callback function.
+ 763:sd_raw.c      ****  *
+ 764:sd_raw.c      ****  * This function starts writing at the specified offset. To obtain the
+ 765:sd_raw.c      ****  * next bytes to write, it calls the callback function. The callback fills the
+ 766:sd_raw.c      ****  * provided data buffer and returns the number of bytes it has put into the buffer.
+ 767:sd_raw.c      ****  *
+ 768:sd_raw.c      ****  * By returning zero, the callback may stop writing.
+ 769:sd_raw.c      ****  *
+ 770:sd_raw.c      ****  * \param[in] offset Offset where to start writing.
+ 771:sd_raw.c      ****  * \param[in] buffer Pointer to a buffer which is used for the callback function.
+ 772:sd_raw.c      ****  * \param[in] length Number of bytes to write in total. May be zero for endless writes.
+ 773:sd_raw.c      ****  * \param[in] callback The function used to obtain the bytes to write.
+ 774:sd_raw.c      ****  * \param[in] p An opaque pointer directly passed to the callback function.
+ 775:sd_raw.c      ****  * \returns 0 on failure, 1 on success
+ 776:sd_raw.c      ****  * \see sd_raw_read_interval, sd_raw_write, sd_raw_read
+ 777:sd_raw.c      ****  */
+ 778:sd_raw.c      **** uint8_t sd_raw_write_interval(offset_t offset, uint8_t* buffer, uintptr_t length, sd_raw_write_inte
+ 779:sd_raw.c      **** {
+ 780:sd_raw.c      **** #if SD_RAW_SAVE_RAM
+ 781:sd_raw.c      ****     #error "SD_RAW_WRITE_SUPPORT is not supported together with SD_RAW_SAVE_RAM"
+ 782:sd_raw.c      **** #endif
+ 783:sd_raw.c      **** 
+ 784:sd_raw.c      ****     if(!buffer || !callback)
+ 785:sd_raw.c      ****         return 0;
+ 786:sd_raw.c      **** 
+ 787:sd_raw.c      ****     uint8_t endless = (length == 0);
+ 788:sd_raw.c      ****     while(endless || length > 0)
+ 789:sd_raw.c      ****     {
+ 790:sd_raw.c      ****         uint16_t bytes_to_write = callback(buffer, offset, p);
+ 791:sd_raw.c      ****         if(!bytes_to_write)
+ 792:sd_raw.c      ****             break;
+ 793:sd_raw.c      ****         if(!endless && bytes_to_write > length)
+ 794:sd_raw.c      ****             return 0;
+ 795:sd_raw.c      **** 
+ 796:sd_raw.c      ****         /* as writing is always buffered, we directly
+ 797:sd_raw.c      ****          * hand over the request to sd_raw_write()
+ 798:sd_raw.c      ****          */
+ 799:sd_raw.c      ****         if(!sd_raw_write(offset, buffer, bytes_to_write))
+ 800:sd_raw.c      ****             return 0;
+ 801:sd_raw.c      **** 
+ 802:sd_raw.c      ****         offset += bytes_to_write;
+ 803:sd_raw.c      ****         length -= bytes_to_write;
+ 804:sd_raw.c      ****     }
+ 805:sd_raw.c      **** 
+ 806:sd_raw.c      ****     return 1;
+ 807:sd_raw.c      **** }
+ 808:sd_raw.c      **** #endif
+ 809:sd_raw.c      **** 
+ 810:sd_raw.c      **** #if DOXYGEN || SD_RAW_WRITE_SUPPORT
+ 811:sd_raw.c      **** /**
+ 812:sd_raw.c      ****  * \ingroup sd_raw
+ 813:sd_raw.c      ****  * Writes the write buffer's content to the card.
+ 814:sd_raw.c      ****  *
+ 815:sd_raw.c      ****  * \note When write buffering is enabled, you should
+ 816:sd_raw.c      ****  *       call this function before disconnecting the
+ 817:sd_raw.c      ****  *       card to ensure all remaining data has been
+ 818:sd_raw.c      ****  *       written.
+ 819:sd_raw.c      ****  *
+ 820:sd_raw.c      ****  * \returns 0 on failure, 1 on success.
+ 821:sd_raw.c      ****  * \see sd_raw_write
+ 822:sd_raw.c      ****  */
+ 823:sd_raw.c      **** uint8_t sd_raw_sync()
+ 824:sd_raw.c      **** {
+ 244               		.loc 1 824 1 is_stmt 1 view -0
+ 245               		.cfi_startproc
+ 246               	/* prologue: function */
+ 247               	/* frame size = 0 */
+ 248               	/* stack size = 0 */
+ 249               	.L__stack_usage = 0
+ 825:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 826:sd_raw.c      ****     if(raw_block_written)
+ 250               		.loc 1 826 5 view .LVU57
+ 251               		.loc 1 826 7 is_stmt 0 view .LVU58
+ 252 00a2 8091 0000 		lds r24,raw_block_written
+ 253 00a6 8111      		cpse r24,__zero_reg__
+ 254 00a8 00C0      		rjmp .L21
+ 255               	.LBB19:
+ 256               	.LBI19:
+ 823:sd_raw.c      **** {
+ 257               		.loc 1 823 9 is_stmt 1 view .LVU59
+ 258               	.LBB20:
+ 827:sd_raw.c      ****         return 1;
+ 828:sd_raw.c      ****     if(!sd_raw_write(raw_block_address, raw_block, sizeof(raw_block)))
+ 259               		.loc 1 828 5 view .LVU60
+ 260               		.loc 1 828 9 is_stmt 0 view .LVU61
+ 261 00aa 6091 0000 		lds r22,raw_block_address
+ 262 00ae 7091 0000 		lds r23,raw_block_address+1
+ 263 00b2 8091 0000 		lds r24,raw_block_address+2
+ 264 00b6 9091 0000 		lds r25,raw_block_address+3
+ 265 00ba 20E0      		ldi r18,0
+ 266 00bc 32E0      		ldi r19,lo8(2)
+ 267 00be 40E0      		ldi r20,lo8(raw_block)
+ 268 00c0 50E0      		ldi r21,hi8(raw_block)
+ 269 00c2 0E94 0000 		call sd_raw_write
+ 270               	.LVL16:
+ 271               		.loc 1 828 7 view .LVU62
+ 272 00c6 8823      		tst r24
+ 273 00c8 01F0      		breq .L19
+ 829:sd_raw.c      ****         return 0;
+ 830:sd_raw.c      ****     raw_block_written = 1;
+ 274               		.loc 1 830 5 is_stmt 1 view .LVU63
+ 275               		.loc 1 830 23 is_stmt 0 view .LVU64
+ 276 00ca 81E0      		ldi r24,lo8(1)
+ 277 00cc 8093 0000 		sts raw_block_written,r24
+ 831:sd_raw.c      **** #endif
+ 832:sd_raw.c      ****     return 1;
+ 278               		.loc 1 832 5 is_stmt 1 view .LVU65
+ 279 00d0 0895      		ret
+ 280               	.L21:
+ 281               	.LBE20:
+ 282               	.LBE19:
+ 827:sd_raw.c      ****     if(!sd_raw_write(raw_block_address, raw_block, sizeof(raw_block)))
+ 283               		.loc 1 827 16 is_stmt 0 view .LVU66
+ 284 00d2 81E0      		ldi r24,lo8(1)
+ 285               	.L19:
+ 286               	/* epilogue start */
+ 833:sd_raw.c      **** }
+ 287               		.loc 1 833 1 view .LVU67
+ 288 00d4 0895      		ret
+ 289               		.cfi_endproc
+ 290               	.LFE10:
+ 292               	.global	sd_raw_read
+ 294               	sd_raw_read:
+ 295               	.LVL17:
+ 296               	.LFB6:
+ 443:sd_raw.c      ****     offset_t block_address;
+ 297               		.loc 1 443 1 is_stmt 1 view -0
+ 298               		.cfi_startproc
+ 443:sd_raw.c      ****     offset_t block_address;
+ 299               		.loc 1 443 1 is_stmt 0 view .LVU69
+ 300 00d6 2F92      		push r2
+ 301               	.LCFI5:
+ 302               		.cfi_def_cfa_offset 3
+ 303               		.cfi_offset 2, -2
+ 304 00d8 3F92      		push r3
+ 305               	.LCFI6:
+ 306               		.cfi_def_cfa_offset 4
+ 307               		.cfi_offset 3, -3
+ 308 00da 4F92      		push r4
+ 309               	.LCFI7:
+ 310               		.cfi_def_cfa_offset 5
+ 311               		.cfi_offset 4, -4
+ 312 00dc 5F92      		push r5
+ 313               	.LCFI8:
+ 314               		.cfi_def_cfa_offset 6
+ 315               		.cfi_offset 5, -5
+ 316 00de 6F92      		push r6
+ 317               	.LCFI9:
+ 318               		.cfi_def_cfa_offset 7
+ 319               		.cfi_offset 6, -6
+ 320 00e0 7F92      		push r7
+ 321               	.LCFI10:
+ 322               		.cfi_def_cfa_offset 8
+ 323               		.cfi_offset 7, -7
+ 324 00e2 8F92      		push r8
+ 325               	.LCFI11:
+ 326               		.cfi_def_cfa_offset 9
+ 327               		.cfi_offset 8, -8
+ 328 00e4 9F92      		push r9
+ 329               	.LCFI12:
+ 330               		.cfi_def_cfa_offset 10
+ 331               		.cfi_offset 9, -9
+ 332 00e6 AF92      		push r10
+ 333               	.LCFI13:
+ 334               		.cfi_def_cfa_offset 11
+ 335               		.cfi_offset 10, -10
+ 336 00e8 BF92      		push r11
+ 337               	.LCFI14:
+ 338               		.cfi_def_cfa_offset 12
+ 339               		.cfi_offset 11, -11
+ 340 00ea CF92      		push r12
+ 341               	.LCFI15:
+ 342               		.cfi_def_cfa_offset 13
+ 343               		.cfi_offset 12, -12
+ 344 00ec DF92      		push r13
+ 345               	.LCFI16:
+ 346               		.cfi_def_cfa_offset 14
+ 347               		.cfi_offset 13, -13
+ 348 00ee EF92      		push r14
+ 349               	.LCFI17:
+ 350               		.cfi_def_cfa_offset 15
+ 351               		.cfi_offset 14, -14
+ 352 00f0 FF92      		push r15
+ 353               	.LCFI18:
+ 354               		.cfi_def_cfa_offset 16
+ 355               		.cfi_offset 15, -15
+ 356 00f2 0F93      		push r16
+ 357               	.LCFI19:
+ 358               		.cfi_def_cfa_offset 17
+ 359               		.cfi_offset 16, -16
+ 360 00f4 1F93      		push r17
+ 361               	.LCFI20:
+ 362               		.cfi_def_cfa_offset 18
+ 363               		.cfi_offset 17, -17
+ 364 00f6 CF93      		push r28
+ 365               	.LCFI21:
+ 366               		.cfi_def_cfa_offset 19
+ 367               		.cfi_offset 28, -18
+ 368 00f8 DF93      		push r29
+ 369               	.LCFI22:
+ 370               		.cfi_def_cfa_offset 20
+ 371               		.cfi_offset 29, -19
+ 372               	/* prologue: function */
+ 373               	/* frame size = 0 */
+ 374               	/* stack size = 18 */
+ 375               	.L__stack_usage = 18
+ 376 00fa 4B01      		movw r8,r22
+ 377 00fc 5C01      		movw r10,r24
+ 378 00fe 7A01      		movw r14,r20
+ 379 0100 6901      		movw r12,r18
+ 444:sd_raw.c      ****     uint16_t block_offset;
+ 380               		.loc 1 444 5 is_stmt 1 view .LVU70
+ 445:sd_raw.c      ****     uint16_t read_length;
+ 381               		.loc 1 445 5 view .LVU71
+ 446:sd_raw.c      ****     while(length > 0)
+ 382               		.loc 1 446 5 view .LVU72
+ 447:sd_raw.c      ****     {
+ 383               		.loc 1 447 5 view .LVU73
+ 384               	.LVL18:
+ 385               	.L26:
+ 447:sd_raw.c      ****     {
+ 386               		.loc 1 447 10 is_stmt 0 view .LVU74
+ 387 0102 C114      		cp r12,__zero_reg__
+ 388 0104 D104      		cpc r13,__zero_reg__
+ 389 0106 01F4      		brne .L33
+ 526:sd_raw.c      **** }
+ 390               		.loc 1 526 12 view .LVU75
+ 391 0108 81E0      		ldi r24,lo8(1)
+ 392 010a 00C0      		rjmp .L25
+ 393               	.L33:
+ 450:sd_raw.c      ****         block_address = offset - block_offset;
+ 394               		.loc 1 450 9 is_stmt 1 view .LVU76
+ 450:sd_raw.c      ****         block_address = offset - block_offset;
+ 395               		.loc 1 450 22 is_stmt 0 view .LVU77
+ 396 010c 1401      		movw r2,r8
+ 397 010e 81E0      		ldi r24,1
+ 398 0110 3822      		and r3,r24
+ 399               	.LVL19:
+ 451:sd_raw.c      ****         read_length = 512 - block_offset; /* read up to block border */
+ 400               		.loc 1 451 9 is_stmt 1 view .LVU78
+ 451:sd_raw.c      ****         read_length = 512 - block_offset; /* read up to block border */
+ 401               		.loc 1 451 23 is_stmt 0 view .LVU79
+ 402 0112 2401      		movw r4,r8
+ 403 0114 3501      		movw r6,r10
+ 404 0116 4218      		sub r4,r2
+ 405 0118 5308      		sbc r5,r3
+ 406 011a 6108      		sbc r6,__zero_reg__
+ 407 011c 7108      		sbc r7,__zero_reg__
+ 408               	.LVL20:
+ 452:sd_raw.c      ****         if(read_length > length)
+ 409               		.loc 1 452 9 is_stmt 1 view .LVU80
+ 452:sd_raw.c      ****         if(read_length > length)
+ 410               		.loc 1 452 21 is_stmt 0 view .LVU81
+ 411 011e 80E0      		ldi r24,0
+ 412 0120 92E0      		ldi r25,lo8(2)
+ 413 0122 8219      		sub r24,r2
+ 414 0124 9309      		sbc r25,r3
+ 415               	.LVL21:
+ 453:sd_raw.c      ****             read_length = length;
+ 416               		.loc 1 453 9 is_stmt 1 view .LVU82
+ 417 0126 E601      		movw r28,r12
+ 418 0128 8C15      		cp r24,r12
+ 419 012a 9D05      		cpc r25,r13
+ 420 012c 00F4      		brsh .L27
+ 453:sd_raw.c      ****             read_length = length;
+ 421               		.loc 1 453 9 is_stmt 0 view .LVU83
+ 422 012e EC01      		movw r28,r24
+ 423               	.L27:
+ 424               	.LVL22:
+ 458:sd_raw.c      **** #endif
+ 425               		.loc 1 458 9 is_stmt 1 view .LVU84
+ 458:sd_raw.c      **** #endif
+ 426               		.loc 1 458 11 is_stmt 0 view .LVU85
+ 427 0130 8091 0000 		lds r24,raw_block_address
+ 428 0134 9091 0000 		lds r25,raw_block_address+1
+ 429 0138 A091 0000 		lds r26,raw_block_address+2
+ 430 013c B091 0000 		lds r27,raw_block_address+3
+ 431 0140 8415      		cp r24,r4
+ 432 0142 9505      		cpc r25,r5
+ 433 0144 A605      		cpc r26,r6
+ 434 0146 B705      		cpc r27,r7
+ 435 0148 01F4      		brne .+2
+ 436 014a 00C0      		rjmp .L28
+ 437               	.LBB21:
+ 462:sd_raw.c      ****                 return 0;
+ 438               		.loc 1 462 13 is_stmt 1 view .LVU86
+ 462:sd_raw.c      ****                 return 0;
+ 439               		.loc 1 462 17 is_stmt 0 view .LVU87
+ 440 014c 0E94 0000 		call sd_raw_sync
+ 441               	.LVL23:
+ 462:sd_raw.c      ****                 return 0;
+ 442               		.loc 1 462 15 view .LVU88
+ 443 0150 8823      		tst r24
+ 444 0152 01F0      		breq .L25
+ 467:sd_raw.c      **** 
+ 445               		.loc 1 467 13 is_stmt 1 view .LVU89
+ 446 0154 2E98      		cbi 0x5,6
+ 473:sd_raw.c      **** #endif
+ 447               		.loc 1 473 13 view .LVU90
+ 473:sd_raw.c      **** #endif
+ 448               		.loc 1 473 16 is_stmt 0 view .LVU91
+ 449 0156 B301      		movw r22,r6
+ 450 0158 A201      		movw r20,r4
+ 451 015a 81E1      		ldi r24,lo8(17)
+ 452 015c 0E94 0000 		call sd_raw_send_command
+ 453               	.LVL24:
+ 473:sd_raw.c      **** #endif
+ 454               		.loc 1 473 15 view .LVU92
+ 455 0160 8823      		tst r24
+ 456 0162 01F0      		breq .L30
+ 476:sd_raw.c      ****                 return 0;
+ 457               		.loc 1 476 17 is_stmt 1 view .LVU93
+ 458 0164 2E9A      		sbi 0x5,6
+ 477:sd_raw.c      ****             }
+ 459               		.loc 1 477 17 view .LVU94
+ 477:sd_raw.c      ****             }
+ 460               		.loc 1 477 24 is_stmt 0 view .LVU95
+ 461 0166 80E0      		ldi r24,0
+ 462               	.LVL25:
+ 463               	.L25:
+ 464               	/* epilogue start */
+ 477:sd_raw.c      ****             }
+ 465               		.loc 1 477 24 view .LVU96
+ 466               	.LBE21:
+ 527:sd_raw.c      **** 
+ 467               		.loc 1 527 1 view .LVU97
+ 468 0168 DF91      		pop r29
+ 469 016a CF91      		pop r28
+ 470 016c 1F91      		pop r17
+ 471 016e 0F91      		pop r16
+ 472 0170 FF90      		pop r15
+ 473 0172 EF90      		pop r14
+ 474               	.LVL26:
+ 527:sd_raw.c      **** 
+ 475               		.loc 1 527 1 view .LVU98
+ 476 0174 DF90      		pop r13
+ 477 0176 CF90      		pop r12
+ 478               	.LVL27:
+ 527:sd_raw.c      **** 
+ 479               		.loc 1 527 1 view .LVU99
+ 480 0178 BF90      		pop r11
+ 481 017a AF90      		pop r10
+ 482 017c 9F90      		pop r9
+ 483 017e 8F90      		pop r8
+ 484               	.LVL28:
+ 527:sd_raw.c      **** 
+ 485               		.loc 1 527 1 view .LVU100
+ 486 0180 7F90      		pop r7
+ 487 0182 6F90      		pop r6
+ 488 0184 5F90      		pop r5
+ 489 0186 4F90      		pop r4
+ 490 0188 3F90      		pop r3
+ 491 018a 2F90      		pop r2
+ 492 018c 0895      		ret
+ 493               	.LVL29:
+ 494               	.L30:
+ 495               	.LBB23:
+ 481:sd_raw.c      **** 
+ 496               		.loc 1 481 45 is_stmt 1 discriminator 1 view .LVU101
+ 481:sd_raw.c      **** 
+ 497               		.loc 1 481 19 is_stmt 0 discriminator 1 view .LVU102
+ 498 018e 0E94 0000 		call sd_raw_rec_byte
+ 499               	.LVL30:
+ 481:sd_raw.c      **** 
+ 500               		.loc 1 481 18 discriminator 1 view .LVU103
+ 501 0192 8E3F      		cpi r24,lo8(-2)
+ 502 0194 01F4      		brne .L30
+ 494:sd_raw.c      ****             for(uint16_t i = 0; i < 512; ++i)
+ 503               		.loc 1 494 22 view .LVU104
+ 504 0196 00E0      		ldi r16,lo8(raw_block)
+ 505 0198 10E0      		ldi r17,hi8(raw_block)
+ 506               	.L31:
+ 507               	.LVL31:
+ 508               	.LBB22:
+ 496:sd_raw.c      ****             raw_block_address = block_address;
+ 509               		.loc 1 496 17 is_stmt 1 discriminator 3 view .LVU105
+ 496:sd_raw.c      ****             raw_block_address = block_address;
+ 510               		.loc 1 496 28 is_stmt 0 discriminator 3 view .LVU106
+ 511 019a 0E94 0000 		call sd_raw_rec_byte
+ 512               	.LVL32:
+ 496:sd_raw.c      ****             raw_block_address = block_address;
+ 513               		.loc 1 496 26 discriminator 3 view .LVU107
+ 514 019e F801      		movw r30,r16
+ 515 01a0 8193      		st Z+,r24
+ 516 01a2 8F01      		movw r16,r30
+ 517               	.LVL33:
+ 495:sd_raw.c      ****                 *cache++ = sd_raw_rec_byte();
+ 518               		.loc 1 495 13 discriminator 3 view .LVU108
+ 519 01a4 F0E0      		ldi r31,hi8(raw_block+512)
+ 520 01a6 0030      		cpi r16,lo8(raw_block+512)
+ 521 01a8 1F07      		cpc r17,r31
+ 522 01aa 01F4      		brne .L31
+ 523               	.LBE22:
+ 497:sd_raw.c      **** 
+ 524               		.loc 1 497 13 is_stmt 1 view .LVU109
+ 497:sd_raw.c      **** 
+ 525               		.loc 1 497 31 is_stmt 0 view .LVU110
+ 526 01ac 4092 0000 		sts raw_block_address,r4
+ 527 01b0 5092 0000 		sts raw_block_address+1,r5
+ 528 01b4 6092 0000 		sts raw_block_address+2,r6
+ 529 01b8 7092 0000 		sts raw_block_address+3,r7
+ 499:sd_raw.c      ****             buffer += read_length;
+ 530               		.loc 1 499 13 is_stmt 1 view .LVU111
+ 531 01bc B101      		movw r22,r2
+ 532 01be 6050      		subi r22,lo8(-(raw_block))
+ 533 01c0 7040      		sbci r23,hi8(-(raw_block))
+ 534 01c2 AE01      		movw r20,r28
+ 535 01c4 C701      		movw r24,r14
+ 536 01c6 0E94 0000 		call memcpy
+ 537               	.LVL34:
+ 500:sd_raw.c      **** #endif
+ 538               		.loc 1 500 13 view .LVU112
+ 500:sd_raw.c      **** #endif
+ 539               		.loc 1 500 20 is_stmt 0 view .LVU113
+ 540 01ca EC0E      		add r14,r28
+ 541 01cc FD1E      		adc r15,r29
+ 542               	.LVL35:
+ 504:sd_raw.c      ****             sd_raw_rec_byte();
+ 543               		.loc 1 504 13 is_stmt 1 view .LVU114
+ 544 01ce 0E94 0000 		call sd_raw_rec_byte
+ 545               	.LVL36:
+ 505:sd_raw.c      ****             
+ 546               		.loc 1 505 13 view .LVU115
+ 547 01d2 0E94 0000 		call sd_raw_rec_byte
+ 548               	.LVL37:
+ 508:sd_raw.c      **** 
+ 549               		.loc 1 508 13 view .LVU116
+ 550 01d6 2E9A      		sbi 0x5,6
+ 511:sd_raw.c      ****         }
+ 551               		.loc 1 511 13 view .LVU117
+ 552 01d8 0E94 0000 		call sd_raw_rec_byte
+ 553               	.LVL38:
+ 554               	.L32:
+ 511:sd_raw.c      ****         }
+ 555               		.loc 1 511 13 is_stmt 0 view .LVU118
+ 556               	.LBE23:
+ 522:sd_raw.c      ****         offset += read_length;
+ 557               		.loc 1 522 9 is_stmt 1 view .LVU119
+ 522:sd_raw.c      ****         offset += read_length;
+ 558               		.loc 1 522 16 is_stmt 0 view .LVU120
+ 559 01dc CC1A      		sub r12,r28
+ 560 01de DD0A      		sbc r13,r29
+ 561               	.LVL39:
+ 523:sd_raw.c      ****     }
+ 562               		.loc 1 523 9 is_stmt 1 view .LVU121
+ 523:sd_raw.c      ****     }
+ 563               		.loc 1 523 16 is_stmt 0 view .LVU122
+ 564 01e0 8C0E      		add r8,r28
+ 565 01e2 9D1E      		adc r9,r29
+ 566 01e4 A11C      		adc r10,__zero_reg__
+ 567 01e6 B11C      		adc r11,__zero_reg__
+ 568               	.LVL40:
+ 523:sd_raw.c      ****     }
+ 569               		.loc 1 523 16 view .LVU123
+ 570 01e8 00C0      		rjmp .L26
+ 571               	.L28:
+ 517:sd_raw.c      ****             buffer += read_length;
+ 572               		.loc 1 517 13 is_stmt 1 view .LVU124
+ 573 01ea B101      		movw r22,r2
+ 574 01ec 6050      		subi r22,lo8(-(raw_block))
+ 575 01ee 7040      		sbci r23,hi8(-(raw_block))
+ 576 01f0 AE01      		movw r20,r28
+ 577 01f2 C701      		movw r24,r14
+ 578 01f4 0E94 0000 		call memcpy
+ 579               	.LVL41:
+ 518:sd_raw.c      ****         }
+ 580               		.loc 1 518 13 view .LVU125
+ 518:sd_raw.c      ****         }
+ 581               		.loc 1 518 20 is_stmt 0 view .LVU126
+ 582 01f8 EC0E      		add r14,r28
+ 583 01fa FD1E      		adc r15,r29
+ 584               	.LVL42:
+ 518:sd_raw.c      ****         }
+ 585               		.loc 1 518 20 view .LVU127
+ 586 01fc 00C0      		rjmp .L32
+ 587               		.cfi_endproc
+ 588               	.LFE6:
+ 590               	.global	sd_raw_init
+ 592               	sd_raw_init:
+ 593               	.LFB0:
+ 173:sd_raw.c      ****     /* enable inputs for reading card status */
+ 594               		.loc 1 173 1 is_stmt 1 view -0
+ 595               		.cfi_startproc
+ 596 01fe 0F93      		push r16
+ 597               	.LCFI23:
+ 598               		.cfi_def_cfa_offset 3
+ 599               		.cfi_offset 16, -2
+ 600 0200 1F93      		push r17
+ 601               	.LCFI24:
+ 602               		.cfi_def_cfa_offset 4
+ 603               		.cfi_offset 17, -3
+ 604 0202 CF93      		push r28
+ 605               	.LCFI25:
+ 606               		.cfi_def_cfa_offset 5
+ 607               		.cfi_offset 28, -4
+ 608               	/* prologue: function */
+ 609               	/* frame size = 0 */
+ 610               	/* stack size = 3 */
+ 611               	.L__stack_usage = 3
+ 175:sd_raw.c      ****     configure_pin_locked();
+ 612               		.loc 1 175 5 view .LVU129
+ 613 0204 2798      		cbi 0x4,7
+ 176:sd_raw.c      **** 
+ 614               		.loc 1 176 5 view .LVU130
+ 615 0206 3D98      		cbi 0x7,5
+ 179:sd_raw.c      ****     configure_pin_sck();
+ 616               		.loc 1 179 5 view .LVU131
+ 617 0208 239A      		sbi 0x4,3
+ 180:sd_raw.c      ****     configure_pin_ss();
+ 618               		.loc 1 180 5 view .LVU132
+ 619 020a 259A      		sbi 0x4,5
+ 181:sd_raw.c      ****     configure_pin_miso();
+ 620               		.loc 1 181 5 view .LVU133
+ 621 020c 269A      		sbi 0x4,6
+ 182:sd_raw.c      **** 
+ 622               		.loc 1 182 5 view .LVU134
+ 623 020e 2498      		cbi 0x4,4
+ 184:sd_raw.c      **** 
+ 624               		.loc 1 184 5 view .LVU135
+ 625 0210 2E9A      		sbi 0x5,6
+ 187:sd_raw.c      ****            (1 << SPE)  | /* SPI Enable */
+ 626               		.loc 1 187 5 view .LVU136
+ 187:sd_raw.c      ****            (1 << SPE)  | /* SPI Enable */
+ 627               		.loc 1 187 10 is_stmt 0 view .LVU137
+ 628 0212 83E5      		ldi r24,lo8(83)
+ 629 0214 8CBD      		out 0x2c,r24
+ 195:sd_raw.c      **** 
+ 630               		.loc 1 195 5 is_stmt 1 view .LVU138
+ 195:sd_raw.c      **** 
+ 631               		.loc 1 195 10 is_stmt 0 view .LVU139
+ 632 0216 8DB5      		in r24,0x2d
+ 633 0218 8E7F      		andi r24,lo8(-2)
+ 634 021a 8DBD      		out 0x2d,r24
+ 198:sd_raw.c      ****     
+ 635               		.loc 1 198 5 is_stmt 1 view .LVU140
+ 198:sd_raw.c      ****     
+ 636               		.loc 1 198 22 is_stmt 0 view .LVU141
+ 637 021c 1092 0000 		sts sd_raw_card_type,__zero_reg__
+ 200:sd_raw.c      ****         return 0;
+ 638               		.loc 1 200 5 is_stmt 1 view .LVU142
+ 639               	.LBB24:
+ 640               	.LBI24:
+ 339:sd_raw.c      **** {
+ 641               		.loc 1 339 9 view .LVU143
+ 642               	.LBB25:
+ 341:sd_raw.c      **** }
+ 643               		.loc 1 341 5 view .LVU144
+ 644               	.LBE25:
+ 645               	.LBE24:
+ 200:sd_raw.c      ****         return 0;
+ 646               		.loc 1 200 7 is_stmt 0 view .LVU145
+ 647 0220 1F99      		sbic 0x3,7
+ 648 0222 00C0      		rjmp .L53
+ 649 0224 CAE0      		ldi r28,lo8(10)
+ 650               	.L43:
+ 651               	.LVL43:
+ 652               	.LBB26:
+ 207:sd_raw.c      ****     }
+ 653               		.loc 1 207 9 is_stmt 1 discriminator 3 view .LVU146
+ 654 0226 0E94 0000 		call sd_raw_rec_byte
+ 655               	.LVL44:
+ 207:sd_raw.c      ****     }
+ 656               		.loc 1 207 9 is_stmt 0 discriminator 3 view .LVU147
+ 657 022a C150      		subi r28,lo8(-(-1))
+ 658               	.LVL45:
+ 204:sd_raw.c      ****     {
+ 659               		.loc 1 204 5 discriminator 3 view .LVU148
+ 660 022c 01F4      		brne .L43
+ 661               	.LBE26:
+ 211:sd_raw.c      **** 
+ 662               		.loc 1 211 5 is_stmt 1 view .LVU149
+ 663 022e 2E98      		cbi 0x5,6
+ 214:sd_raw.c      ****     for(uint16_t i = 0; ; ++i)
+ 664               		.loc 1 214 5 view .LVU150
+ 215:sd_raw.c      ****     {
+ 665               		.loc 1 215 5 view .LVU151
+ 666               	.LBB27:
+ 215:sd_raw.c      ****     {
+ 667               		.loc 1 215 9 view .LVU152
+ 668               	.LVL46:
+ 215:sd_raw.c      ****     {
+ 669               		.loc 1 215 9 is_stmt 0 view .LVU153
+ 670               	.LBE27:
+ 211:sd_raw.c      **** 
+ 671               		.loc 1 211 5 view .LVU154
+ 672 0230 00E0      		ldi r16,0
+ 673 0232 12E0      		ldi r17,lo8(2)
+ 674               	.LVL47:
+ 675               	.L45:
+ 676               	.LBB28:
+ 217:sd_raw.c      ****         if(response == (1 << R1_IDLE_STATE))
+ 677               		.loc 1 217 9 is_stmt 1 view .LVU155
+ 217:sd_raw.c      ****         if(response == (1 << R1_IDLE_STATE))
+ 678               		.loc 1 217 20 is_stmt 0 view .LVU156
+ 679 0234 40E0      		ldi r20,0
+ 680 0236 50E0      		ldi r21,0
+ 681 0238 BA01      		movw r22,r20
+ 682 023a 80E0      		ldi r24,0
+ 683 023c 0E94 0000 		call sd_raw_send_command
+ 684               	.LVL48:
+ 218:sd_raw.c      ****             break;
+ 685               		.loc 1 218 9 is_stmt 1 view .LVU157
+ 218:sd_raw.c      ****             break;
+ 686               		.loc 1 218 11 is_stmt 0 view .LVU158
+ 687 0240 8130      		cpi r24,lo8(1)
+ 688 0242 01F0      		breq .L44
+ 221:sd_raw.c      ****         {
+ 689               		.loc 1 221 9 is_stmt 1 view .LVU159
+ 690 0244 0150      		subi r16,1
+ 691 0246 1109      		sbc r17,__zero_reg__
+ 692               	.LVL49:
+ 221:sd_raw.c      ****         {
+ 693               		.loc 1 221 11 is_stmt 0 view .LVU160
+ 694 0248 01F4      		brne .L45
+ 695               	.LVL50:
+ 696               	.L58:
+ 221:sd_raw.c      ****         {
+ 697               		.loc 1 221 11 view .LVU161
+ 698               	.LBE28:
+ 699               	.LBB29:
+ 283:sd_raw.c      ****             return 0;
+ 700               		.loc 1 283 13 is_stmt 1 view .LVU162
+ 701 024a 2E9A      		sbi 0x5,6
+ 284:sd_raw.c      ****         }
+ 702               		.loc 1 284 13 view .LVU163
+ 703               	.LVL51:
+ 704               	.L41:
+ 284:sd_raw.c      ****         }
+ 705               		.loc 1 284 13 is_stmt 0 view .LVU164
+ 706               	.LBE29:
+ 331:sd_raw.c      **** 
+ 707               		.loc 1 331 1 view .LVU165
+ 708 024c 8C2F      		mov r24,r28
+ 709               	/* epilogue start */
+ 710 024e CF91      		pop r28
+ 711 0250 1F91      		pop r17
+ 712 0252 0F91      		pop r16
+ 713 0254 0895      		ret
+ 714               	.LVL52:
+ 715               	.L44:
+ 247:sd_raw.c      ****         response = sd_raw_send_command(CMD_SD_SEND_OP_COND, 0);
+ 716               		.loc 1 247 9 is_stmt 1 view .LVU166
+ 717 0256 40E0      		ldi r20,0
+ 718 0258 50E0      		ldi r21,0
+ 719 025a BA01      		movw r22,r20
+ 720 025c 87E3      		ldi r24,lo8(55)
+ 721               	.LVL53:
+ 247:sd_raw.c      ****         response = sd_raw_send_command(CMD_SD_SEND_OP_COND, 0);
+ 722               		.loc 1 247 9 is_stmt 0 view .LVU167
+ 723 025e 0E94 0000 		call sd_raw_send_command
+ 724               	.LVL54:
+ 248:sd_raw.c      ****         if((response & (1 << R1_ILL_COMMAND)) == 0)
+ 725               		.loc 1 248 9 is_stmt 1 view .LVU168
+ 248:sd_raw.c      ****         if((response & (1 << R1_ILL_COMMAND)) == 0)
+ 726               		.loc 1 248 20 is_stmt 0 view .LVU169
+ 727 0262 40E0      		ldi r20,0
+ 728 0264 50E0      		ldi r21,0
+ 729 0266 BA01      		movw r22,r20
+ 730 0268 89E2      		ldi r24,lo8(41)
+ 731 026a 0E94 0000 		call sd_raw_send_command
+ 732               	.LVL55:
+ 249:sd_raw.c      ****         {
+ 733               		.loc 1 249 9 is_stmt 1 view .LVU170
+ 249:sd_raw.c      ****         {
+ 734               		.loc 1 249 11 is_stmt 0 view .LVU171
+ 735 026e 82FD      		sbrc r24,2
+ 736 0270 00C0      		rjmp .L46
+ 252:sd_raw.c      ****         }
+ 737               		.loc 1 252 13 is_stmt 1 view .LVU172
+ 252:sd_raw.c      ****         }
+ 738               		.loc 1 252 30 is_stmt 0 view .LVU173
+ 739 0272 8091 0000 		lds r24,sd_raw_card_type
+ 740               	.LVL56:
+ 252:sd_raw.c      ****         }
+ 741               		.loc 1 252 30 view .LVU174
+ 742 0276 8160      		ori r24,lo8(1)
+ 743 0278 8093 0000 		sts sd_raw_card_type,r24
+ 744               	.L46:
+ 211:sd_raw.c      **** 
+ 745               		.loc 1 211 5 view .LVU175
+ 746 027c 00E0      		ldi r16,0
+ 747 027e 10E8      		ldi r17,lo8(-128)
+ 748               	.LVL57:
+ 749               	.L50:
+ 750               	.LBB32:
+ 263:sd_raw.c      ****         {
+ 751               		.loc 1 263 9 is_stmt 1 view .LVU176
+ 263:sd_raw.c      ****         {
+ 752               		.loc 1 263 11 is_stmt 0 view .LVU177
+ 753 0280 8091 0000 		lds r24,sd_raw_card_type
+ 754 0284 8370      		andi r24,lo8(3)
+ 755               	.LBB30:
+ 270:sd_raw.c      ****             response = sd_raw_send_command(CMD_SD_SEND_OP_COND, arg);
+ 756               		.loc 1 270 13 view .LVU178
+ 757 0286 40E0      		ldi r20,0
+ 758 0288 50E0      		ldi r21,0
+ 759 028a BA01      		movw r22,r20
+ 760               	.LBE30:
+ 263:sd_raw.c      ****         {
+ 761               		.loc 1 263 11 view .LVU179
+ 762 028c 01F0      		breq .L47
+ 763               	.LBB31:
+ 265:sd_raw.c      **** #if SD_RAW_SDHC
+ 764               		.loc 1 265 13 is_stmt 1 view .LVU180
+ 765               	.LVL58:
+ 270:sd_raw.c      ****             response = sd_raw_send_command(CMD_SD_SEND_OP_COND, arg);
+ 766               		.loc 1 270 13 view .LVU181
+ 767 028e 87E3      		ldi r24,lo8(55)
+ 768 0290 0E94 0000 		call sd_raw_send_command
+ 769               	.LVL59:
+ 271:sd_raw.c      ****         }
+ 770               		.loc 1 271 13 view .LVU182
+ 271:sd_raw.c      ****         }
+ 771               		.loc 1 271 24 is_stmt 0 view .LVU183
+ 772 0294 40E0      		ldi r20,0
+ 773 0296 50E0      		ldi r21,0
+ 774 0298 BA01      		movw r22,r20
+ 775 029a 89E2      		ldi r24,lo8(41)
+ 776               	.LVL60:
+ 777               	.L57:
+ 271:sd_raw.c      ****         }
+ 778               		.loc 1 271 24 view .LVU184
+ 779               	.LBE31:
+ 275:sd_raw.c      ****         }
+ 780               		.loc 1 275 24 view .LVU185
+ 781 029c 0E94 0000 		call sd_raw_send_command
+ 782               	.LVL61:
+ 278:sd_raw.c      ****             break;
+ 783               		.loc 1 278 9 is_stmt 1 view .LVU186
+ 278:sd_raw.c      ****             break;
+ 784               		.loc 1 278 11 is_stmt 0 view .LVU187
+ 785 02a0 80FF      		sbrs r24,0
+ 786 02a2 00C0      		rjmp .L49
+ 281:sd_raw.c      ****         {
+ 787               		.loc 1 281 9 is_stmt 1 view .LVU188
+ 788 02a4 0150      		subi r16,1
+ 789 02a6 1109      		sbc r17,__zero_reg__
+ 790               	.LVL62:
+ 281:sd_raw.c      ****         {
+ 791               		.loc 1 281 11 is_stmt 0 view .LVU189
+ 792 02a8 01F4      		brne .L50
+ 793 02aa 00C0      		rjmp .L58
+ 794               	.LVL63:
+ 795               	.L47:
+ 275:sd_raw.c      ****         }
+ 796               		.loc 1 275 13 is_stmt 1 view .LVU190
+ 275:sd_raw.c      ****         }
+ 797               		.loc 1 275 24 is_stmt 0 view .LVU191
+ 798 02ac 81E0      		ldi r24,lo8(1)
+ 799 02ae 00C0      		rjmp .L57
+ 800               	.LVL64:
+ 801               	.L49:
+ 275:sd_raw.c      ****         }
+ 802               		.loc 1 275 24 view .LVU192
+ 803               	.LBE32:
+ 307:sd_raw.c      ****     {
+ 804               		.loc 1 307 5 is_stmt 1 view .LVU193
+ 307:sd_raw.c      ****     {
+ 805               		.loc 1 307 8 is_stmt 0 view .LVU194
+ 806 02b0 40E0      		ldi r20,0
+ 807 02b2 52E0      		ldi r21,lo8(2)
+ 808 02b4 60E0      		ldi r22,0
+ 809 02b6 70E0      		ldi r23,0
+ 810 02b8 80E1      		ldi r24,lo8(16)
+ 811               	.LVL65:
+ 307:sd_raw.c      ****     {
+ 812               		.loc 1 307 8 view .LVU195
+ 813 02ba 0E94 0000 		call sd_raw_send_command
+ 814               	.LVL66:
+ 309:sd_raw.c      ****         return 0;
+ 815               		.loc 1 309 9 view .LVU196
+ 816 02be 2E9A      		sbi 0x5,6
+ 307:sd_raw.c      ****     {
+ 817               		.loc 1 307 7 view .LVU197
+ 818 02c0 8823      		tst r24
+ 819 02c2 01F0      		breq .L51
+ 820               	.LVL67:
+ 821               	.L53:
+ 201:sd_raw.c      **** 
+ 822               		.loc 1 201 16 view .LVU198
+ 823 02c4 C0E0      		ldi r28,0
+ 824 02c6 00C0      		rjmp .L41
+ 825               	.LVL68:
+ 826               	.L51:
+ 314:sd_raw.c      **** 
+ 827               		.loc 1 314 5 is_stmt 1 view .LVU199
+ 317:sd_raw.c      ****     SPSR |= (1 << SPI2X); /* Doubled Clock Frequency: f_OSC / 2 */
+ 828               		.loc 1 317 5 view .LVU200
+ 317:sd_raw.c      ****     SPSR |= (1 << SPI2X); /* Doubled Clock Frequency: f_OSC / 2 */
+ 829               		.loc 1 317 10 is_stmt 0 view .LVU201
+ 830 02c8 8CB5      		in r24,0x2c
+ 831 02ca 8C7F      		andi r24,lo8(-4)
+ 832 02cc 8CBD      		out 0x2c,r24
+ 318:sd_raw.c      **** 
+ 833               		.loc 1 318 5 is_stmt 1 view .LVU202
+ 318:sd_raw.c      **** 
+ 834               		.loc 1 318 10 is_stmt 0 view .LVU203
+ 835 02ce 8DB5      		in r24,0x2d
+ 836 02d0 8160      		ori r24,lo8(1)
+ 837 02d2 8DBD      		out 0x2d,r24
+ 322:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 838               		.loc 1 322 5 is_stmt 1 view .LVU204
+ 322:sd_raw.c      **** #if SD_RAW_WRITE_BUFFERING
+ 839               		.loc 1 322 23 is_stmt 0 view .LVU205
+ 840 02d4 8FEF      		ldi r24,lo8(-1)
+ 841 02d6 9FEF      		ldi r25,lo8(-1)
+ 842 02d8 DC01      		movw r26,r24
+ 843 02da 8093 0000 		sts raw_block_address,r24
+ 844 02de 9093 0000 		sts raw_block_address+1,r25
+ 845 02e2 A093 0000 		sts raw_block_address+2,r26
+ 846 02e6 B093 0000 		sts raw_block_address+3,r27
+ 324:sd_raw.c      **** #endif
+ 847               		.loc 1 324 5 is_stmt 1 view .LVU206
+ 324:sd_raw.c      **** #endif
+ 848               		.loc 1 324 23 is_stmt 0 view .LVU207
+ 849 02ea 81E0      		ldi r24,lo8(1)
+ 850 02ec 8093 0000 		sts raw_block_written,r24
+ 326:sd_raw.c      ****         return 0;
+ 851               		.loc 1 326 5 is_stmt 1 view .LVU208
+ 326:sd_raw.c      ****         return 0;
+ 852               		.loc 1 326 9 is_stmt 0 view .LVU209
+ 853 02f0 20E0      		ldi r18,0
+ 854 02f2 32E0      		ldi r19,lo8(2)
+ 855 02f4 40E0      		ldi r20,lo8(raw_block)
+ 856 02f6 50E0      		ldi r21,hi8(raw_block)
+ 857 02f8 60E0      		ldi r22,0
+ 858 02fa 70E0      		ldi r23,0
+ 859 02fc CB01      		movw r24,r22
+ 860 02fe 0E94 0000 		call sd_raw_read
+ 861               	.LVL69:
+ 326:sd_raw.c      ****         return 0;
+ 862               		.loc 1 326 7 view .LVU210
+ 863 0302 C1E0      		ldi r28,lo8(1)
+ 864               	.LVL70:
+ 326:sd_raw.c      ****         return 0;
+ 865               		.loc 1 326 7 view .LVU211
+ 866 0304 8111      		cpse r24,__zero_reg__
+ 867 0306 00C0      		rjmp .L41
+ 868 0308 00C0      		rjmp .L53
+ 869               		.cfi_endproc
+ 870               	.LFE0:
+ 872               	.global	sd_raw_read_interval
+ 874               	sd_raw_read_interval:
+ 875               	.LVL71:
+ 876               	.LFB7:
+ 554:sd_raw.c      ****     if(!buffer || interval == 0 || length < interval || !callback)
+ 877               		.loc 1 554 1 is_stmt 1 view -0
+ 878               		.cfi_startproc
+ 554:sd_raw.c      ****     if(!buffer || interval == 0 || length < interval || !callback)
+ 879               		.loc 1 554 1 is_stmt 0 view .LVU213
+ 880 030a 2F92      		push r2
+ 881               	.LCFI26:
+ 882               		.cfi_def_cfa_offset 3
+ 883               		.cfi_offset 2, -2
+ 884 030c 3F92      		push r3
+ 885               	.LCFI27:
+ 886               		.cfi_def_cfa_offset 4
+ 887               		.cfi_offset 3, -3
+ 888 030e 4F92      		push r4
+ 889               	.LCFI28:
+ 890               		.cfi_def_cfa_offset 5
+ 891               		.cfi_offset 4, -4
+ 892 0310 5F92      		push r5
+ 893               	.LCFI29:
+ 894               		.cfi_def_cfa_offset 6
+ 895               		.cfi_offset 5, -5
+ 896 0312 6F92      		push r6
+ 897               	.LCFI30:
+ 898               		.cfi_def_cfa_offset 7
+ 899               		.cfi_offset 6, -6
+ 900 0314 7F92      		push r7
+ 901               	.LCFI31:
+ 902               		.cfi_def_cfa_offset 8
+ 903               		.cfi_offset 7, -7
+ 904 0316 8F92      		push r8
+ 905               	.LCFI32:
+ 906               		.cfi_def_cfa_offset 9
+ 907               		.cfi_offset 8, -8
+ 908 0318 9F92      		push r9
+ 909               	.LCFI33:
+ 910               		.cfi_def_cfa_offset 10
+ 911               		.cfi_offset 9, -9
+ 912 031a AF92      		push r10
+ 913               	.LCFI34:
+ 914               		.cfi_def_cfa_offset 11
+ 915               		.cfi_offset 10, -10
+ 916 031c BF92      		push r11
+ 917               	.LCFI35:
+ 918               		.cfi_def_cfa_offset 12
+ 919               		.cfi_offset 11, -11
+ 920 031e CF92      		push r12
+ 921               	.LCFI36:
+ 922               		.cfi_def_cfa_offset 13
+ 923               		.cfi_offset 12, -12
+ 924 0320 DF92      		push r13
+ 925               	.LCFI37:
+ 926               		.cfi_def_cfa_offset 14
+ 927               		.cfi_offset 13, -13
+ 928 0322 EF92      		push r14
+ 929               	.LCFI38:
+ 930               		.cfi_def_cfa_offset 15
+ 931               		.cfi_offset 14, -14
+ 932 0324 FF92      		push r15
+ 933               	.LCFI39:
+ 934               		.cfi_def_cfa_offset 16
+ 935               		.cfi_offset 15, -15
+ 936 0326 0F93      		push r16
+ 937               	.LCFI40:
+ 938               		.cfi_def_cfa_offset 17
+ 939               		.cfi_offset 16, -16
+ 940 0328 1F93      		push r17
+ 941               	.LCFI41:
+ 942               		.cfi_def_cfa_offset 18
+ 943               		.cfi_offset 17, -17
+ 944 032a CF93      		push r28
+ 945               	.LCFI42:
+ 946               		.cfi_def_cfa_offset 19
+ 947               		.cfi_offset 28, -18
+ 948 032c DF93      		push r29
+ 949               	.LCFI43:
+ 950               		.cfi_def_cfa_offset 20
+ 951               		.cfi_offset 29, -19
+ 952               	/* prologue: function */
+ 953               	/* frame size = 0 */
+ 954               	/* stack size = 18 */
+ 955               	.L__stack_usage = 18
+ 956 032e 2B01      		movw r4,r22
+ 957 0330 3C01      		movw r6,r24
+ 958 0332 5A01      		movw r10,r20
+ 959 0334 E901      		movw r28,r18
+ 960 0336 4701      		movw r8,r14
+ 961 0338 1601      		movw r2,r12
+ 555:sd_raw.c      ****         return 0;
+ 962               		.loc 1 555 5 is_stmt 1 view .LVU214
+ 555:sd_raw.c      ****         return 0;
+ 963               		.loc 1 555 7 is_stmt 0 view .LVU215
+ 964 033a 452B      		or r20,r21
+ 965 033c 01F0      		breq .L60
+ 555:sd_raw.c      ****         return 0;
+ 966               		.loc 1 555 16 discriminator 1 view .LVU216
+ 967 033e 2097      		sbiw r28,0
+ 968 0340 01F0      		breq .L60
+ 555:sd_raw.c      ****         return 0;
+ 969               		.loc 1 555 33 discriminator 2 view .LVU217
+ 970 0342 0217      		cp r16,r18
+ 971 0344 1307      		cpc r17,r19
+ 972 0346 00F0      		brlo .L60
+ 555:sd_raw.c      ****         return 0;
+ 973               		.loc 1 555 54 discriminator 3 view .LVU218
+ 974 0348 EF28      		or r14,r15
+ 975 034a 01F0      		breq .L60
+ 568:sd_raw.c      ****         length -= interval;
+ 976               		.loc 1 568 16 view .LVU219
+ 977 034c 6901      		movw r12,r18
+ 978               	.LVL72:
+ 568:sd_raw.c      ****         length -= interval;
+ 979               		.loc 1 568 16 view .LVU220
+ 980 034e F12C      		mov r15,__zero_reg__
+ 981 0350 E12C      		mov r14,__zero_reg__
+ 982               	.LVL73:
+ 983               	.L62:
+ 564:sd_raw.c      ****             return 0;
+ 984               		.loc 1 564 9 is_stmt 1 view .LVU221
+ 564:sd_raw.c      ****             return 0;
+ 985               		.loc 1 564 13 is_stmt 0 view .LVU222
+ 986 0352 9E01      		movw r18,r28
+ 987 0354 A501      		movw r20,r10
+ 988 0356 C301      		movw r24,r6
+ 989 0358 B201      		movw r22,r4
+ 990 035a 0E94 0000 		call sd_raw_read
+ 991               	.LVL74:
+ 564:sd_raw.c      ****             return 0;
+ 992               		.loc 1 564 11 view .LVU223
+ 993 035e 8823      		tst r24
+ 994 0360 01F0      		breq .L60
+ 566:sd_raw.c      ****             break;
+ 995               		.loc 1 566 9 is_stmt 1 view .LVU224
+ 566:sd_raw.c      ****             break;
+ 996               		.loc 1 566 13 is_stmt 0 view .LVU225
+ 997 0362 9101      		movw r18,r2
+ 998 0364 B301      		movw r22,r6
+ 999 0366 A201      		movw r20,r4
+ 1000 0368 C501      		movw r24,r10
+ 1001 036a F401      		movw r30,r8
+ 1002 036c 0995      		icall
+ 1003               	.LVL75:
+ 566:sd_raw.c      ****             break;
+ 1004               		.loc 1 566 11 view .LVU226
+ 1005 036e 8823      		tst r24
+ 1006 0370 01F0      		breq .L63
+ 568:sd_raw.c      ****         length -= interval;
+ 1007               		.loc 1 568 9 is_stmt 1 view .LVU227
+ 568:sd_raw.c      ****         length -= interval;
+ 1008               		.loc 1 568 16 is_stmt 0 view .LVU228
+ 1009 0372 4C0C      		add r4,r12
+ 1010 0374 5D1C      		adc r5,r13
+ 1011 0376 6E1C      		adc r6,r14
+ 1012 0378 7F1C      		adc r7,r15
+ 1013               	.LVL76:
+ 569:sd_raw.c      ****     }
+ 1014               		.loc 1 569 9 is_stmt 1 view .LVU229
+ 569:sd_raw.c      ****     }
+ 1015               		.loc 1 569 16 is_stmt 0 view .LVU230
+ 1016 037a 0C1B      		sub r16,r28
+ 1017 037c 1D0B      		sbc r17,r29
+ 1018               	.LVL77:
+ 559:sd_raw.c      ****     {
+ 1019               		.loc 1 559 10 view .LVU231
+ 1020 037e 0C17      		cp r16,r28
+ 1021 0380 1D07      		cpc r17,r29
+ 1022 0382 00F4      		brsh .L62
+ 1023               	.L63:
+ 572:sd_raw.c      **** #else
+ 1024               		.loc 1 572 12 view .LVU232
+ 1025 0384 81E0      		ldi r24,lo8(1)
+ 1026 0386 00C0      		rjmp .L59
+ 1027               	.LVL78:
+ 1028               	.L60:
+ 556:sd_raw.c      **** 
+ 1029               		.loc 1 556 16 view .LVU233
+ 1030 0388 80E0      		ldi r24,0
+ 1031               	.L59:
+ 1032               	/* epilogue start */
+ 649:sd_raw.c      **** 
+ 1033               		.loc 1 649 1 view .LVU234
+ 1034 038a DF91      		pop r29
+ 1035 038c CF91      		pop r28
+ 1036               	.LVL79:
+ 649:sd_raw.c      **** 
+ 1037               		.loc 1 649 1 view .LVU235
+ 1038 038e 1F91      		pop r17
+ 1039 0390 0F91      		pop r16
+ 1040               	.LVL80:
+ 649:sd_raw.c      **** 
+ 1041               		.loc 1 649 1 view .LVU236
+ 1042 0392 FF90      		pop r15
+ 1043 0394 EF90      		pop r14
+ 1044 0396 DF90      		pop r13
+ 1045 0398 CF90      		pop r12
+ 1046 039a BF90      		pop r11
+ 1047 039c AF90      		pop r10
+ 1048               	.LVL81:
+ 649:sd_raw.c      **** 
+ 1049               		.loc 1 649 1 view .LVU237
+ 1050 039e 9F90      		pop r9
+ 1051 03a0 8F90      		pop r8
+ 1052               	.LVL82:
+ 649:sd_raw.c      **** 
+ 1053               		.loc 1 649 1 view .LVU238
+ 1054 03a2 7F90      		pop r7
+ 1055 03a4 6F90      		pop r6
+ 1056 03a6 5F90      		pop r5
+ 1057 03a8 4F90      		pop r4
+ 1058 03aa 3F90      		pop r3
+ 1059 03ac 2F90      		pop r2
+ 1060               	.LVL83:
+ 649:sd_raw.c      **** 
+ 1061               		.loc 1 649 1 view .LVU239
+ 1062 03ae 0895      		ret
+ 1063               		.cfi_endproc
+ 1064               	.LFE7:
+ 1066               	.global	sd_raw_write
+ 1068               	sd_raw_write:
+ 1069               	.LVL84:
+ 1070               	.LFB8:
+ 667:sd_raw.c      ****     if(sd_raw_locked())
+ 1071               		.loc 1 667 1 is_stmt 1 view -0
+ 1072               		.cfi_startproc
+ 667:sd_raw.c      ****     if(sd_raw_locked())
+ 1073               		.loc 1 667 1 is_stmt 0 view .LVU241
+ 1074 03b0 2F92      		push r2
+ 1075               	.LCFI44:
+ 1076               		.cfi_def_cfa_offset 3
+ 1077               		.cfi_offset 2, -2
+ 1078 03b2 3F92      		push r3
+ 1079               	.LCFI45:
+ 1080               		.cfi_def_cfa_offset 4
+ 1081               		.cfi_offset 3, -3
+ 1082 03b4 4F92      		push r4
+ 1083               	.LCFI46:
+ 1084               		.cfi_def_cfa_offset 5
+ 1085               		.cfi_offset 4, -4
+ 1086 03b6 5F92      		push r5
+ 1087               	.LCFI47:
+ 1088               		.cfi_def_cfa_offset 6
+ 1089               		.cfi_offset 5, -5
+ 1090 03b8 6F92      		push r6
+ 1091               	.LCFI48:
+ 1092               		.cfi_def_cfa_offset 7
+ 1093               		.cfi_offset 6, -6
+ 1094 03ba 7F92      		push r7
+ 1095               	.LCFI49:
+ 1096               		.cfi_def_cfa_offset 8
+ 1097               		.cfi_offset 7, -7
+ 1098 03bc 8F92      		push r8
+ 1099               	.LCFI50:
+ 1100               		.cfi_def_cfa_offset 9
+ 1101               		.cfi_offset 8, -8
+ 1102 03be 9F92      		push r9
+ 1103               	.LCFI51:
+ 1104               		.cfi_def_cfa_offset 10
+ 1105               		.cfi_offset 9, -9
+ 1106 03c0 AF92      		push r10
+ 1107               	.LCFI52:
+ 1108               		.cfi_def_cfa_offset 11
+ 1109               		.cfi_offset 10, -10
+ 1110 03c2 BF92      		push r11
+ 1111               	.LCFI53:
+ 1112               		.cfi_def_cfa_offset 12
+ 1113               		.cfi_offset 11, -11
+ 1114 03c4 CF92      		push r12
+ 1115               	.LCFI54:
+ 1116               		.cfi_def_cfa_offset 13
+ 1117               		.cfi_offset 12, -12
+ 1118 03c6 DF92      		push r13
+ 1119               	.LCFI55:
+ 1120               		.cfi_def_cfa_offset 14
+ 1121               		.cfi_offset 13, -13
+ 1122 03c8 EF92      		push r14
+ 1123               	.LCFI56:
+ 1124               		.cfi_def_cfa_offset 15
+ 1125               		.cfi_offset 14, -14
+ 1126 03ca FF92      		push r15
+ 1127               	.LCFI57:
+ 1128               		.cfi_def_cfa_offset 16
+ 1129               		.cfi_offset 15, -15
+ 1130 03cc 0F93      		push r16
+ 1131               	.LCFI58:
+ 1132               		.cfi_def_cfa_offset 17
+ 1133               		.cfi_offset 16, -16
+ 1134 03ce 1F93      		push r17
+ 1135               	.LCFI59:
+ 1136               		.cfi_def_cfa_offset 18
+ 1137               		.cfi_offset 17, -17
+ 1138 03d0 CF93      		push r28
+ 1139               	.LCFI60:
+ 1140               		.cfi_def_cfa_offset 19
+ 1141               		.cfi_offset 28, -18
+ 1142 03d2 DF93      		push r29
+ 1143               	.LCFI61:
+ 1144               		.cfi_def_cfa_offset 20
+ 1145               		.cfi_offset 29, -19
+ 1146 03d4 00D0      		rcall .
+ 1147 03d6 0F92      		push __tmp_reg__
+ 1148               	.LCFI62:
+ 1149               		.cfi_def_cfa_offset 23
+ 1150 03d8 CDB7      		in r28,__SP_L__
+ 1151 03da DEB7      		in r29,__SP_H__
+ 1152               	.LCFI63:
+ 1153               		.cfi_def_cfa_register 28
+ 1154               	/* prologue: function */
+ 1155               	/* frame size = 3 */
+ 1156               	/* stack size = 21 */
+ 1157               	.L__stack_usage = 21
+ 1158 03dc 6B01      		movw r12,r22
+ 1159 03de 7C01      		movw r14,r24
+ 1160 03e0 1A01      		movw r2,r20
+ 1161 03e2 3B83      		std Y+3,r19
+ 1162 03e4 2A83      		std Y+2,r18
+ 668:sd_raw.c      ****         return 0;
+ 1163               		.loc 1 668 5 is_stmt 1 view .LVU242
+ 668:sd_raw.c      ****         return 0;
+ 1164               		.loc 1 668 8 is_stmt 0 view .LVU243
+ 1165 03e6 0E94 0000 		call sd_raw_locked
+ 1166               	.LVL85:
+ 668:sd_raw.c      ****         return 0;
+ 1167               		.loc 1 668 8 view .LVU244
+ 1168 03ea 8983      		std Y+1,r24
+ 668:sd_raw.c      ****         return 0;
+ 1169               		.loc 1 668 7 view .LVU245
+ 1170 03ec 8823      		tst r24
+ 1171 03ee 01F4      		brne .+2
+ 1172 03f0 00C0      		rjmp .L78
+ 1173               	.LVL86:
+ 1174               	.L82:
+ 669:sd_raw.c      **** 
+ 1175               		.loc 1 669 16 view .LVU246
+ 1176 03f2 1982      		std Y+1,__zero_reg__
+ 1177               	.L77:
+ 756:sd_raw.c      **** #endif
+ 1178               		.loc 1 756 1 view .LVU247
+ 1179 03f4 8981      		ldd r24,Y+1
+ 1180               	/* epilogue start */
+ 1181 03f6 0F90      		pop __tmp_reg__
+ 1182 03f8 0F90      		pop __tmp_reg__
+ 1183 03fa 0F90      		pop __tmp_reg__
+ 1184 03fc DF91      		pop r29
+ 1185 03fe CF91      		pop r28
+ 1186 0400 1F91      		pop r17
+ 1187 0402 0F91      		pop r16
+ 1188 0404 FF90      		pop r15
+ 1189 0406 EF90      		pop r14
+ 1190 0408 DF90      		pop r13
+ 1191 040a CF90      		pop r12
+ 1192 040c BF90      		pop r11
+ 1193 040e AF90      		pop r10
+ 1194 0410 9F90      		pop r9
+ 1195 0412 8F90      		pop r8
+ 1196 0414 7F90      		pop r7
+ 1197 0416 6F90      		pop r6
+ 1198 0418 5F90      		pop r5
+ 1199 041a 4F90      		pop r4
+ 1200 041c 3F90      		pop r3
+ 1201 041e 2F90      		pop r2
+ 1202 0420 0895      		ret
+ 1203               	.LVL87:
+ 1204               	.L83:
+ 1205               	.LBB37:
+ 1206               	.LBB38:
+ 1207               	.LBB39:
+ 695:sd_raw.c      ****                     return 0;
+ 1208               		.loc 1 695 17 is_stmt 1 view .LVU248
+ 695:sd_raw.c      ****                     return 0;
+ 1209               		.loc 1 695 21 is_stmt 0 view .LVU249
+ 1210 0422 20E0      		ldi r18,0
+ 1211 0424 32E0      		ldi r19,lo8(2)
+ 1212 0426 40E0      		ldi r20,lo8(raw_block)
+ 1213 0428 50E0      		ldi r21,hi8(raw_block)
+ 1214 042a C301      		movw r24,r6
+ 1215 042c B201      		movw r22,r4
+ 1216 042e 0E94 0000 		call sd_raw_read
+ 1217               	.LVL88:
+ 695:sd_raw.c      ****                     return 0;
+ 1218               		.loc 1 695 19 view .LVU250
+ 1219 0432 8111      		cpse r24,__zero_reg__
+ 1220 0434 00C0      		rjmp .L84
+ 1221 0436 00C0      		rjmp .L82
+ 1222               	.L85:
+ 703:sd_raw.c      **** 
+ 1223               		.loc 1 703 13 is_stmt 1 view .LVU251
+ 1224 0438 A401      		movw r20,r8
+ 1225 043a B101      		movw r22,r2
+ 1226 043c C801      		movw r24,r16
+ 1227 043e 8050      		subi r24,lo8(-(raw_block))
+ 1228 0440 9040      		sbci r25,hi8(-(raw_block))
+ 1229 0442 0E94 0000 		call memcpy
+ 1230               	.LVL89:
+ 706:sd_raw.c      **** 
+ 1231               		.loc 1 706 13 view .LVU252
+ 706:sd_raw.c      **** 
+ 1232               		.loc 1 706 31 is_stmt 0 view .LVU253
+ 1233 0446 1092 0000 		sts raw_block_written,__zero_reg__
+ 708:sd_raw.c      ****                 return 1;
+ 1234               		.loc 1 708 13 is_stmt 1 view .LVU254
+ 708:sd_raw.c      ****                 return 1;
+ 1235               		.loc 1 708 15 is_stmt 0 view .LVU255
+ 1236 044a 8A81      		ldd r24,Y+2
+ 1237 044c 9B81      		ldd r25,Y+3
+ 1238 044e A816      		cp r10,r24
+ 1239 0450 B906      		cpc r11,r25
+ 1240 0452 00F4      		brsh .+2
+ 1241 0454 00C0      		rjmp .L88
+ 1242               	.LVL90:
+ 1243               	.L92:
+ 709:sd_raw.c      **** #endif
+ 1244               		.loc 1 709 24 view .LVU256
+ 1245 0456 91E0      		ldi r25,lo8(1)
+ 1246 0458 9983      		std Y+1,r25
+ 1247 045a 00C0      		rjmp .L77
+ 1248               	.LVL91:
+ 1249               	.L103:
+ 728:sd_raw.c      **** 
+ 1250               		.loc 1 728 9 is_stmt 1 view .LVU257
+ 1251 045c 8EEF      		ldi r24,lo8(-2)
+ 1252 045e 0E94 0000 		call sd_raw_send_byte
+ 1253               	.LVL92:
+ 731:sd_raw.c      ****         for(uint16_t i = 0; i < 512; ++i)
+ 1254               		.loc 1 731 9 view .LVU258
+ 732:sd_raw.c      ****             sd_raw_send_byte(*cache++);
+ 1255               		.loc 1 732 9 view .LVU259
+ 1256               	.LBB40:
+ 732:sd_raw.c      ****             sd_raw_send_byte(*cache++);
+ 1257               		.loc 1 732 13 view .LVU260
+ 732:sd_raw.c      ****             sd_raw_send_byte(*cache++);
+ 1258               		.loc 1 732 13 is_stmt 0 view .LVU261
+ 1259               	.LBE40:
+ 731:sd_raw.c      ****         for(uint16_t i = 0; i < 512; ++i)
+ 1260               		.loc 1 731 18 view .LVU262
+ 1261 0462 00E0      		ldi r16,lo8(raw_block)
+ 1262 0464 10E0      		ldi r17,hi8(raw_block)
+ 1263               	.LVL93:
+ 1264               	.L89:
+ 1265               	.LBB41:
+ 733:sd_raw.c      **** 
+ 1266               		.loc 1 733 13 is_stmt 1 view .LVU263
+ 733:sd_raw.c      **** 
+ 1267               		.loc 1 733 13 is_stmt 0 view .LVU264
+ 1268 0466 F801      		movw r30,r16
+ 1269 0468 8191      		ld r24,Z+
+ 1270 046a 8F01      		movw r16,r30
+ 1271               	.LVL94:
+ 733:sd_raw.c      **** 
+ 1272               		.loc 1 733 13 view .LVU265
+ 1273 046c 0E94 0000 		call sd_raw_send_byte
+ 1274               	.LVL95:
+ 732:sd_raw.c      ****             sd_raw_send_byte(*cache++);
+ 1275               		.loc 1 732 9 view .LVU266
+ 1276 0470 F0E0      		ldi r31,hi8(raw_block+512)
+ 1277 0472 0030      		cpi r16,lo8(raw_block+512)
+ 1278 0474 1F07      		cpc r17,r31
+ 1279 0476 01F4      		brne .L89
+ 1280               	.LBE41:
+ 736:sd_raw.c      ****         sd_raw_send_byte(0xff);
+ 1281               		.loc 1 736 9 is_stmt 1 view .LVU267
+ 1282 0478 8FEF      		ldi r24,lo8(-1)
+ 1283 047a 0E94 0000 		call sd_raw_send_byte
+ 1284               	.LVL96:
+ 737:sd_raw.c      **** 
+ 1285               		.loc 1 737 9 view .LVU268
+ 1286 047e 8FEF      		ldi r24,lo8(-1)
+ 1287 0480 0E94 0000 		call sd_raw_send_byte
+ 1288               	.LVL97:
+ 740:sd_raw.c      ****         sd_raw_rec_byte();
+ 1289               		.loc 1 740 9 view .LVU269
+ 1290               	.L90:
+ 740:sd_raw.c      ****         sd_raw_rec_byte();
+ 1291               		.loc 1 740 41 view .LVU270
+ 740:sd_raw.c      ****         sd_raw_rec_byte();
+ 1292               		.loc 1 740 15 is_stmt 0 view .LVU271
+ 1293 0484 0E94 0000 		call sd_raw_rec_byte
+ 1294               	.LVL98:
+ 740:sd_raw.c      ****         sd_raw_rec_byte();
+ 1295               		.loc 1 740 14 view .LVU272
+ 1296 0488 8F3F      		cpi r24,lo8(-1)
+ 1297 048a 01F4      		brne .L90
+ 741:sd_raw.c      **** 
+ 1298               		.loc 1 741 9 is_stmt 1 view .LVU273
+ 1299 048c 0E94 0000 		call sd_raw_rec_byte
+ 1300               	.LVL99:
+ 744:sd_raw.c      **** 
+ 1301               		.loc 1 744 9 view .LVU274
+ 1302 0490 2E9A      		sbi 0x5,6
+ 746:sd_raw.c      ****         offset += write_length;
+ 1303               		.loc 1 746 9 view .LVU275
+ 746:sd_raw.c      ****         offset += write_length;
+ 1304               		.loc 1 746 16 is_stmt 0 view .LVU276
+ 1305 0492 280C      		add r2,r8
+ 1306 0494 391C      		adc r3,r9
+ 1307               	.LVL100:
+ 747:sd_raw.c      ****         length -= write_length;
+ 1308               		.loc 1 747 9 is_stmt 1 view .LVU277
+ 747:sd_raw.c      ****         length -= write_length;
+ 1309               		.loc 1 747 16 is_stmt 0 view .LVU278
+ 1310 0496 C80C      		add r12,r8
+ 1311 0498 D91C      		adc r13,r9
+ 1312 049a E11C      		adc r14,__zero_reg__
+ 1313 049c F11C      		adc r15,__zero_reg__
+ 1314               	.LVL101:
+ 748:sd_raw.c      **** 
+ 1315               		.loc 1 748 9 is_stmt 1 view .LVU279
+ 748:sd_raw.c      **** 
+ 1316               		.loc 1 748 16 is_stmt 0 view .LVU280
+ 1317 049e 8A81      		ldd r24,Y+2
+ 1318 04a0 9B81      		ldd r25,Y+3
+ 1319 04a2 8819      		sub r24,r8
+ 1320 04a4 9909      		sbc r25,r9
+ 1321 04a6 9B83      		std Y+3,r25
+ 1322 04a8 8A83      		std Y+2,r24
+ 1323               	.LVL102:
+ 751:sd_raw.c      **** #endif
+ 1324               		.loc 1 751 9 is_stmt 1 view .LVU281
+ 751:sd_raw.c      **** #endif
+ 1325               		.loc 1 751 27 is_stmt 0 view .LVU282
+ 1326 04aa 91E0      		ldi r25,lo8(1)
+ 1327 04ac 9093 0000 		sts raw_block_written,r25
+ 1328               	.LVL103:
+ 1329               	.L78:
+ 751:sd_raw.c      **** #endif
+ 1330               		.loc 1 751 27 view .LVU283
+ 1331               	.LBE39:
+ 674:sd_raw.c      ****     {
+ 1332               		.loc 1 674 10 view .LVU284
+ 1333 04b0 EA81      		ldd r30,Y+2
+ 1334 04b2 FB81      		ldd r31,Y+3
+ 1335 04b4 EF2B      		or r30,r31
+ 1336 04b6 01F0      		breq .L92
+ 1337               	.LBB42:
+ 677:sd_raw.c      ****         block_address = offset - block_offset;
+ 1338               		.loc 1 677 9 is_stmt 1 view .LVU285
+ 677:sd_raw.c      ****         block_address = offset - block_offset;
+ 1339               		.loc 1 677 22 is_stmt 0 view .LVU286
+ 1340 04b8 8601      		movw r16,r12
+ 1341 04ba 1170      		andi r17,1
+ 1342               	.LVL104:
+ 678:sd_raw.c      ****         write_length = 512 - block_offset; /* write up to block border */
+ 1343               		.loc 1 678 9 is_stmt 1 view .LVU287
+ 678:sd_raw.c      ****         write_length = 512 - block_offset; /* write up to block border */
+ 1344               		.loc 1 678 23 is_stmt 0 view .LVU288
+ 1345 04bc 2601      		movw r4,r12
+ 1346 04be 3701      		movw r6,r14
+ 1347 04c0 401A      		sub r4,r16
+ 1348 04c2 510A      		sbc r5,r17
+ 1349 04c4 6108      		sbc r6,__zero_reg__
+ 1350 04c6 7108      		sbc r7,__zero_reg__
+ 1351               	.LVL105:
+ 679:sd_raw.c      ****         if(write_length > length)
+ 1352               		.loc 1 679 9 is_stmt 1 view .LVU289
+ 679:sd_raw.c      ****         if(write_length > length)
+ 1353               		.loc 1 679 22 is_stmt 0 view .LVU290
+ 1354 04c8 A12C      		mov r10,__zero_reg__
+ 1355 04ca 82E0      		ldi r24,lo8(2)
+ 1356 04cc B82E      		mov r11,r24
+ 1357 04ce A01A      		sub r10,r16
+ 1358 04d0 B10A      		sbc r11,r17
+ 1359               	.LVL106:
+ 680:sd_raw.c      ****             write_length = length;
+ 1360               		.loc 1 680 9 is_stmt 1 view .LVU291
+ 1361 04d2 4501      		movw r8,r10
+ 1362 04d4 8A81      		ldd r24,Y+2
+ 1363 04d6 9B81      		ldd r25,Y+3
+ 1364 04d8 8A15      		cp r24,r10
+ 1365 04da 9B05      		cpc r25,r11
+ 1366 04dc 00F4      		brsh .L80
+ 1367 04de 4C01      		movw r8,r24
+ 1368               	.LVL107:
+ 1369               	.L80:
+ 686:sd_raw.c      ****         {
+ 1370               		.loc 1 686 9 view .LVU292
+ 686:sd_raw.c      ****         {
+ 1371               		.loc 1 686 11 is_stmt 0 view .LVU293
+ 1372 04e0 8091 0000 		lds r24,raw_block_address
+ 1373 04e4 9091 0000 		lds r25,raw_block_address+1
+ 1374 04e8 A091 0000 		lds r26,raw_block_address+2
+ 1375 04ec B091 0000 		lds r27,raw_block_address+3
+ 1376               	.LVL108:
+ 686:sd_raw.c      ****         {
+ 1377               		.loc 1 686 11 view .LVU294
+ 1378 04f0 4816      		cp r4,r24
+ 1379 04f2 5906      		cpc r5,r25
+ 1380 04f4 6A06      		cpc r6,r26
+ 1381 04f6 7B06      		cpc r7,r27
+ 1382 04f8 01F0      		breq .L81
+ 689:sd_raw.c      ****                 return 0;
+ 1383               		.loc 1 689 13 is_stmt 1 view .LVU295
+ 689:sd_raw.c      ****                 return 0;
+ 1384               		.loc 1 689 17 is_stmt 0 view .LVU296
+ 1385 04fa 0E94 0000 		call sd_raw_sync
+ 1386               	.LVL109:
+ 689:sd_raw.c      ****                 return 0;
+ 1387               		.loc 1 689 15 view .LVU297
+ 1388 04fe 8823      		tst r24
+ 1389 0500 01F4      		brne .+2
+ 1390 0502 00C0      		rjmp .L82
+ 693:sd_raw.c      ****             {
+ 1391               		.loc 1 693 13 is_stmt 1 view .LVU298
+ 693:sd_raw.c      ****             {
+ 1392               		.loc 1 693 15 is_stmt 0 view .LVU299
+ 1393 0504 0115      		cp r16,__zero_reg__
+ 1394 0506 1105      		cpc r17,__zero_reg__
+ 1395 0508 01F0      		breq .+2
+ 1396 050a 00C0      		rjmp .L83
+ 693:sd_raw.c      ****             {
+ 1397               		.loc 1 693 29 view .LVU300
+ 1398 050c 8114      		cp r8,__zero_reg__
+ 1399 050e 92E0      		ldi r25,2
+ 1400 0510 9906      		cpc r9,r25
+ 1401 0512 01F0      		breq .+2
+ 1402 0514 00C0      		rjmp .L83
+ 1403               	.L84:
+ 698:sd_raw.c      ****         }
+ 1404               		.loc 1 698 13 is_stmt 1 view .LVU301
+ 698:sd_raw.c      ****         }
+ 1405               		.loc 1 698 31 is_stmt 0 view .LVU302
+ 1406 0516 4092 0000 		sts raw_block_address,r4
+ 1407 051a 5092 0000 		sts raw_block_address+1,r5
+ 1408 051e 6092 0000 		sts raw_block_address+2,r6
+ 1409 0522 7092 0000 		sts raw_block_address+3,r7
+ 1410               	.L81:
+ 701:sd_raw.c      ****         {
+ 1411               		.loc 1 701 9 is_stmt 1 view .LVU303
+ 701:sd_raw.c      ****         {
+ 1412               		.loc 1 701 11 is_stmt 0 view .LVU304
+ 1413 0526 E0E0      		ldi r30,lo8(raw_block)
+ 1414 0528 2E16      		cp r2,r30
+ 1415 052a E0E0      		ldi r30,hi8(raw_block)
+ 1416 052c 3E06      		cpc r3,r30
+ 1417 052e 01F0      		breq .+2
+ 1418 0530 00C0      		rjmp .L85
+ 1419               	.L88:
+ 714:sd_raw.c      **** 
+ 1420               		.loc 1 714 9 is_stmt 1 view .LVU305
+ 1421 0532 2E98      		cbi 0x5,6
+ 720:sd_raw.c      **** #endif
+ 1422               		.loc 1 720 9 view .LVU306
+ 720:sd_raw.c      **** #endif
+ 1423               		.loc 1 720 12 is_stmt 0 view .LVU307
+ 1424 0534 B301      		movw r22,r6
+ 1425 0536 A201      		movw r20,r4
+ 1426 0538 88E1      		ldi r24,lo8(24)
+ 1427 053a 0E94 0000 		call sd_raw_send_command
+ 1428               	.LVL110:
+ 720:sd_raw.c      **** #endif
+ 1429               		.loc 1 720 11 view .LVU308
+ 1430 053e 8823      		tst r24
+ 1431 0540 01F4      		brne .+2
+ 1432 0542 00C0      		rjmp .L103
+ 723:sd_raw.c      ****             return 0;
+ 1433               		.loc 1 723 13 is_stmt 1 view .LVU309
+ 1434 0544 2E9A      		sbi 0x5,6
+ 724:sd_raw.c      ****         }
+ 1435               		.loc 1 724 13 view .LVU310
+ 1436 0546 00C0      		rjmp .L77
+ 1437               	.LBE42:
+ 1438               	.LBE38:
+ 1439               	.LBE37:
+ 1440               		.cfi_endproc
+ 1441               	.LFE8:
+ 1443               	.global	sd_raw_write_interval
+ 1445               	sd_raw_write_interval:
+ 1446               	.LVL111:
+ 1447               	.LFB9:
+ 779:sd_raw.c      **** #if SD_RAW_SAVE_RAM
+ 1448               		.loc 1 779 1 view -0
+ 1449               		.cfi_startproc
+ 779:sd_raw.c      **** #if SD_RAW_SAVE_RAM
+ 1450               		.loc 1 779 1 is_stmt 0 view .LVU312
+ 1451 0548 4F92      		push r4
+ 1452               	.LCFI64:
+ 1453               		.cfi_def_cfa_offset 3
+ 1454               		.cfi_offset 4, -2
+ 1455 054a 5F92      		push r5
+ 1456               	.LCFI65:
+ 1457               		.cfi_def_cfa_offset 4
+ 1458               		.cfi_offset 5, -3
+ 1459 054c 6F92      		push r6
+ 1460               	.LCFI66:
+ 1461               		.cfi_def_cfa_offset 5
+ 1462               		.cfi_offset 6, -4
+ 1463 054e 7F92      		push r7
+ 1464               	.LCFI67:
+ 1465               		.cfi_def_cfa_offset 6
+ 1466               		.cfi_offset 7, -5
+ 1467 0550 8F92      		push r8
+ 1468               	.LCFI68:
+ 1469               		.cfi_def_cfa_offset 7
+ 1470               		.cfi_offset 8, -6
+ 1471 0552 9F92      		push r9
+ 1472               	.LCFI69:
+ 1473               		.cfi_def_cfa_offset 8
+ 1474               		.cfi_offset 9, -7
+ 1475 0554 AF92      		push r10
+ 1476               	.LCFI70:
+ 1477               		.cfi_def_cfa_offset 9
+ 1478               		.cfi_offset 10, -8
+ 1479 0556 BF92      		push r11
+ 1480               	.LCFI71:
+ 1481               		.cfi_def_cfa_offset 10
+ 1482               		.cfi_offset 11, -9
+ 1483 0558 CF92      		push r12
+ 1484               	.LCFI72:
+ 1485               		.cfi_def_cfa_offset 11
+ 1486               		.cfi_offset 12, -10
+ 1487 055a DF92      		push r13
+ 1488               	.LCFI73:
+ 1489               		.cfi_def_cfa_offset 12
+ 1490               		.cfi_offset 13, -11
+ 1491 055c EF92      		push r14
+ 1492               	.LCFI74:
+ 1493               		.cfi_def_cfa_offset 13
+ 1494               		.cfi_offset 14, -12
+ 1495 055e FF92      		push r15
+ 1496               	.LCFI75:
+ 1497               		.cfi_def_cfa_offset 14
+ 1498               		.cfi_offset 15, -13
+ 1499 0560 0F93      		push r16
+ 1500               	.LCFI76:
+ 1501               		.cfi_def_cfa_offset 15
+ 1502               		.cfi_offset 16, -14
+ 1503 0562 1F93      		push r17
+ 1504               	.LCFI77:
+ 1505               		.cfi_def_cfa_offset 16
+ 1506               		.cfi_offset 17, -15
+ 1507 0564 CF93      		push r28
+ 1508               	.LCFI78:
+ 1509               		.cfi_def_cfa_offset 17
+ 1510               		.cfi_offset 28, -16
+ 1511 0566 DF93      		push r29
+ 1512               	.LCFI79:
+ 1513               		.cfi_def_cfa_offset 18
+ 1514               		.cfi_offset 29, -17
+ 1515               	/* prologue: function */
+ 1516               	/* frame size = 0 */
+ 1517               	/* stack size = 16 */
+ 1518               	.L__stack_usage = 16
+ 1519 0568 2B01      		movw r4,r22
+ 1520 056a 3C01      		movw r6,r24
+ 1521 056c 6A01      		movw r12,r20
+ 1522 056e 5901      		movw r10,r18
+ 1523 0570 4801      		movw r8,r16
+ 784:sd_raw.c      ****         return 0;
+ 1524               		.loc 1 784 5 is_stmt 1 view .LVU313
+ 784:sd_raw.c      ****         return 0;
+ 1525               		.loc 1 784 7 is_stmt 0 view .LVU314
+ 1526 0572 452B      		or r20,r21
+ 1527 0574 01F4      		brne .L105
+ 1528               	.LVL112:
+ 1529               	.L107:
+ 785:sd_raw.c      **** 
+ 1530               		.loc 1 785 16 view .LVU315
+ 1531 0576 80E0      		ldi r24,0
+ 1532               	.L104:
+ 1533               	/* epilogue start */
+ 807:sd_raw.c      **** #endif
+ 1534               		.loc 1 807 1 view .LVU316
+ 1535 0578 DF91      		pop r29
+ 1536 057a CF91      		pop r28
+ 1537 057c 1F91      		pop r17
+ 1538 057e 0F91      		pop r16
+ 1539 0580 FF90      		pop r15
+ 1540 0582 EF90      		pop r14
+ 1541               	.LVL113:
+ 807:sd_raw.c      **** #endif
+ 1542               		.loc 1 807 1 view .LVU317
+ 1543 0584 DF90      		pop r13
+ 1544 0586 CF90      		pop r12
+ 1545               	.LVL114:
+ 807:sd_raw.c      **** #endif
+ 1546               		.loc 1 807 1 view .LVU318
+ 1547 0588 BF90      		pop r11
+ 1548 058a AF90      		pop r10
+ 1549 058c 9F90      		pop r9
+ 1550 058e 8F90      		pop r8
+ 1551               	.LVL115:
+ 807:sd_raw.c      **** #endif
+ 1552               		.loc 1 807 1 view .LVU319
+ 1553 0590 7F90      		pop r7
+ 1554 0592 6F90      		pop r6
+ 1555 0594 5F90      		pop r5
+ 1556 0596 4F90      		pop r4
+ 1557 0598 0895      		ret
+ 1558               	.LVL116:
+ 1559               	.L105:
+ 807:sd_raw.c      **** #endif
+ 1560               		.loc 1 807 1 view .LVU320
+ 1561 059a 8901      		movw r16,r18
+ 784:sd_raw.c      ****         return 0;
+ 1562               		.loc 1 784 16 discriminator 1 view .LVU321
+ 1563 059c 8114      		cp r8,__zero_reg__
+ 1564 059e 9104      		cpc r9,__zero_reg__
+ 1565 05a0 01F0      		breq .L107
+ 1566               	.LVL117:
+ 1567               	.L108:
+ 788:sd_raw.c      ****     {
+ 1568               		.loc 1 788 10 view .LVU322
+ 1569 05a2 A114      		cp r10,__zero_reg__
+ 1570 05a4 B104      		cpc r11,__zero_reg__
+ 1571 05a6 01F0      		breq .L111
+ 788:sd_raw.c      ****     {
+ 1572               		.loc 1 788 19 discriminator 1 view .LVU323
+ 1573 05a8 0115      		cp r16,__zero_reg__
+ 1574 05aa 1105      		cpc r17,__zero_reg__
+ 1575 05ac 01F0      		breq .L112
+ 1576               	.L111:
+ 1577               	.LBB43:
+ 790:sd_raw.c      ****         if(!bytes_to_write)
+ 1578               		.loc 1 790 9 is_stmt 1 view .LVU324
+ 790:sd_raw.c      ****         if(!bytes_to_write)
+ 1579               		.loc 1 790 35 is_stmt 0 view .LVU325
+ 1580 05ae 9701      		movw r18,r14
+ 1581 05b0 B301      		movw r22,r6
+ 1582 05b2 A201      		movw r20,r4
+ 1583 05b4 C601      		movw r24,r12
+ 1584 05b6 F401      		movw r30,r8
+ 1585 05b8 0995      		icall
+ 1586               	.LVL118:
+ 1587 05ba EC01      		movw r28,r24
+ 1588               	.LVL119:
+ 791:sd_raw.c      ****             break;
+ 1589               		.loc 1 791 9 is_stmt 1 view .LVU326
+ 791:sd_raw.c      ****             break;
+ 1590               		.loc 1 791 11 is_stmt 0 view .LVU327
+ 1591 05bc 0097      		sbiw r24,0
+ 1592 05be 01F4      		brne .L109
+ 1593               	.LVL120:
+ 1594               	.L112:
+ 791:sd_raw.c      ****             break;
+ 1595               		.loc 1 791 11 view .LVU328
+ 1596               	.LBE43:
+ 806:sd_raw.c      **** }
+ 1597               		.loc 1 806 12 view .LVU329
+ 1598 05c0 81E0      		ldi r24,lo8(1)
+ 1599 05c2 00C0      		rjmp .L104
+ 1600               	.LVL121:
+ 1601               	.L109:
+ 1602               	.LBB44:
+ 793:sd_raw.c      ****             return 0;
+ 1603               		.loc 1 793 9 is_stmt 1 view .LVU330
+ 793:sd_raw.c      ****             return 0;
+ 1604               		.loc 1 793 11 is_stmt 0 view .LVU331
+ 1605 05c4 A114      		cp r10,__zero_reg__
+ 1606 05c6 B104      		cpc r11,__zero_reg__
+ 1607 05c8 01F0      		breq .L110
+ 793:sd_raw.c      ****             return 0;
+ 1608               		.loc 1 793 21 discriminator 1 view .LVU332
+ 1609 05ca 0817      		cp r16,r24
+ 1610 05cc 1907      		cpc r17,r25
+ 1611 05ce 00F0      		brlo .L107
+ 1612               	.L110:
+ 799:sd_raw.c      ****             return 0;
+ 1613               		.loc 1 799 9 is_stmt 1 view .LVU333
+ 799:sd_raw.c      ****             return 0;
+ 1614               		.loc 1 799 13 is_stmt 0 view .LVU334
+ 1615 05d0 9E01      		movw r18,r28
+ 1616 05d2 A601      		movw r20,r12
+ 1617 05d4 C301      		movw r24,r6
+ 1618               	.LVL122:
+ 799:sd_raw.c      ****             return 0;
+ 1619               		.loc 1 799 13 view .LVU335
+ 1620 05d6 B201      		movw r22,r4
+ 1621 05d8 0E94 0000 		call sd_raw_write
+ 1622               	.LVL123:
+ 799:sd_raw.c      ****             return 0;
+ 1623               		.loc 1 799 11 view .LVU336
+ 1624 05dc 8823      		tst r24
+ 1625 05de 01F0      		breq .L107
+ 802:sd_raw.c      ****         length -= bytes_to_write;
+ 1626               		.loc 1 802 9 is_stmt 1 view .LVU337
+ 802:sd_raw.c      ****         length -= bytes_to_write;
+ 1627               		.loc 1 802 16 is_stmt 0 view .LVU338
+ 1628 05e0 4C0E      		add r4,r28
+ 1629 05e2 5D1E      		adc r5,r29
+ 1630 05e4 611C      		adc r6,__zero_reg__
+ 1631 05e6 711C      		adc r7,__zero_reg__
+ 1632               	.LVL124:
+ 803:sd_raw.c      ****     }
+ 1633               		.loc 1 803 9 is_stmt 1 view .LVU339
+ 803:sd_raw.c      ****     }
+ 1634               		.loc 1 803 16 is_stmt 0 view .LVU340
+ 1635 05e8 0C1B      		sub r16,r28
+ 1636 05ea 1D0B      		sbc r17,r29
+ 1637               	.LVL125:
+ 803:sd_raw.c      ****     }
+ 1638               		.loc 1 803 16 view .LVU341
+ 1639 05ec 00C0      		rjmp .L108
+ 1640               	.LBE44:
+ 1641               		.cfi_endproc
+ 1642               	.LFE9:
+ 1644               	.global	sd_raw_get_info
+ 1646               	sd_raw_get_info:
+ 1647               	.LVL126:
+ 1648               	.LFB11:
+ 834:sd_raw.c      **** #endif
+ 835:sd_raw.c      **** 
+ 836:sd_raw.c      **** /**
+ 837:sd_raw.c      ****  * \ingroup sd_raw
+ 838:sd_raw.c      ****  * Reads informational data from the card.
+ 839:sd_raw.c      ****  *
+ 840:sd_raw.c      ****  * This function reads and returns the card's registers
+ 841:sd_raw.c      ****  * containing manufacturing and status information.
+ 842:sd_raw.c      ****  *
+ 843:sd_raw.c      ****  * \note: The information retrieved by this function is
+ 844:sd_raw.c      ****  *        not required in any way to operate on the card,
+ 845:sd_raw.c      ****  *        but it might be nice to display some of the data
+ 846:sd_raw.c      ****  *        to the user.
+ 847:sd_raw.c      ****  *
+ 848:sd_raw.c      ****  * \param[in] info A pointer to the structure into which to save the information.
+ 849:sd_raw.c      ****  * \returns 0 on failure, 1 on success.
+ 850:sd_raw.c      ****  */
+ 851:sd_raw.c      **** uint8_t sd_raw_get_info(struct sd_raw_info* info)
+ 852:sd_raw.c      **** {
+ 1649               		.loc 1 852 1 is_stmt 1 view -0
+ 1650               		.cfi_startproc
+ 1651               		.loc 1 852 1 is_stmt 0 view .LVU343
+ 1652 05ee AF92      		push r10
+ 1653               	.LCFI80:
+ 1654               		.cfi_def_cfa_offset 3
+ 1655               		.cfi_offset 10, -2
+ 1656 05f0 BF92      		push r11
+ 1657               	.LCFI81:
+ 1658               		.cfi_def_cfa_offset 4
+ 1659               		.cfi_offset 11, -3
+ 1660 05f2 CF92      		push r12
+ 1661               	.LCFI82:
+ 1662               		.cfi_def_cfa_offset 5
+ 1663               		.cfi_offset 12, -4
+ 1664 05f4 DF92      		push r13
+ 1665               	.LCFI83:
+ 1666               		.cfi_def_cfa_offset 6
+ 1667               		.cfi_offset 13, -5
+ 1668 05f6 EF92      		push r14
+ 1669               	.LCFI84:
+ 1670               		.cfi_def_cfa_offset 7
+ 1671               		.cfi_offset 14, -6
+ 1672 05f8 FF92      		push r15
+ 1673               	.LCFI85:
+ 1674               		.cfi_def_cfa_offset 8
+ 1675               		.cfi_offset 15, -7
+ 1676 05fa 0F93      		push r16
+ 1677               	.LCFI86:
+ 1678               		.cfi_def_cfa_offset 9
+ 1679               		.cfi_offset 16, -8
+ 1680 05fc 1F93      		push r17
+ 1681               	.LCFI87:
+ 1682               		.cfi_def_cfa_offset 10
+ 1683               		.cfi_offset 17, -9
+ 1684 05fe CF93      		push r28
+ 1685               	.LCFI88:
+ 1686               		.cfi_def_cfa_offset 11
+ 1687               		.cfi_offset 28, -10
+ 1688 0600 DF93      		push r29
+ 1689               	.LCFI89:
+ 1690               		.cfi_def_cfa_offset 12
+ 1691               		.cfi_offset 29, -11
+ 1692               	/* prologue: function */
+ 1693               	/* frame size = 0 */
+ 1694               	/* stack size = 10 */
+ 1695               	.L__stack_usage = 10
+ 1696 0602 EC01      		movw r28,r24
+ 853:sd_raw.c      ****     if(!info || !sd_raw_available())
+ 1697               		.loc 1 853 5 is_stmt 1 view .LVU344
+ 1698               		.loc 1 853 7 is_stmt 0 view .LVU345
+ 1699 0604 892B      		or r24,r25
+ 1700 0606 01F0      		breq .L153
+ 1701               	.LBB45:
+ 1702               	.LBI45:
+ 339:sd_raw.c      **** {
+ 1703               		.loc 1 339 9 is_stmt 1 view .LVU346
+ 1704               	.LBB46:
+ 341:sd_raw.c      **** }
+ 1705               		.loc 1 341 5 view .LVU347
+ 1706               	.LBE46:
+ 1707               	.LBE45:
+ 1708               		.loc 1 853 14 is_stmt 0 view .LVU348
+ 1709 0608 1F99      		sbic 0x3,7
+ 1710 060a 00C0      		rjmp .L153
+ 854:sd_raw.c      ****         return 0;
+ 855:sd_raw.c      **** 
+ 856:sd_raw.c      ****     memset(info, 0, sizeof(*info));
+ 1711               		.loc 1 856 5 is_stmt 1 view .LVU349
+ 1712 060c 89E1      		ldi r24,lo8(25)
+ 1713               	.LVL127:
+ 1714               		.loc 1 856 5 is_stmt 0 view .LVU350
+ 1715 060e FE01      		movw r30,r28
+ 1716               		0:
+ 1717 0610 1192      		st Z+,__zero_reg__
+ 1718 0612 8A95      		dec r24
+ 1719 0614 01F4      		brne 0b
+ 857:sd_raw.c      **** 
+ 858:sd_raw.c      ****     select_card();
+ 1720               		.loc 1 858 5 is_stmt 1 view .LVU351
+ 1721 0616 2E98      		cbi 0x5,6
+ 859:sd_raw.c      **** 
+ 860:sd_raw.c      ****     /* read cid register */
+ 861:sd_raw.c      ****     if(sd_raw_send_command(CMD_SEND_CID, 0))
+ 1722               		.loc 1 861 5 view .LVU352
+ 1723               		.loc 1 861 8 is_stmt 0 view .LVU353
+ 1724 0618 40E0      		ldi r20,0
+ 1725 061a 50E0      		ldi r21,0
+ 1726 061c BA01      		movw r22,r20
+ 1727 061e 8AE0      		ldi r24,lo8(10)
+ 1728 0620 0E94 0000 		call sd_raw_send_command
+ 1729               	.LVL128:
+ 1730 0624 F82E      		mov r15,r24
+ 1731               		.loc 1 861 7 view .LVU354
+ 1732 0626 8823      		tst r24
+ 1733 0628 01F0      		breq .L127
+ 862:sd_raw.c      ****     {
+ 863:sd_raw.c      ****         unselect_card();
+ 1734               		.loc 1 863 9 is_stmt 1 view .LVU355
+ 1735 062a 2E9A      		sbi 0x5,6
+ 864:sd_raw.c      ****         return 0;
+ 1736               		.loc 1 864 9 view .LVU356
+ 1737               	.L153:
+ 854:sd_raw.c      **** 
+ 1738               		.loc 1 854 16 is_stmt 0 view .LVU357
+ 1739 062c F12C      		mov r15,__zero_reg__
+ 1740 062e 00C0      		rjmp .L125
+ 1741               	.L127:
+ 865:sd_raw.c      ****     }
+ 866:sd_raw.c      ****     while(sd_raw_rec_byte() != 0xfe);
+ 1742               		.loc 1 866 37 is_stmt 1 discriminator 1 view .LVU358
+ 1743               		.loc 1 866 11 is_stmt 0 discriminator 1 view .LVU359
+ 1744 0630 0E94 0000 		call sd_raw_rec_byte
+ 1745               	.LVL129:
+ 1746               		.loc 1 866 10 discriminator 1 view .LVU360
+ 1747 0634 8E3F      		cpi r24,lo8(-2)
+ 1748 0636 01F4      		brne .L127
+ 1749 0638 10E0      		ldi r17,0
+ 1750 063a 00E0      		ldi r16,0
+ 1751               	.LBB47:
+ 1752               	.LBB48:
+ 867:sd_raw.c      ****     for(uint8_t i = 0; i < 18; ++i)
+ 868:sd_raw.c      ****     {
+ 869:sd_raw.c      ****         uint8_t b = sd_raw_rec_byte();
+ 870:sd_raw.c      **** 
+ 871:sd_raw.c      ****         switch(i)
+ 872:sd_raw.c      ****         {
+ 873:sd_raw.c      ****             case 0:
+ 874:sd_raw.c      ****                 info->manufacturer = b;
+ 875:sd_raw.c      ****                 break;
+ 876:sd_raw.c      ****             case 1:
+ 877:sd_raw.c      ****             case 2:
+ 878:sd_raw.c      ****                 info->oem[i - 1] = b;
+ 879:sd_raw.c      ****                 break;
+ 880:sd_raw.c      ****             case 3:
+ 881:sd_raw.c      ****             case 4:
+ 882:sd_raw.c      ****             case 5:
+ 883:sd_raw.c      ****             case 6:
+ 884:sd_raw.c      ****             case 7:
+ 885:sd_raw.c      ****                 info->product[i - 3] = b;
+ 886:sd_raw.c      ****                 break;
+ 887:sd_raw.c      ****             case 8:
+ 888:sd_raw.c      ****                 info->revision = b;
+ 889:sd_raw.c      ****                 break;
+ 890:sd_raw.c      ****             case 9:
+ 891:sd_raw.c      ****             case 10:
+ 892:sd_raw.c      ****             case 11:
+ 893:sd_raw.c      ****             case 12:
+ 894:sd_raw.c      ****                 info->serial |= (uint32_t) b << ((12 - i) * 8);
+ 1753               		.loc 1 894 46 view .LVU361
+ 1754 063c 58EF      		ldi r21,lo8(-8)
+ 1755 063e E52E      		mov r14,r21
+ 1756               	.L137:
+ 1757               	.LVL130:
+ 869:sd_raw.c      **** 
+ 1758               		.loc 1 869 9 is_stmt 1 view .LVU362
+ 869:sd_raw.c      **** 
+ 1759               		.loc 1 869 21 is_stmt 0 view .LVU363
+ 1760 0640 0E94 0000 		call sd_raw_rec_byte
+ 1761               	.LVL131:
+ 871:sd_raw.c      ****         {
+ 1762               		.loc 1 871 9 is_stmt 1 view .LVU364
+ 1763 0644 E02F      		mov r30,r16
+ 1764 0646 0F30      		cpi r16,lo8(15)
+ 1765 0648 00F4      		brsh .L128
+ 1766 064a F0E0      		ldi r31,0
+ 1767 064c E050      		subi r30,lo8(-(gs(.L130)))
+ 1768 064e F040      		sbci r31,hi8(-(gs(.L130)))
+ 1769 0650 0C94 0000 		jmp __tablejump2__
+ 1770               		.section	.jumptables.gcc.sd_raw_get_info,"a",@progbits
+ 1771               		.p2align	1
+ 1772               	.L130:
+ 1773 0000 0000      		.word gs(.L136)
+ 1774 0002 0000      		.word gs(.L135)
+ 1775 0004 0000      		.word gs(.L135)
+ 1776 0006 0000      		.word gs(.L134)
+ 1777 0008 0000      		.word gs(.L134)
+ 1778 000a 0000      		.word gs(.L134)
+ 1779 000c 0000      		.word gs(.L134)
+ 1780 000e 0000      		.word gs(.L134)
+ 1781 0010 0000      		.word gs(.L133)
+ 1782 0012 0000      		.word gs(.L132)
+ 1783 0014 0000      		.word gs(.L132)
+ 1784 0016 0000      		.word gs(.L132)
+ 1785 0018 0000      		.word gs(.L132)
+ 1786 001a 0000      		.word gs(.L131)
+ 1787 001c 0000      		.word gs(.L129)
+ 1788               		.text
+ 1789               	.L136:
+ 1790               	.LVL132:
+ 874:sd_raw.c      ****                 break;
+ 1791               		.loc 1 874 17 view .LVU365
+ 874:sd_raw.c      ****                 break;
+ 1792               		.loc 1 874 36 is_stmt 0 view .LVU366
+ 1793 0654 8883      		st Y,r24
+ 875:sd_raw.c      ****             case 1:
+ 1794               		.loc 1 875 17 is_stmt 1 view .LVU367
+ 1795               	.LVL133:
+ 1796               	.L128:
+ 875:sd_raw.c      ****             case 1:
+ 1797               		.loc 1 875 17 is_stmt 0 view .LVU368
+ 1798 0656 0F5F      		subi r16,-1
+ 1799 0658 1F4F      		sbci r17,-1
+ 1800               	.LVL134:
+ 875:sd_raw.c      ****             case 1:
+ 1801               		.loc 1 875 17 view .LVU369
+ 1802               	.LBE48:
+ 867:sd_raw.c      ****     {
+ 1803               		.loc 1 867 5 discriminator 2 view .LVU370
+ 1804 065a 0231      		cpi r16,18
+ 1805 065c 1105      		cpc r17,__zero_reg__
+ 1806 065e 01F4      		brne .L137
+ 1807               	.LBE47:
+ 895:sd_raw.c      ****                 break;
+ 896:sd_raw.c      ****             case 13:
+ 897:sd_raw.c      ****                 info->manufacturing_year = b << 4;
+ 898:sd_raw.c      ****                 break;
+ 899:sd_raw.c      ****             case 14:
+ 900:sd_raw.c      ****                 info->manufacturing_year |= b >> 4;
+ 901:sd_raw.c      ****                 info->manufacturing_month = b & 0x0f;
+ 902:sd_raw.c      ****                 break;
+ 903:sd_raw.c      ****         }
+ 904:sd_raw.c      ****     }
+ 905:sd_raw.c      **** 
+ 906:sd_raw.c      ****     /* read csd register */
+ 907:sd_raw.c      ****     uint8_t csd_read_bl_len = 0;
+ 1808               		.loc 1 907 5 is_stmt 1 view .LVU371
+ 1809               	.LVL135:
+ 908:sd_raw.c      ****     uint8_t csd_c_size_mult = 0;
+ 1810               		.loc 1 908 5 view .LVU372
+ 909:sd_raw.c      **** #if SD_RAW_SDHC
+ 910:sd_raw.c      ****     uint16_t csd_c_size = 0;
+ 911:sd_raw.c      **** #else
+ 912:sd_raw.c      ****     uint32_t csd_c_size = 0;
+ 1811               		.loc 1 912 5 view .LVU373
+ 913:sd_raw.c      **** #endif
+ 914:sd_raw.c      ****     uint8_t csd_structure = 0;
+ 1812               		.loc 1 914 5 view .LVU374
+ 915:sd_raw.c      ****     if(sd_raw_send_command(CMD_SEND_CSD, 0))
+ 1813               		.loc 1 915 5 view .LVU375
+ 1814               		.loc 1 915 8 is_stmt 0 view .LVU376
+ 1815 0660 40E0      		ldi r20,0
+ 1816 0662 50E0      		ldi r21,0
+ 1817 0664 BA01      		movw r22,r20
+ 1818 0666 89E0      		ldi r24,lo8(9)
+ 1819 0668 0E94 0000 		call sd_raw_send_command
+ 1820               	.LVL136:
+ 1821 066c A82E      		mov r10,r24
+ 1822               		.loc 1 915 7 view .LVU377
+ 1823 066e 8823      		tst r24
+ 1824 0670 01F4      		brne .+2
+ 1825 0672 00C0      		rjmp .L138
+ 916:sd_raw.c      ****     {
+ 917:sd_raw.c      ****         unselect_card();
+ 1826               		.loc 1 917 9 is_stmt 1 view .LVU378
+ 1827 0674 2E9A      		sbi 0x5,6
+ 918:sd_raw.c      ****         return 0;
+ 1828               		.loc 1 918 9 view .LVU379
+ 1829               	.LVL137:
+ 1830               	.L125:
+ 919:sd_raw.c      ****     }
+ 920:sd_raw.c      ****     while(sd_raw_rec_byte() != 0xfe);
+ 921:sd_raw.c      ****     for(uint8_t i = 0; i < 18; ++i)
+ 922:sd_raw.c      ****     {
+ 923:sd_raw.c      ****         uint8_t b = sd_raw_rec_byte();
+ 924:sd_raw.c      **** 
+ 925:sd_raw.c      ****         if(i == 0)
+ 926:sd_raw.c      ****         {
+ 927:sd_raw.c      ****             csd_structure = b >> 6;
+ 928:sd_raw.c      ****         }
+ 929:sd_raw.c      ****         else if(i == 14)
+ 930:sd_raw.c      ****         {
+ 931:sd_raw.c      ****             if(b & 0x40)
+ 932:sd_raw.c      ****                 info->flag_copy = 1;
+ 933:sd_raw.c      ****             if(b & 0x20)
+ 934:sd_raw.c      ****                 info->flag_write_protect = 1;
+ 935:sd_raw.c      ****             if(b & 0x10)
+ 936:sd_raw.c      ****                 info->flag_write_protect_temp = 1;
+ 937:sd_raw.c      ****             info->format = (b & 0x0c) >> 2;
+ 938:sd_raw.c      ****         }
+ 939:sd_raw.c      ****         else
+ 940:sd_raw.c      ****         {
+ 941:sd_raw.c      **** #if SD_RAW_SDHC
+ 942:sd_raw.c      ****             if(csd_structure == 0x01)
+ 943:sd_raw.c      ****             {
+ 944:sd_raw.c      ****                 switch(i)
+ 945:sd_raw.c      ****                 {
+ 946:sd_raw.c      ****                     case 7:
+ 947:sd_raw.c      ****                         b &= 0x3f;
+ 948:sd_raw.c      ****                     case 8:
+ 949:sd_raw.c      ****                     case 9:
+ 950:sd_raw.c      ****                         csd_c_size <<= 8;
+ 951:sd_raw.c      ****                         csd_c_size |= b;
+ 952:sd_raw.c      ****                         break;
+ 953:sd_raw.c      ****                 }
+ 954:sd_raw.c      ****                 if(i == 9)
+ 955:sd_raw.c      ****                 {
+ 956:sd_raw.c      ****                     ++csd_c_size;
+ 957:sd_raw.c      ****                     info->capacity = (offset_t) csd_c_size * 512 * 1024;
+ 958:sd_raw.c      ****                 }
+ 959:sd_raw.c      ****             }
+ 960:sd_raw.c      ****             else if(csd_structure == 0x00)
+ 961:sd_raw.c      **** #endif
+ 962:sd_raw.c      ****             {
+ 963:sd_raw.c      ****                 switch(i)
+ 964:sd_raw.c      ****                 {
+ 965:sd_raw.c      ****                     case 5:
+ 966:sd_raw.c      ****                         csd_read_bl_len = b & 0x0f;
+ 967:sd_raw.c      ****                         break;
+ 968:sd_raw.c      ****                     case 6:
+ 969:sd_raw.c      ****                         csd_c_size = b & 0x03;
+ 970:sd_raw.c      ****                         csd_c_size <<= 8;
+ 971:sd_raw.c      ****                         break;
+ 972:sd_raw.c      ****                     case 7:
+ 973:sd_raw.c      ****                         csd_c_size |= b;
+ 974:sd_raw.c      ****                         csd_c_size <<= 2;
+ 975:sd_raw.c      ****                         break;
+ 976:sd_raw.c      ****                     case 8:
+ 977:sd_raw.c      ****                         csd_c_size |= b >> 6;
+ 978:sd_raw.c      ****                         ++csd_c_size;
+ 979:sd_raw.c      ****                         break;
+ 980:sd_raw.c      ****                     case 9:
+ 981:sd_raw.c      ****                         csd_c_size_mult = b & 0x03;
+ 982:sd_raw.c      ****                         csd_c_size_mult <<= 1;
+ 983:sd_raw.c      ****                         break;
+ 984:sd_raw.c      ****                     case 10:
+ 985:sd_raw.c      ****                         csd_c_size_mult |= b >> 7;
+ 986:sd_raw.c      **** 
+ 987:sd_raw.c      ****                         info->capacity = (uint32_t) csd_c_size << (csd_c_size_mult + csd_read_bl_le
+ 988:sd_raw.c      ****                         break;
+ 989:sd_raw.c      ****                 }
+ 990:sd_raw.c      ****             }
+ 991:sd_raw.c      ****         }
+ 992:sd_raw.c      ****     }
+ 993:sd_raw.c      **** 
+ 994:sd_raw.c      ****     unselect_card();
+ 995:sd_raw.c      **** 
+ 996:sd_raw.c      ****     return 1;
+ 997:sd_raw.c      **** }
+ 1831               		.loc 1 997 1 is_stmt 0 view .LVU380
+ 1832 0676 8F2D      		mov r24,r15
+ 1833               	/* epilogue start */
+ 1834 0678 DF91      		pop r29
+ 1835 067a CF91      		pop r28
+ 1836               	.LVL138:
+ 1837               		.loc 1 997 1 view .LVU381
+ 1838 067c 1F91      		pop r17
+ 1839 067e 0F91      		pop r16
+ 1840 0680 FF90      		pop r15
+ 1841 0682 EF90      		pop r14
+ 1842 0684 DF90      		pop r13
+ 1843 0686 CF90      		pop r12
+ 1844 0688 BF90      		pop r11
+ 1845 068a AF90      		pop r10
+ 1846 068c 0895      		ret
+ 1847               	.LVL139:
+ 1848               	.L135:
+ 1849               	.LBB50:
+ 1850               	.LBB49:
+ 878:sd_raw.c      ****                 break;
+ 1851               		.loc 1 878 17 is_stmt 1 view .LVU382
+ 878:sd_raw.c      ****                 break;
+ 1852               		.loc 1 878 34 is_stmt 0 view .LVU383
+ 1853 068e FE01      		movw r30,r28
+ 1854 0690 E00F      		add r30,r16
+ 1855 0692 F11F      		adc r31,r17
+ 1856 0694 8083      		st Z,r24
+ 879:sd_raw.c      ****             case 3:
+ 1857               		.loc 1 879 17 is_stmt 1 view .LVU384
+ 1858 0696 00C0      		rjmp .L128
+ 1859               	.L134:
+ 885:sd_raw.c      ****                 break;
+ 1860               		.loc 1 885 17 view .LVU385
+ 885:sd_raw.c      ****                 break;
+ 1861               		.loc 1 885 38 is_stmt 0 view .LVU386
+ 1862 0698 FE01      		movw r30,r28
+ 1863 069a E00F      		add r30,r16
+ 1864 069c F11F      		adc r31,r17
+ 1865 069e 8183      		std Z+1,r24
+ 886:sd_raw.c      ****             case 8:
+ 1866               		.loc 1 886 17 is_stmt 1 view .LVU387
+ 1867 06a0 00C0      		rjmp .L128
+ 1868               	.L133:
+ 888:sd_raw.c      ****                 break;
+ 1869               		.loc 1 888 17 view .LVU388
+ 888:sd_raw.c      ****                 break;
+ 1870               		.loc 1 888 32 is_stmt 0 view .LVU389
+ 1871 06a2 8A87      		std Y+10,r24
+ 889:sd_raw.c      ****             case 9:
+ 1872               		.loc 1 889 17 is_stmt 1 view .LVU390
+ 1873 06a4 00C0      		rjmp .L128
+ 1874               	.L132:
+ 894:sd_raw.c      ****                 break;
+ 1875               		.loc 1 894 17 view .LVU391
+ 894:sd_raw.c      ****                 break;
+ 1876               		.loc 1 894 33 is_stmt 0 view .LVU392
+ 1877 06a6 90E0      		ldi r25,0
+ 1878 06a8 B0E0      		ldi r27,0
+ 1879 06aa A0E0      		ldi r26,0
+ 894:sd_raw.c      ****                 break;
+ 1880               		.loc 1 894 46 view .LVU393
+ 1881 06ac 4E2D      		mov r20,r14
+ 1882 06ae 4003      		mulsu r20,r16
+ 1883 06b0 9001      		movw r18,r0
+ 1884 06b2 419F      		mul r20,r17
+ 1885 06b4 300D      		add r19,r0
+ 1886 06b6 1124      		clr __zero_reg__
+ 1887 06b8 205A      		subi r18,-96
+ 1888 06ba 3F4F      		sbci r19,-1
+ 1889 06bc 00C0      		rjmp 2f
+ 1890               		1:
+ 1891 06be 880F      		lsl r24
+ 1892 06c0 991F      		rol r25
+ 1893 06c2 AA1F      		rol r26
+ 1894 06c4 BB1F      		rol r27
+ 1895               		2:
+ 1896 06c6 2A95      		dec r18
+ 1897 06c8 02F4      		brpl 1b
+ 1898               	.LVL140:
+ 894:sd_raw.c      ****                 break;
+ 1899               		.loc 1 894 30 view .LVU394
+ 1900 06ca 4B85      		ldd r20,Y+11
+ 1901 06cc 5C85      		ldd r21,Y+12
+ 1902 06ce 6D85      		ldd r22,Y+13
+ 1903 06d0 7E85      		ldd r23,Y+14
+ 1904 06d2 842B      		or r24,r20
+ 1905 06d4 952B      		or r25,r21
+ 1906 06d6 A62B      		or r26,r22
+ 1907 06d8 B72B      		or r27,r23
+ 1908 06da 8B87      		std Y+11,r24
+ 1909 06dc 9C87      		std Y+12,r25
+ 1910 06de AD87      		std Y+13,r26
+ 1911 06e0 BE87      		std Y+14,r27
+ 895:sd_raw.c      ****             case 13:
+ 1912               		.loc 1 895 17 is_stmt 1 view .LVU395
+ 1913 06e2 00C0      		rjmp .L128
+ 1914               	.LVL141:
+ 1915               	.L131:
+ 897:sd_raw.c      ****                 break;
+ 1916               		.loc 1 897 17 view .LVU396
+ 897:sd_raw.c      ****                 break;
+ 1917               		.loc 1 897 46 is_stmt 0 view .LVU397
+ 1918 06e4 8295      		swap r24
+ 1919               	.LVL142:
+ 897:sd_raw.c      ****                 break;
+ 1920               		.loc 1 897 46 view .LVU398
+ 1921 06e6 807F      		andi r24,lo8(-16)
+ 897:sd_raw.c      ****                 break;
+ 1922               		.loc 1 897 42 view .LVU399
+ 1923 06e8 8F87      		std Y+15,r24
+ 898:sd_raw.c      ****             case 14:
+ 1924               		.loc 1 898 17 is_stmt 1 view .LVU400
+ 1925 06ea 00C0      		rjmp .L128
+ 1926               	.LVL143:
+ 1927               	.L129:
+ 900:sd_raw.c      ****                 info->manufacturing_month = b & 0x0f;
+ 1928               		.loc 1 900 17 view .LVU401
+ 900:sd_raw.c      ****                 info->manufacturing_month = b & 0x0f;
+ 1929               		.loc 1 900 42 is_stmt 0 view .LVU402
+ 1930 06ec 282F      		mov r18,r24
+ 1931 06ee 2295      		swap r18
+ 1932 06f0 2F70      		andi r18,lo8(15)
+ 1933 06f2 9F85      		ldd r25,Y+15
+ 1934 06f4 922B      		or r25,r18
+ 1935 06f6 9F87      		std Y+15,r25
+ 901:sd_raw.c      ****                 break;
+ 1936               		.loc 1 901 17 is_stmt 1 view .LVU403
+ 901:sd_raw.c      ****                 break;
+ 1937               		.loc 1 901 47 is_stmt 0 view .LVU404
+ 1938 06f8 8F70      		andi r24,lo8(15)
+ 1939               	.LVL144:
+ 901:sd_raw.c      ****                 break;
+ 1940               		.loc 1 901 43 view .LVU405
+ 1941 06fa 888B      		std Y+16,r24
+ 902:sd_raw.c      ****         }
+ 1942               		.loc 1 902 17 is_stmt 1 view .LVU406
+ 1943 06fc 00C0      		rjmp .L128
+ 1944               	.LVL145:
+ 1945               	.L138:
+ 902:sd_raw.c      ****         }
+ 1946               		.loc 1 902 17 is_stmt 0 view .LVU407
+ 1947               	.LBE49:
+ 1948               	.LBE50:
+ 920:sd_raw.c      ****     for(uint8_t i = 0; i < 18; ++i)
+ 1949               		.loc 1 920 37 is_stmt 1 discriminator 1 view .LVU408
+ 920:sd_raw.c      ****     for(uint8_t i = 0; i < 18; ++i)
+ 1950               		.loc 1 920 11 is_stmt 0 discriminator 1 view .LVU409
+ 1951 06fe 0E94 0000 		call sd_raw_rec_byte
+ 1952               	.LVL146:
+ 920:sd_raw.c      ****     for(uint8_t i = 0; i < 18; ++i)
+ 1953               		.loc 1 920 10 discriminator 1 view .LVU410
+ 1954 0702 8E3F      		cpi r24,lo8(-2)
+ 1955 0704 01F4      		brne .L138
+ 1956               	.LBB51:
+ 921:sd_raw.c      ****     {
+ 1957               		.loc 1 921 17 view .LVU411
+ 1958 0706 10E0      		ldi r17,0
+ 1959               	.LBE51:
+ 907:sd_raw.c      ****     uint8_t csd_c_size_mult = 0;
+ 1960               		.loc 1 907 13 view .LVU412
+ 1961 0708 B12C      		mov r11,__zero_reg__
+ 912:sd_raw.c      **** #endif
+ 1962               		.loc 1 912 14 view .LVU413
+ 1963 070a C12C      		mov r12,__zero_reg__
+ 1964 070c D12C      		mov r13,__zero_reg__
+ 1965 070e 7601      		movw r14,r12
+ 1966               	.LBB54:
+ 1967               	.LBB52:
+ 936:sd_raw.c      ****             info->format = (b & 0x0c) >> 2;
+ 1968               		.loc 1 936 47 view .LVU414
+ 1969 0710 01E0      		ldi r16,lo8(1)
+ 1970               	.LVL147:
+ 1971               	.L151:
+ 923:sd_raw.c      **** 
+ 1972               		.loc 1 923 9 is_stmt 1 view .LVU415
+ 923:sd_raw.c      **** 
+ 1973               		.loc 1 923 21 is_stmt 0 view .LVU416
+ 1974 0712 0E94 0000 		call sd_raw_rec_byte
+ 1975               	.LVL148:
+ 1976 0716 982F      		mov r25,r24
+ 1977               	.LVL149:
+ 925:sd_raw.c      ****         {
+ 1978               		.loc 1 925 9 is_stmt 1 view .LVU417
+ 925:sd_raw.c      ****         {
+ 1979               		.loc 1 925 11 is_stmt 0 view .LVU418
+ 1980 0718 1123      		tst r17
+ 1981 071a 01F0      		breq .L139
+ 929:sd_raw.c      ****         {
+ 1982               		.loc 1 929 14 is_stmt 1 view .LVU419
+ 929:sd_raw.c      ****         {
+ 1983               		.loc 1 929 16 is_stmt 0 view .LVU420
+ 1984 071c 1E30      		cpi r17,lo8(14)
+ 1985 071e 01F4      		brne .L140
+ 931:sd_raw.c      ****                 info->flag_copy = 1;
+ 1986               		.loc 1 931 13 is_stmt 1 view .LVU421
+ 931:sd_raw.c      ****                 info->flag_copy = 1;
+ 1987               		.loc 1 931 18 is_stmt 0 view .LVU422
+ 1988 0720 282F      		mov r18,r24
+ 1989 0722 30E0      		ldi r19,0
+ 931:sd_raw.c      ****                 info->flag_copy = 1;
+ 1990               		.loc 1 931 15 view .LVU423
+ 1991 0724 86FD      		sbrc r24,6
+ 932:sd_raw.c      ****             if(b & 0x20)
+ 1992               		.loc 1 932 17 is_stmt 1 view .LVU424
+ 932:sd_raw.c      ****             if(b & 0x20)
+ 1993               		.loc 1 932 33 is_stmt 0 view .LVU425
+ 1994 0726 0D8B      		std Y+21,r16
+ 1995               	.L141:
+ 933:sd_raw.c      ****                 info->flag_write_protect = 1;
+ 1996               		.loc 1 933 13 is_stmt 1 view .LVU426
+ 933:sd_raw.c      ****                 info->flag_write_protect = 1;
+ 1997               		.loc 1 933 15 is_stmt 0 view .LVU427
+ 1998 0728 95FD      		sbrc r25,5
+ 934:sd_raw.c      ****             if(b & 0x10)
+ 1999               		.loc 1 934 17 is_stmt 1 view .LVU428
+ 934:sd_raw.c      ****             if(b & 0x10)
+ 2000               		.loc 1 934 42 is_stmt 0 view .LVU429
+ 2001 072a 0E8B      		std Y+22,r16
+ 2002               	.L142:
+ 935:sd_raw.c      ****                 info->flag_write_protect_temp = 1;
+ 2003               		.loc 1 935 13 is_stmt 1 view .LVU430
+ 935:sd_raw.c      ****                 info->flag_write_protect_temp = 1;
+ 2004               		.loc 1 935 15 is_stmt 0 view .LVU431
+ 2005 072c 94FD      		sbrc r25,4
+ 936:sd_raw.c      ****             info->format = (b & 0x0c) >> 2;
+ 2006               		.loc 1 936 17 is_stmt 1 view .LVU432
+ 936:sd_raw.c      ****             info->format = (b & 0x0c) >> 2;
+ 2007               		.loc 1 936 47 is_stmt 0 view .LVU433
+ 2008 072e 0F8B      		std Y+23,r16
+ 2009               	.L143:
+ 937:sd_raw.c      ****         }
+ 2010               		.loc 1 937 13 is_stmt 1 view .LVU434
+ 937:sd_raw.c      ****         }
+ 2011               		.loc 1 937 39 is_stmt 0 view .LVU435
+ 2012 0730 3595      		asr r19
+ 2013 0732 2795      		ror r18
+ 2014 0734 3595      		asr r19
+ 2015 0736 2795      		ror r18
+ 2016 0738 2370      		andi r18,lo8(3)
+ 937:sd_raw.c      ****         }
+ 2017               		.loc 1 937 26 view .LVU436
+ 2018 073a 288F      		std Y+24,r18
+ 2019               	.LVL150:
+ 2020               	.L139:
+ 937:sd_raw.c      ****         }
+ 2021               		.loc 1 937 26 view .LVU437
+ 2022               	.LBE52:
+ 921:sd_raw.c      ****     {
+ 2023               		.loc 1 921 32 discriminator 2 view .LVU438
+ 2024 073c 1F5F      		subi r17,lo8(-(1))
+ 2025               	.LVL151:
+ 921:sd_raw.c      ****     {
+ 2026               		.loc 1 921 5 discriminator 2 view .LVU439
+ 2027 073e 1231      		cpi r17,lo8(18)
+ 2028 0740 01F4      		brne .L151
+ 921:sd_raw.c      ****     {
+ 2029               		.loc 1 921 5 discriminator 2 view .LVU440
+ 2030               	.LBE54:
+ 994:sd_raw.c      **** 
+ 2031               		.loc 1 994 5 is_stmt 1 view .LVU441
+ 2032 0742 2E9A      		sbi 0x5,6
+ 996:sd_raw.c      **** }
+ 2033               		.loc 1 996 5 view .LVU442
+ 996:sd_raw.c      **** }
+ 2034               		.loc 1 996 12 is_stmt 0 view .LVU443
+ 2035 0744 FF24      		clr r15
+ 2036 0746 F394      		inc r15
+ 2037 0748 00C0      		rjmp .L125
+ 2038               	.LVL152:
+ 2039               	.L140:
+ 2040               	.LBB55:
+ 2041               	.LBB53:
+ 963:sd_raw.c      ****                 {
+ 2042               		.loc 1 963 17 is_stmt 1 view .LVU444
+ 2043 074a 1730      		cpi r17,lo8(7)
+ 2044 074c 01F0      		breq .L144
+ 2045 074e 00F4      		brsh .L145
+ 2046 0750 1530      		cpi r17,lo8(5)
+ 2047 0752 01F0      		breq .L146
+ 2048 0754 1630      		cpi r17,lo8(6)
+ 2049 0756 01F4      		brne .L139
+ 969:sd_raw.c      ****                         csd_c_size <<= 8;
+ 2050               		.loc 1 969 25 view .LVU445
+ 969:sd_raw.c      ****                         csd_c_size <<= 8;
+ 2051               		.loc 1 969 36 is_stmt 0 view .LVU446
+ 2052 0758 9370      		andi r25,lo8(3)
+ 2053 075a C92E      		mov r12,r25
+ 2054               	.LVL153:
+ 969:sd_raw.c      ****                         csd_c_size <<= 8;
+ 2055               		.loc 1 969 36 view .LVU447
+ 2056 075c D12C      		mov r13,__zero_reg__
+ 2057 075e F12C      		mov r15,__zero_reg__
+ 2058 0760 E12C      		mov r14,__zero_reg__
+ 2059               	.LVL154:
+ 970:sd_raw.c      ****                         break;
+ 2060               		.loc 1 970 25 is_stmt 1 view .LVU448
+ 970:sd_raw.c      ****                         break;
+ 2061               		.loc 1 970 36 is_stmt 0 view .LVU449
+ 2062 0762 FE2C      		mov r15,r14
+ 2063 0764 ED2C      		mov r14,r13
+ 2064 0766 DC2C      		mov r13,r12
+ 2065 0768 CC24      		clr r12
+ 2066               	.LVL155:
+ 971:sd_raw.c      ****                     case 7:
+ 2067               		.loc 1 971 25 is_stmt 1 view .LVU450
+ 2068 076a 00C0      		rjmp .L139
+ 2069               	.L145:
+ 963:sd_raw.c      ****                 {
+ 2070               		.loc 1 963 17 is_stmt 0 view .LVU451
+ 2071 076c 1930      		cpi r17,lo8(9)
+ 2072 076e 01F0      		breq .L148
+ 2073 0770 00F0      		brlo .L149
+ 2074 0772 1A30      		cpi r17,lo8(10)
+ 2075 0774 01F4      		brne .L139
+ 985:sd_raw.c      **** 
+ 2076               		.loc 1 985 25 is_stmt 1 view .LVU452
+ 985:sd_raw.c      **** 
+ 2077               		.loc 1 985 41 is_stmt 0 view .LVU453
+ 2078 0776 991F      		rol r25
+ 2079 0778 9927      		clr r25
+ 2080 077a 991F      		rol r25
+ 2081 077c A92A      		or r10,r25
+ 2082               	.LVL156:
+ 987:sd_raw.c      ****                         break;
+ 2083               		.loc 1 987 25 is_stmt 1 view .LVU454
+ 987:sd_raw.c      ****                         break;
+ 2084               		.loc 1 987 84 is_stmt 0 view .LVU455
+ 2085 077e EA2D      		mov r30,r10
+ 2086 0780 EB0D      		add r30,r11
+ 2087 0782 FF27      		clr r31
+ 2088 0784 FF1F      		rol r31
+ 2089 0786 CF01      		movw r24,r30
+ 2090               	.LVL157:
+ 987:sd_raw.c      ****                         break;
+ 2091               		.loc 1 987 102 view .LVU456
+ 2092 0788 0296      		adiw r24,2
+ 987:sd_raw.c      ****                         break;
+ 2093               		.loc 1 987 64 view .LVU457
+ 2094 078a A701      		movw r20,r14
+ 2095 078c 9601      		movw r18,r12
+ 2096 078e 00C0      		rjmp 2f
+ 2097               		1:
+ 2098 0790 220F      		lsl r18
+ 2099 0792 331F      		rol r19
+ 2100 0794 441F      		rol r20
+ 2101 0796 551F      		rol r21
+ 2102               		2:
+ 2103 0798 8A95      		dec r24
+ 2104 079a 02F4      		brpl 1b
+ 2105 079c DA01      		movw r26,r20
+ 2106 079e C901      		movw r24,r18
+ 987:sd_raw.c      ****                         break;
+ 2107               		.loc 1 987 40 view .LVU458
+ 2108 07a0 898B      		std Y+17,r24
+ 2109 07a2 9A8B      		std Y+18,r25
+ 2110 07a4 AB8B      		std Y+19,r26
+ 2111 07a6 BC8B      		std Y+20,r27
+ 988:sd_raw.c      ****                 }
+ 2112               		.loc 1 988 25 is_stmt 1 view .LVU459
+ 2113 07a8 00C0      		rjmp .L139
+ 2114               	.LVL158:
+ 2115               	.L146:
+ 966:sd_raw.c      ****                         break;
+ 2116               		.loc 1 966 25 view .LVU460
+ 966:sd_raw.c      ****                         break;
+ 2117               		.loc 1 966 41 is_stmt 0 view .LVU461
+ 2118 07aa 9F70      		andi r25,lo8(15)
+ 2119 07ac B92E      		mov r11,r25
+ 2120               	.LVL159:
+ 967:sd_raw.c      ****                     case 6:
+ 2121               		.loc 1 967 25 is_stmt 1 view .LVU462
+ 2122 07ae 00C0      		rjmp .L139
+ 2123               	.L144:
+ 973:sd_raw.c      ****                         csd_c_size <<= 2;
+ 2124               		.loc 1 973 25 view .LVU463
+ 973:sd_raw.c      ****                         csd_c_size <<= 2;
+ 2125               		.loc 1 973 36 is_stmt 0 view .LVU464
+ 2126 07b0 C82A      		or r12,r24
+ 2127               	.LVL160:
+ 974:sd_raw.c      ****                         break;
+ 2128               		.loc 1 974 25 is_stmt 1 view .LVU465
+ 974:sd_raw.c      ****                         break;
+ 2129               		.loc 1 974 36 is_stmt 0 view .LVU466
+ 2130 07b2 82E0      		ldi r24,2
+ 2131               		1:
+ 2132 07b4 CC0C      		lsl r12
+ 2133 07b6 DD1C      		rol r13
+ 2134 07b8 EE1C      		rol r14
+ 2135 07ba FF1C      		rol r15
+ 2136 07bc 8A95      		dec r24
+ 2137 07be 01F4      		brne 1b
+ 2138               	.LVL161:
+ 975:sd_raw.c      ****                     case 8:
+ 2139               		.loc 1 975 25 is_stmt 1 view .LVU467
+ 2140 07c0 00C0      		rjmp .L139
+ 2141               	.LVL162:
+ 2142               	.L149:
+ 977:sd_raw.c      ****                         ++csd_c_size;
+ 2143               		.loc 1 977 25 view .LVU468
+ 977:sd_raw.c      ****                         ++csd_c_size;
+ 2144               		.loc 1 977 41 is_stmt 0 view .LVU469
+ 2145 07c2 9295      		swap r25
+ 2146 07c4 9695      		lsr r25
+ 2147 07c6 9695      		lsr r25
+ 2148 07c8 9370      		andi r25,lo8(3)
+ 977:sd_raw.c      ****                         ++csd_c_size;
+ 2149               		.loc 1 977 36 view .LVU470
+ 2150 07ca C92A      		or r12,r25
+ 2151               	.LVL163:
+ 978:sd_raw.c      ****                         break;
+ 2152               		.loc 1 978 25 is_stmt 1 view .LVU471
+ 2153 07cc 5FEF      		ldi r21,-1
+ 2154 07ce C51A      		sub r12,r21
+ 2155 07d0 D50A      		sbc r13,r21
+ 2156 07d2 E50A      		sbc r14,r21
+ 2157 07d4 F50A      		sbc r15,r21
+ 2158               	.LVL164:
+ 979:sd_raw.c      ****                     case 9:
+ 2159               		.loc 1 979 25 view .LVU472
+ 2160 07d6 00C0      		rjmp .L139
+ 2161               	.L148:
+ 981:sd_raw.c      ****                         csd_c_size_mult <<= 1;
+ 2162               		.loc 1 981 25 view .LVU473
+ 2163               	.LVL165:
+ 982:sd_raw.c      ****                         break;
+ 2164               		.loc 1 982 25 view .LVU474
+ 982:sd_raw.c      ****                         break;
+ 2165               		.loc 1 982 41 is_stmt 0 view .LVU475
+ 2166 07d8 990F      		lsl r25
+ 2167 07da 9670      		andi r25,lo8(6)
+ 2168 07dc A92E      		mov r10,r25
+ 2169               	.LVL166:
+ 983:sd_raw.c      ****                     case 10:
+ 2170               		.loc 1 983 25 is_stmt 1 view .LVU476
+ 2171 07de 00C0      		rjmp .L139
+ 2172               	.LBE53:
+ 2173               	.LBE55:
+ 2174               		.cfi_endproc
+ 2175               	.LFE11:
+ 2177               		.local	sd_raw_card_type
+ 2178               		.comm	sd_raw_card_type,1,1
+ 2179               		.local	raw_block_written
+ 2180               		.comm	raw_block_written,1,1
+ 2181               		.local	raw_block_address
+ 2182               		.comm	raw_block_address,4,1
+ 2183               		.local	raw_block
+ 2184               		.comm	raw_block,512,1
+ 2185               	.Letext0:
+ 2186               		.file 2 "/usr/avr/include/stdint.h"
+ 2187               		.file 3 "sd_raw_config.h"
+ 2188               		.file 4 "sd_raw.h"
+ 2189               		.file 5 "<built-in>"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 sd_raw.c
+     /tmp/ccjpmT6x.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccjpmT6x.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccjpmT6x.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccjpmT6x.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccjpmT6x.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccjpmT6x.s:11     .text:0000000000000000 sd_raw_send_byte
+     /tmp/ccjpmT6x.s:46     .text:0000000000000010 sd_raw_rec_byte
+     /tmp/ccjpmT6x.s:80     .text:0000000000000024 sd_raw_send_command
+     /tmp/ccjpmT6x.s:193    .text:0000000000000088 sd_raw_available
+     /tmp/ccjpmT6x.s:217    .text:0000000000000094 sd_raw_locked
+     /tmp/ccjpmT6x.s:242    .text:00000000000000a2 sd_raw_sync
+     /tmp/ccjpmT6x.s:2178   .bss:0000000000000001 raw_block_written
+     /tmp/ccjpmT6x.s:2180   .bss:0000000000000002 raw_block_address
+     /tmp/ccjpmT6x.s:2182   .bss:0000000000000006 raw_block
+     /tmp/ccjpmT6x.s:1068   .text:00000000000003b0 sd_raw_write
+     /tmp/ccjpmT6x.s:294    .text:00000000000000d6 sd_raw_read
+     /tmp/ccjpmT6x.s:592    .text:00000000000001fe sd_raw_init
+                             .bss:0000000000000000 sd_raw_card_type
+     /tmp/ccjpmT6x.s:874    .text:000000000000030a sd_raw_read_interval
+     /tmp/ccjpmT6x.s:1445   .text:0000000000000548 sd_raw_write_interval
+     /tmp/ccjpmT6x.s:1646   .text:00000000000005ee sd_raw_get_info
+
+UNDEFINED SYMBOLS
+memcpy
+__tablejump2__
+__do_clear_bss

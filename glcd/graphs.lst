@@ -1,0 +1,1455 @@
+   1               		.file	"graphs.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	glcd_bar_graph_horizontal
+  12               	glcd_bar_graph_horizontal:
+  13               	.LVL0:
+  14               	.LFB7:
+  15               		.file 1 "glcd/graphs.c"
+   1:glcd/graphs.c **** /**
+   2:glcd/graphs.c ****    \file graphs.c
+   3:glcd/graphs.c ****    \brief Functions relating to graphs. e.g bar graphs etc.
+   4:glcd/graphs.c ****    \author Andy Gock
+   5:glcd/graphs.c ****  */ 
+   6:glcd/graphs.c **** 
+   7:glcd/graphs.c **** /*
+   8:glcd/graphs.c **** 	Copyright (c) 2012, Andy Gock
+   9:glcd/graphs.c **** 
+  10:glcd/graphs.c **** 	All rights reserved.
+  11:glcd/graphs.c **** 
+  12:glcd/graphs.c **** 	Redistribution and use in source and binary forms, with or without
+  13:glcd/graphs.c **** 	modification, are permitted provided that the following conditions are met:
+  14:glcd/graphs.c **** 		* Redistributions of source code must retain the above copyright
+  15:glcd/graphs.c **** 		  notice, this list of conditions and the following disclaimer.
+  16:glcd/graphs.c **** 		* Redistributions in binary form must reproduce the above copyright
+  17:glcd/graphs.c **** 		  notice, this list of conditions and the following disclaimer in the
+  18:glcd/graphs.c **** 		  documentation and/or other materials provided with the distribution.
+  19:glcd/graphs.c **** 		* Neither the name of Andy Gock nor the
+  20:glcd/graphs.c **** 		  names of its contributors may be used to endorse or promote products
+  21:glcd/graphs.c **** 		  derived from this software without specific prior written permission.
+  22:glcd/graphs.c **** 
+  23:glcd/graphs.c **** 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  24:glcd/graphs.c **** 	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  25:glcd/graphs.c **** 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  26:glcd/graphs.c **** 	DISCLAIMED. IN NO EVENT SHALL ANDY GOCK BE LIABLE FOR ANY
+  27:glcd/graphs.c **** 	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  28:glcd/graphs.c **** 	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  29:glcd/graphs.c **** 	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  30:glcd/graphs.c **** 	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  31:glcd/graphs.c **** 	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  32:glcd/graphs.c **** 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  33:glcd/graphs.c **** */
+  34:glcd/graphs.c **** 
+  35:glcd/graphs.c **** #include "glcd.h"
+  36:glcd/graphs.c **** 
+  37:glcd/graphs.c **** static uint8_t glcd_map(uint8_t x1, uint8_t x2, uint8_t x);
+  38:glcd/graphs.c **** 
+  39:glcd/graphs.c **** void glcd_bar_graph_horizontal(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t val)
+  40:glcd/graphs.c **** {
+  16               		.loc 1 40 1 view -0
+  17               		.cfi_startproc
+  18               		.loc 1 40 1 is_stmt 0 view .LVU1
+  19 0000 EF92      		push r14
+  20               	.LCFI0:
+  21               		.cfi_def_cfa_offset 3
+  22               		.cfi_offset 14, -2
+  23 0002 FF92      		push r15
+  24               	.LCFI1:
+  25               		.cfi_def_cfa_offset 4
+  26               		.cfi_offset 15, -3
+  27 0004 0F93      		push r16
+  28               	.LCFI2:
+  29               		.cfi_def_cfa_offset 5
+  30               		.cfi_offset 16, -4
+  31 0006 1F93      		push r17
+  32               	.LCFI3:
+  33               		.cfi_def_cfa_offset 6
+  34               		.cfi_offset 17, -5
+  35 0008 CF93      		push r28
+  36               	.LCFI4:
+  37               		.cfi_def_cfa_offset 7
+  38               		.cfi_offset 28, -6
+  39 000a DF93      		push r29
+  40               	.LCFI5:
+  41               		.cfi_def_cfa_offset 8
+  42               		.cfi_offset 29, -7
+  43               	/* prologue: function */
+  44               	/* frame size = 0 */
+  45               	/* stack size = 6 */
+  46               	.L__stack_usage = 6
+  47 000c F82E      		mov r15,r24
+  48 000e 162F      		mov r17,r22
+  49 0010 C42F      		mov r28,r20
+  50 0012 D22F      		mov r29,r18
+  51 0014 E02E      		mov r14,r16
+  41:glcd/graphs.c **** 	if (height < 3) {
+  52               		.loc 1 41 2 is_stmt 1 view .LVU2
+  53               		.loc 1 41 5 is_stmt 0 view .LVU3
+  54 0016 2330      		cpi r18,lo8(3)
+  55 0018 00F0      		brlo .L1
+  42:glcd/graphs.c **** 		return;
+  43:glcd/graphs.c **** 	}
+  44:glcd/graphs.c **** 	glcd_draw_rect(x, y, width, height, BLACK);
+  56               		.loc 1 44 2 is_stmt 1 view .LVU4
+  57 001a 01E0      		ldi r16,lo8(1)
+  58               	.LVL1:
+  59               		.loc 1 44 2 is_stmt 0 view .LVU5
+  60 001c 0E94 0000 		call glcd_draw_rect
+  61               	.LVL2:
+  45:glcd/graphs.c **** 	glcd_fill_rect(x+1, y+1, glcd_map(0,width-2,val), height-2 , BLACK);
+  62               		.loc 1 45 2 is_stmt 1 view .LVU6
+  63               	.LBB24:
+  64               	.LBI24:
+  46:glcd/graphs.c **** }
+  47:glcd/graphs.c **** 
+  48:glcd/graphs.c **** void glcd_bar_graph_horizontal_no_border(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8
+  49:glcd/graphs.c **** {
+  50:glcd/graphs.c **** 	if (height < 3) {
+  51:glcd/graphs.c **** 		return;
+  52:glcd/graphs.c **** 	}	
+  53:glcd/graphs.c **** 	glcd_fill_rect(x, y, glcd_map(0,width,val), height , BLACK);
+  54:glcd/graphs.c **** }
+  55:glcd/graphs.c **** 
+  56:glcd/graphs.c **** void glcd_bar_graph_vertical(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t val)
+  57:glcd/graphs.c **** {
+  58:glcd/graphs.c **** 	glcd_draw_rect(x, y, width, height, BLACK);
+  59:glcd/graphs.c **** 	glcd_fill_rect(x+1, y+1+glcd_map(0,height-2,255-val), width-2, height-2-glcd_map(0,height-2,255-va
+  60:glcd/graphs.c **** }
+  61:glcd/graphs.c **** 
+  62:glcd/graphs.c **** void glcd_bar_graph_vertical_no_border(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t
+  63:glcd/graphs.c **** {
+  64:glcd/graphs.c **** 	glcd_fill_rect(x, y+glcd_map(0,height-2,255-val), width, height-2-glcd_map(0,height-2,255-val), BL
+  65:glcd/graphs.c **** }
+  66:glcd/graphs.c **** 
+  67:glcd/graphs.c **** void glcd_scrolling_bar_graph(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t val)
+  68:glcd/graphs.c **** {
+  69:glcd/graphs.c **** 	uint8_t nx, ny;
+  70:glcd/graphs.c **** 	uint8_t color;
+  71:glcd/graphs.c **** 	
+  72:glcd/graphs.c **** 	/* Draw border of graph */
+  73:glcd/graphs.c **** 	glcd_draw_rect(x,y,width,height,BLACK);
+  74:glcd/graphs.c **** 	
+  75:glcd/graphs.c **** 	/* Scroll inner contents left by one pixel width */
+  76:glcd/graphs.c **** 	for (ny = 1; ny <= (height-2); ny++) {
+  77:glcd/graphs.c **** 		/* Redraw each horizontal line */
+  78:glcd/graphs.c **** 		for (nx = 1; nx <= (width-2); nx += 1) {
+  79:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+  80:glcd/graphs.c **** 			glcd_set_pixel(x+nx,y+ny,color);
+  81:glcd/graphs.c **** 		}
+  82:glcd/graphs.c **** 	}
+  83:glcd/graphs.c **** 	
+  84:glcd/graphs.c **** 	val = val * (height-3) / 255;
+  85:glcd/graphs.c **** 	
+  86:glcd/graphs.c **** 	/* Make sure we're not exceeding the size of box interior */
+  87:glcd/graphs.c **** 	if (val > (height-3)) {
+  88:glcd/graphs.c **** 		val = height - 3;
+  89:glcd/graphs.c **** 	}
+  90:glcd/graphs.c **** 	
+  91:glcd/graphs.c **** 	/* Draw new bar - both black and white portions*/
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-2,x+width-2,y+height-2-val,BLACK);
+  93:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+  94:glcd/graphs.c **** 	
+  95:glcd/graphs.c **** 	/* Write to display */
+  96:glcd/graphs.c **** 	glcd_write();
+  97:glcd/graphs.c **** }
+  98:glcd/graphs.c **** 
+  99:glcd/graphs.c **** void glcd_scrolling_bar_graph_timing(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t v
+ 100:glcd/graphs.c **** {
+ 101:glcd/graphs.c **** 	uint8_t n;
+ 102:glcd/graphs.c **** 	if (line_width == 0) {
+ 103:glcd/graphs.c **** 		line_width = 1;
+ 104:glcd/graphs.c **** 	}
+ 105:glcd/graphs.c **** 	
+ 106:glcd/graphs.c **** 	/* Adjust graph line's width by just running glcd_scrolling_bar_graph() x number of times */
+ 107:glcd/graphs.c **** 	/* \todo This should be done differently! */
+ 108:glcd/graphs.c **** 	for (n=0; n<line_width; n++) {
+ 109:glcd/graphs.c **** 		glcd_scrolling_bar_graph(x,y,width,height,val);
+ 110:glcd/graphs.c **** 	}
+ 111:glcd/graphs.c **** 	
+ 112:glcd/graphs.c **** 	if (delay) {
+ 113:glcd/graphs.c **** 		delay_ms(delay);
+ 114:glcd/graphs.c **** 	}
+ 115:glcd/graphs.c **** }
+ 116:glcd/graphs.c **** 
+ 117:glcd/graphs.c **** static uint8_t glcd_map(uint8_t x1, uint8_t x2, uint8_t x)
+  65               		.loc 1 117 16 view .LVU7
+  66               	.LBB25:
+ 118:glcd/graphs.c **** {
+ 119:glcd/graphs.c **** 	return x1+(x2-x1)*x/255;	
+  67               		.loc 1 119 2 view .LVU8
+  68               		.loc 1 119 2 is_stmt 0 view .LVU9
+  69               	.LBE25:
+  70               	.LBE24:
+  45:glcd/graphs.c **** }
+  71               		.loc 1 45 2 view .LVU10
+  72 0020 2EEF      		ldi r18,lo8(-2)
+  73 0022 2D0F      		add r18,r29
+  74 0024 C250      		subi r28,lo8(-(-2))
+  75               	.LVL3:
+  76               	.LBB27:
+  77               	.LBB26:
+  78               		.loc 1 119 19 view .LVU11
+  79 0026 CE9D      		mul r28,r14
+  80 0028 C001      		movw r24,r0
+  81 002a 1124      		clr __zero_reg__
+  82               		.loc 1 119 21 view .LVU12
+  83 002c 6FEF      		ldi r22,lo8(-1)
+  84 002e 70E0      		ldi r23,0
+  85 0030 0E94 0000 		call __divmodhi4
+  86 0034 462F      		mov r20,r22
+  87               	.LBE26:
+  88               	.LBE27:
+  45:glcd/graphs.c **** }
+  89               		.loc 1 45 2 view .LVU13
+  90 0036 61E0      		ldi r22,lo8(1)
+  91 0038 610F      		add r22,r17
+  92 003a 81E0      		ldi r24,lo8(1)
+  93 003c 8F0D      		add r24,r15
+  94 003e 0E94 0000 		call glcd_fill_rect
+  95               	.LVL4:
+  96               	.L1:
+  97               	/* epilogue start */
+  46:glcd/graphs.c **** }
+  98               		.loc 1 46 1 view .LVU14
+  99 0042 DF91      		pop r29
+ 100               	.LVL5:
+  46:glcd/graphs.c **** }
+ 101               		.loc 1 46 1 view .LVU15
+ 102 0044 CF91      		pop r28
+ 103 0046 1F91      		pop r17
+ 104               	.LVL6:
+  46:glcd/graphs.c **** }
+ 105               		.loc 1 46 1 view .LVU16
+ 106 0048 0F91      		pop r16
+ 107 004a FF90      		pop r15
+ 108               	.LVL7:
+  46:glcd/graphs.c **** }
+ 109               		.loc 1 46 1 view .LVU17
+ 110 004c EF90      		pop r14
+ 111               	.LVL8:
+  46:glcd/graphs.c **** }
+ 112               		.loc 1 46 1 view .LVU18
+ 113 004e 0895      		ret
+ 114               		.cfi_endproc
+ 115               	.LFE7:
+ 117               	.global	glcd_bar_graph_horizontal_no_border
+ 119               	glcd_bar_graph_horizontal_no_border:
+ 120               	.LVL9:
+ 121               	.LFB8:
+  49:glcd/graphs.c **** 	if (height < 3) {
+ 122               		.loc 1 49 1 is_stmt 1 view -0
+ 123               		.cfi_startproc
+  49:glcd/graphs.c **** 	if (height < 3) {
+ 124               		.loc 1 49 1 is_stmt 0 view .LVU20
+ 125 0050 0F93      		push r16
+ 126               	.LCFI6:
+ 127               		.cfi_def_cfa_offset 3
+ 128               		.cfi_offset 16, -2
+ 129               	/* prologue: function */
+ 130               	/* frame size = 0 */
+ 131               	/* stack size = 1 */
+ 132               	.L__stack_usage = 1
+ 133 0052 382F      		mov r19,r24
+ 134 0054 E62F      		mov r30,r22
+  50:glcd/graphs.c **** 		return;
+ 135               		.loc 1 50 2 is_stmt 1 view .LVU21
+  50:glcd/graphs.c **** 		return;
+ 136               		.loc 1 50 5 is_stmt 0 view .LVU22
+ 137 0056 2330      		cpi r18,lo8(3)
+ 138 0058 00F0      		brlo .L3
+  53:glcd/graphs.c **** }
+ 139               		.loc 1 53 2 is_stmt 1 view .LVU23
+ 140               	.LVL10:
+ 141               	.LBB28:
+ 142               	.LBI28:
+ 117:glcd/graphs.c **** {
+ 143               		.loc 1 117 16 view .LVU24
+ 144               	.LBB29:
+ 145               		.loc 1 119 2 view .LVU25
+ 146               		.loc 1 119 19 is_stmt 0 view .LVU26
+ 147 005a 409F      		mul r20,r16
+ 148 005c C001      		movw r24,r0
+ 149 005e 1124      		clr __zero_reg__
+ 150               	.LVL11:
+ 151               		.loc 1 119 21 view .LVU27
+ 152 0060 6FEF      		ldi r22,lo8(-1)
+ 153 0062 70E0      		ldi r23,0
+ 154               	.LVL12:
+ 155               		.loc 1 119 21 view .LVU28
+ 156 0064 0E94 0000 		call __divmodhi4
+ 157 0068 462F      		mov r20,r22
+ 158               	.LVL13:
+ 159               		.loc 1 119 21 view .LVU29
+ 160               	.LBE29:
+ 161               	.LBE28:
+  53:glcd/graphs.c **** }
+ 162               		.loc 1 53 2 view .LVU30
+ 163 006a 01E0      		ldi r16,lo8(1)
+ 164               	.LVL14:
+  53:glcd/graphs.c **** }
+ 165               		.loc 1 53 2 view .LVU31
+ 166 006c 6E2F      		mov r22,r30
+ 167 006e 832F      		mov r24,r19
+ 168 0070 0E94 0000 		call glcd_fill_rect
+ 169               	.LVL15:
+ 170               	.L3:
+ 171               	/* epilogue start */
+  54:glcd/graphs.c **** 
+ 172               		.loc 1 54 1 view .LVU32
+ 173 0074 0F91      		pop r16
+ 174 0076 0895      		ret
+ 175               		.cfi_endproc
+ 176               	.LFE8:
+ 178               	.global	glcd_bar_graph_vertical
+ 180               	glcd_bar_graph_vertical:
+ 181               	.LVL16:
+ 182               	.LFB9:
+  57:glcd/graphs.c **** 	glcd_draw_rect(x, y, width, height, BLACK);
+ 183               		.loc 1 57 1 is_stmt 1 view -0
+ 184               		.cfi_startproc
+  57:glcd/graphs.c **** 	glcd_draw_rect(x, y, width, height, BLACK);
+ 185               		.loc 1 57 1 is_stmt 0 view .LVU34
+ 186 0078 EF92      		push r14
+ 187               	.LCFI7:
+ 188               		.cfi_def_cfa_offset 3
+ 189               		.cfi_offset 14, -2
+ 190 007a FF92      		push r15
+ 191               	.LCFI8:
+ 192               		.cfi_def_cfa_offset 4
+ 193               		.cfi_offset 15, -3
+ 194 007c 0F93      		push r16
+ 195               	.LCFI9:
+ 196               		.cfi_def_cfa_offset 5
+ 197               		.cfi_offset 16, -4
+ 198 007e 1F93      		push r17
+ 199               	.LCFI10:
+ 200               		.cfi_def_cfa_offset 6
+ 201               		.cfi_offset 17, -5
+ 202 0080 CF93      		push r28
+ 203               	.LCFI11:
+ 204               		.cfi_def_cfa_offset 7
+ 205               		.cfi_offset 28, -6
+ 206 0082 DF93      		push r29
+ 207               	.LCFI12:
+ 208               		.cfi_def_cfa_offset 8
+ 209               		.cfi_offset 29, -7
+ 210               	/* prologue: function */
+ 211               	/* frame size = 0 */
+ 212               	/* stack size = 6 */
+ 213               	.L__stack_usage = 6
+ 214 0084 E82E      		mov r14,r24
+ 215 0086 D62F      		mov r29,r22
+ 216 0088 F42E      		mov r15,r20
+ 217 008a C22F      		mov r28,r18
+ 218 008c 102F      		mov r17,r16
+  58:glcd/graphs.c **** 	glcd_fill_rect(x+1, y+1+glcd_map(0,height-2,255-val), width-2, height-2-glcd_map(0,height-2,255-va
+ 219               		.loc 1 58 2 is_stmt 1 view .LVU35
+ 220 008e 01E0      		ldi r16,lo8(1)
+ 221               	.LVL17:
+  58:glcd/graphs.c **** 	glcd_fill_rect(x+1, y+1+glcd_map(0,height-2,255-val), width-2, height-2-glcd_map(0,height-2,255-va
+ 222               		.loc 1 58 2 is_stmt 0 view .LVU36
+ 223 0090 0E94 0000 		call glcd_draw_rect
+ 224               	.LVL18:
+  59:glcd/graphs.c **** }
+ 225               		.loc 1 59 2 is_stmt 1 view .LVU37
+  59:glcd/graphs.c **** }
+ 226               		.loc 1 59 74 is_stmt 0 view .LVU38
+ 227 0094 C250      		subi r28,lo8(-(-2))
+ 228               	.LVL19:
+ 229               	.LBB30:
+ 230               	.LBI30:
+ 117:glcd/graphs.c **** {
+ 231               		.loc 1 117 16 is_stmt 1 view .LVU39
+ 232               	.LBB31:
+ 233               		.loc 1 119 2 view .LVU40
+ 234               	.LBE31:
+ 235               	.LBE30:
+  59:glcd/graphs.c **** }
+ 236               		.loc 1 59 74 is_stmt 0 view .LVU41
+ 237 0096 1095      		com r17
+ 238               	.LVL20:
+ 239               	.LBB33:
+ 240               	.LBB32:
+ 241               		.loc 1 119 19 view .LVU42
+ 242 0098 1C9F      		mul r17,r28
+ 243 009a C001      		movw r24,r0
+ 244 009c 1124      		clr __zero_reg__
+ 245               		.loc 1 119 21 view .LVU43
+ 246 009e 6FEF      		ldi r22,lo8(-1)
+ 247 00a0 70E0      		ldi r23,0
+ 248 00a2 0E94 0000 		call __divmodhi4
+ 249               	.LVL21:
+ 250               		.loc 1 119 21 view .LVU44
+ 251               	.LBE32:
+ 252               	.LBE33:
+ 253               		.loc 1 119 2 is_stmt 1 view .LVU45
+  59:glcd/graphs.c **** }
+ 254               		.loc 1 59 2 is_stmt 0 view .LVU46
+ 255 00a6 2C2F      		mov r18,r28
+ 256 00a8 261B      		sub r18,r22
+ 257 00aa 4EEF      		ldi r20,lo8(-2)
+ 258 00ac 4F0D      		add r20,r15
+ 259 00ae DF5F      		subi r29,lo8(-(1))
+ 260               	.LVL22:
+  59:glcd/graphs.c **** }
+ 261               		.loc 1 59 2 view .LVU47
+ 262 00b0 6D0F      		add r22,r29
+ 263 00b2 81E0      		ldi r24,lo8(1)
+ 264 00b4 8E0D      		add r24,r14
+ 265 00b6 0E94 0000 		call glcd_fill_rect
+ 266               	.LVL23:
+ 267               	/* epilogue start */
+  60:glcd/graphs.c **** 
+ 268               		.loc 1 60 1 view .LVU48
+ 269 00ba DF91      		pop r29
+ 270               	.LVL24:
+  60:glcd/graphs.c **** 
+ 271               		.loc 1 60 1 view .LVU49
+ 272 00bc CF91      		pop r28
+ 273               	.LVL25:
+  60:glcd/graphs.c **** 
+ 274               		.loc 1 60 1 view .LVU50
+ 275 00be 1F91      		pop r17
+ 276               	.LVL26:
+  60:glcd/graphs.c **** 
+ 277               		.loc 1 60 1 view .LVU51
+ 278 00c0 0F91      		pop r16
+ 279 00c2 FF90      		pop r15
+ 280               	.LVL27:
+  60:glcd/graphs.c **** 
+ 281               		.loc 1 60 1 view .LVU52
+ 282 00c4 EF90      		pop r14
+ 283               	.LVL28:
+  60:glcd/graphs.c **** 
+ 284               		.loc 1 60 1 view .LVU53
+ 285 00c6 0895      		ret
+ 286               		.cfi_endproc
+ 287               	.LFE9:
+ 289               	.global	glcd_bar_graph_vertical_no_border
+ 291               	glcd_bar_graph_vertical_no_border:
+ 292               	.LVL29:
+ 293               	.LFB10:
+  63:glcd/graphs.c **** 	glcd_fill_rect(x, y+glcd_map(0,height-2,255-val), width, height-2-glcd_map(0,height-2,255-val), BL
+ 294               		.loc 1 63 1 is_stmt 1 view -0
+ 295               		.cfi_startproc
+  63:glcd/graphs.c **** 	glcd_fill_rect(x, y+glcd_map(0,height-2,255-val), width, height-2-glcd_map(0,height-2,255-val), BL
+ 296               		.loc 1 63 1 is_stmt 0 view .LVU55
+ 297 00c8 0F93      		push r16
+ 298               	.LCFI13:
+ 299               		.cfi_def_cfa_offset 3
+ 300               		.cfi_offset 16, -2
+ 301               	/* prologue: function */
+ 302               	/* frame size = 0 */
+ 303               	/* stack size = 1 */
+ 304               	.L__stack_usage = 1
+ 305 00ca E82F      		mov r30,r24
+ 306 00cc 362F      		mov r19,r22
+  64:glcd/graphs.c **** }
+ 307               		.loc 1 64 2 is_stmt 1 view .LVU56
+  64:glcd/graphs.c **** }
+ 308               		.loc 1 64 68 is_stmt 0 view .LVU57
+ 309 00ce 2250      		subi r18,lo8(-(-2))
+ 310               	.LVL30:
+ 311               	.LBB34:
+ 312               	.LBI34:
+ 117:glcd/graphs.c **** {
+ 313               		.loc 1 117 16 is_stmt 1 view .LVU58
+ 314               	.LBB35:
+ 315               		.loc 1 119 2 view .LVU59
+ 316               	.LBE35:
+ 317               	.LBE34:
+  64:glcd/graphs.c **** }
+ 318               		.loc 1 64 68 is_stmt 0 view .LVU60
+ 319 00d0 0095      		com r16
+ 320               	.LVL31:
+ 321               	.LBB37:
+ 322               	.LBB36:
+ 323               		.loc 1 119 19 view .LVU61
+ 324 00d2 029F      		mul r16,r18
+ 325 00d4 C001      		movw r24,r0
+ 326 00d6 1124      		clr __zero_reg__
+ 327               	.LVL32:
+ 328               		.loc 1 119 21 view .LVU62
+ 329 00d8 6FEF      		ldi r22,lo8(-1)
+ 330 00da 70E0      		ldi r23,0
+ 331               	.LVL33:
+ 332               		.loc 1 119 21 view .LVU63
+ 333 00dc 0E94 0000 		call __divmodhi4
+ 334               	.LVL34:
+ 335               		.loc 1 119 21 view .LVU64
+ 336               	.LBE36:
+ 337               	.LBE37:
+ 338               		.loc 1 119 2 is_stmt 1 view .LVU65
+  64:glcd/graphs.c **** }
+ 339               		.loc 1 64 2 is_stmt 0 view .LVU66
+ 340 00e0 261B      		sub r18,r22
+ 341               	.LVL35:
+  64:glcd/graphs.c **** }
+ 342               		.loc 1 64 2 view .LVU67
+ 343 00e2 630F      		add r22,r19
+ 344 00e4 01E0      		ldi r16,lo8(1)
+ 345 00e6 8E2F      		mov r24,r30
+ 346 00e8 0E94 0000 		call glcd_fill_rect
+ 347               	.LVL36:
+ 348               	/* epilogue start */
+  65:glcd/graphs.c **** 
+ 349               		.loc 1 65 1 view .LVU68
+ 350 00ec 0F91      		pop r16
+ 351 00ee 0895      		ret
+ 352               		.cfi_endproc
+ 353               	.LFE10:
+ 355               	.global	glcd_scrolling_bar_graph
+ 357               	glcd_scrolling_bar_graph:
+ 358               	.LVL37:
+ 359               	.LFB11:
+  68:glcd/graphs.c **** 	uint8_t nx, ny;
+ 360               		.loc 1 68 1 is_stmt 1 view -0
+ 361               		.cfi_startproc
+  68:glcd/graphs.c **** 	uint8_t nx, ny;
+ 362               		.loc 1 68 1 is_stmt 0 view .LVU70
+ 363 00f0 4F92      		push r4
+ 364               	.LCFI14:
+ 365               		.cfi_def_cfa_offset 3
+ 366               		.cfi_offset 4, -2
+ 367 00f2 5F92      		push r5
+ 368               	.LCFI15:
+ 369               		.cfi_def_cfa_offset 4
+ 370               		.cfi_offset 5, -3
+ 371 00f4 6F92      		push r6
+ 372               	.LCFI16:
+ 373               		.cfi_def_cfa_offset 5
+ 374               		.cfi_offset 6, -4
+ 375 00f6 7F92      		push r7
+ 376               	.LCFI17:
+ 377               		.cfi_def_cfa_offset 6
+ 378               		.cfi_offset 7, -5
+ 379 00f8 8F92      		push r8
+ 380               	.LCFI18:
+ 381               		.cfi_def_cfa_offset 7
+ 382               		.cfi_offset 8, -6
+ 383 00fa 9F92      		push r9
+ 384               	.LCFI19:
+ 385               		.cfi_def_cfa_offset 8
+ 386               		.cfi_offset 9, -7
+ 387 00fc AF92      		push r10
+ 388               	.LCFI20:
+ 389               		.cfi_def_cfa_offset 9
+ 390               		.cfi_offset 10, -8
+ 391 00fe BF92      		push r11
+ 392               	.LCFI21:
+ 393               		.cfi_def_cfa_offset 10
+ 394               		.cfi_offset 11, -9
+ 395 0100 CF92      		push r12
+ 396               	.LCFI22:
+ 397               		.cfi_def_cfa_offset 11
+ 398               		.cfi_offset 12, -10
+ 399 0102 DF92      		push r13
+ 400               	.LCFI23:
+ 401               		.cfi_def_cfa_offset 12
+ 402               		.cfi_offset 13, -11
+ 403 0104 EF92      		push r14
+ 404               	.LCFI24:
+ 405               		.cfi_def_cfa_offset 13
+ 406               		.cfi_offset 14, -12
+ 407 0106 FF92      		push r15
+ 408               	.LCFI25:
+ 409               		.cfi_def_cfa_offset 14
+ 410               		.cfi_offset 15, -13
+ 411 0108 0F93      		push r16
+ 412               	.LCFI26:
+ 413               		.cfi_def_cfa_offset 15
+ 414               		.cfi_offset 16, -14
+ 415 010a 1F93      		push r17
+ 416               	.LCFI27:
+ 417               		.cfi_def_cfa_offset 16
+ 418               		.cfi_offset 17, -15
+ 419 010c CF93      		push r28
+ 420               	.LCFI28:
+ 421               		.cfi_def_cfa_offset 17
+ 422               		.cfi_offset 28, -16
+ 423 010e DF93      		push r29
+ 424               	.LCFI29:
+ 425               		.cfi_def_cfa_offset 18
+ 426               		.cfi_offset 29, -17
+ 427               	/* prologue: function */
+ 428               	/* frame size = 0 */
+ 429               	/* stack size = 16 */
+ 430               	.L__stack_usage = 16
+ 431 0110 982E      		mov r9,r24
+ 432 0112 D62F      		mov r29,r22
+ 433 0114 C42F      		mov r28,r20
+ 434 0116 722E      		mov r7,r18
+ 435 0118 602E      		mov r6,r16
+  69:glcd/graphs.c **** 	uint8_t color;
+ 436               		.loc 1 69 2 is_stmt 1 view .LVU71
+  70:glcd/graphs.c **** 	
+ 437               		.loc 1 70 2 view .LVU72
+  73:glcd/graphs.c **** 	
+ 438               		.loc 1 73 2 view .LVU73
+ 439 011a 01E0      		ldi r16,lo8(1)
+ 440               	.LVL38:
+  73:glcd/graphs.c **** 	
+ 441               		.loc 1 73 2 is_stmt 0 view .LVU74
+ 442 011c 0E94 0000 		call glcd_draw_rect
+ 443               	.LVL39:
+  76:glcd/graphs.c **** 		/* Redraw each horizontal line */
+ 444               		.loc 1 76 2 is_stmt 1 view .LVU75
+  76:glcd/graphs.c **** 		/* Redraw each horizontal line */
+ 445               		.loc 1 76 2 is_stmt 0 view .LVU76
+ 446 0120 EE24      		clr r14
+ 447 0122 E394      		inc r14
+ 448 0124 ED0E      		add r14,r29
+ 449 0126 FE2C      		mov r15,r14
+  76:glcd/graphs.c **** 		/* Redraw each horizontal line */
+ 450               		.loc 1 76 18 view .LVU77
+ 451 0128 072D      		mov r16,r7
+ 452 012a 10E0      		ldi r17,0
+ 453 012c 6801      		movw r12,r16
+ 454 012e 81E0      		ldi r24,1
+ 455 0130 C81A      		sub r12,r24
+ 456 0132 D108      		sbc r13,__zero_reg__
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 457               		.loc 1 78 19 view .LVU78
+ 458 0134 8C2F      		mov r24,r28
+ 459 0136 8150      		subi r24,1
+ 460 0138 990B      		sbc r25,r25
+ 461 013a 5C01      		movw r10,r24
+  79:glcd/graphs.c **** 			glcd_set_pixel(x+nx,y+ny,color);
+ 462               		.loc 1 79 12 view .LVU79
+ 463 013c 5524      		clr r5
+ 464 013e 5394      		inc r5
+ 465 0140 590C      		add r5,r9
+ 466               	.LVL40:
+ 467               	.L8:
+  76:glcd/graphs.c **** 		/* Redraw each horizontal line */
+ 468               		.loc 1 76 18 discriminator 1 view .LVU80
+ 469 0142 8F2D      		mov r24,r15
+ 470 0144 8D1B      		sub r24,r29
+ 471               	.LVL41:
+  76:glcd/graphs.c **** 		/* Redraw each horizontal line */
+ 472               		.loc 1 76 2 discriminator 1 view .LVU81
+ 473 0146 8C15      		cp r24,r12
+ 474 0148 1D04      		cpc __zero_reg__,r13
+ 475 014a 04F4      		brge .+2
+ 476 014c 00C0      		rjmp .L13
+  84:glcd/graphs.c **** 	
+ 477               		.loc 1 84 2 is_stmt 1 view .LVU82
+  84:glcd/graphs.c **** 	
+ 478               		.loc 1 84 21 is_stmt 0 view .LVU83
+ 479 014e 9801      		movw r18,r16
+ 480 0150 2350      		subi r18,3
+ 481 0152 3109      		sbc r19,__zero_reg__
+  84:glcd/graphs.c **** 	
+ 482               		.loc 1 84 12 view .LVU84
+ 483 0154 629E      		mul r6,r18
+ 484 0156 C001      		movw r24,r0
+ 485 0158 639E      		mul r6,r19
+ 486 015a 900D      		add r25,r0
+ 487 015c 1124      		clr __zero_reg__
+ 488               	.LVL42:
+  84:glcd/graphs.c **** 	
+ 489               		.loc 1 84 25 view .LVU85
+ 490 015e 6FEF      		ldi r22,lo8(-1)
+ 491 0160 70E0      		ldi r23,0
+ 492 0162 0E94 0000 		call __divmodhi4
+ 493               	.LVL43:
+  87:glcd/graphs.c **** 		val = height - 3;
+ 494               		.loc 1 87 2 is_stmt 1 view .LVU86
+  87:glcd/graphs.c **** 		val = height - 3;
+ 495               		.loc 1 87 10 is_stmt 0 view .LVU87
+ 496 0166 0250      		subi r16,2
+ 497 0168 1109      		sbc r17,__zero_reg__
+  87:glcd/graphs.c **** 		val = height - 3;
+ 498               		.loc 1 87 5 view .LVU88
+ 499 016a 6017      		cp r22,r16
+ 500 016c 1106      		cpc __zero_reg__,r17
+ 501 016e 04F0      		brlt .L12
+  88:glcd/graphs.c **** 	}
+ 502               		.loc 1 88 3 is_stmt 1 view .LVU89
+  88:glcd/graphs.c **** 	}
+ 503               		.loc 1 88 7 is_stmt 0 view .LVU90
+ 504 0170 6DEF      		ldi r22,lo8(-3)
+ 505               	.LVL44:
+  88:glcd/graphs.c **** 	}
+ 506               		.loc 1 88 7 view .LVU91
+ 507 0172 670D      		add r22,r7
+ 508               	.LVL45:
+ 509               	.L12:
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 510               		.loc 1 92 2 is_stmt 1 view .LVU92
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 511               		.loc 1 92 49 is_stmt 0 view .LVU93
+ 512 0174 D70D      		add r29,r7
+ 513               	.LVL46:
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 514               		.loc 1 92 58 view .LVU94
+ 515 0176 1D2F      		mov r17,r29
+ 516 0178 161B      		sub r17,r22
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 517               		.loc 1 92 2 view .LVU95
+ 518 017a C250      		subi r28,lo8(-(-2))
+ 519               	.LVL47:
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 520               		.loc 1 92 2 view .LVU96
+ 521 017c C90D      		add r28,r9
+ 522               	.LVL48:
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 523               		.loc 1 92 2 view .LVU97
+ 524 017e 2EEF      		ldi r18,lo8(-2)
+ 525 0180 210F      		add r18,r17
+ 526 0182 6EEF      		ldi r22,lo8(-2)
+ 527               	.LVL49:
+  92:glcd/graphs.c **** 	glcd_draw_line(x+width-2,y+height-3-val,x+width-2,y+1,WHITE);
+ 528               		.loc 1 92 2 view .LVU98
+ 529 0184 6D0F      		add r22,r29
+ 530 0186 01E0      		ldi r16,lo8(1)
+ 531 0188 4C2F      		mov r20,r28
+ 532 018a 8C2F      		mov r24,r28
+ 533 018c 0E94 0000 		call glcd_draw_line
+ 534               	.LVL50:
+  93:glcd/graphs.c **** 	
+ 535               		.loc 1 93 2 is_stmt 1 view .LVU99
+ 536 0190 6DEF      		ldi r22,lo8(-3)
+ 537 0192 610F      		add r22,r17
+ 538 0194 00E0      		ldi r16,0
+ 539 0196 2E2D      		mov r18,r14
+ 540 0198 4C2F      		mov r20,r28
+ 541 019a 8C2F      		mov r24,r28
+ 542 019c 0E94 0000 		call glcd_draw_line
+ 543               	.LVL51:
+  96:glcd/graphs.c **** }
+ 544               		.loc 1 96 2 view .LVU100
+ 545               	/* epilogue start */
+  97:glcd/graphs.c **** 
+ 546               		.loc 1 97 1 is_stmt 0 view .LVU101
+ 547 01a0 DF91      		pop r29
+ 548 01a2 CF91      		pop r28
+ 549 01a4 1F91      		pop r17
+ 550 01a6 0F91      		pop r16
+ 551 01a8 FF90      		pop r15
+ 552               	.LVL52:
+  97:glcd/graphs.c **** 
+ 553               		.loc 1 97 1 view .LVU102
+ 554 01aa EF90      		pop r14
+ 555 01ac DF90      		pop r13
+ 556 01ae CF90      		pop r12
+ 557 01b0 BF90      		pop r11
+ 558 01b2 AF90      		pop r10
+ 559 01b4 9F90      		pop r9
+ 560               	.LVL53:
+  97:glcd/graphs.c **** 
+ 561               		.loc 1 97 1 view .LVU103
+ 562 01b6 8F90      		pop r8
+ 563 01b8 7F90      		pop r7
+ 564               	.LVL54:
+  97:glcd/graphs.c **** 
+ 565               		.loc 1 97 1 view .LVU104
+ 566 01ba 6F90      		pop r6
+ 567 01bc 5F90      		pop r5
+ 568 01be 4F90      		pop r4
+  96:glcd/graphs.c **** }
+ 569               		.loc 1 96 2 view .LVU105
+ 570 01c0 0C94 0000 		jmp glcd_write
+ 571               	.LVL55:
+ 572               	.L9:
+  79:glcd/graphs.c **** 			glcd_set_pixel(x+nx,y+ny,color);
+ 573               		.loc 1 79 4 is_stmt 1 discriminator 3 view .LVU106
+ 574 01c4 482C      		mov r4,r8
+ 575 01c6 490C      		add r4,r9
+  79:glcd/graphs.c **** 			glcd_set_pixel(x+nx,y+ny,color);
+ 576               		.loc 1 79 12 is_stmt 0 discriminator 3 view .LVU107
+ 577 01c8 6F2D      		mov r22,r15
+ 578 01ca 852D      		mov r24,r5
+ 579 01cc 880D      		add r24,r8
+ 580 01ce 0E94 0000 		call glcd_get_pixel
+ 581               	.LVL56:
+  80:glcd/graphs.c **** 		}
+ 582               		.loc 1 80 4 is_stmt 1 discriminator 3 view .LVU108
+ 583 01d2 482F      		mov r20,r24
+ 584 01d4 6F2D      		mov r22,r15
+ 585 01d6 842D      		mov r24,r4
+ 586               	.LVL57:
+  80:glcd/graphs.c **** 		}
+ 587               		.loc 1 80 4 is_stmt 0 discriminator 3 view .LVU109
+ 588 01d8 0E94 0000 		call glcd_set_pixel
+ 589               	.LVL58:
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 590               		.loc 1 78 36 discriminator 3 view .LVU110
+ 591 01dc 8394      		inc r8
+ 592               	.LVL59:
+ 593               	.L10:
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 594               		.loc 1 78 3 discriminator 1 view .LVU111
+ 595 01de 8A14      		cp r8,r10
+ 596 01e0 1B04      		cpc __zero_reg__,r11
+ 597 01e2 04F0      		brlt .L9
+ 598               	.LVL60:
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 599               		.loc 1 78 3 discriminator 1 view .LVU112
+ 600 01e4 F394      		inc r15
+ 601               	.LVL61:
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 602               		.loc 1 78 3 discriminator 1 view .LVU113
+ 603 01e6 00C0      		rjmp .L8
+ 604               	.LVL62:
+ 605               	.L13:
+  78:glcd/graphs.c **** 			color = glcd_get_pixel(x+nx+1,y+ny);
+ 606               		.loc 1 78 11 view .LVU114
+ 607 01e8 8824      		clr r8
+ 608 01ea 8394      		inc r8
+ 609 01ec 00C0      		rjmp .L10
+ 610               		.cfi_endproc
+ 611               	.LFE11:
+ 613               	.global	__floatunsisf
+ 614               	.global	__mulsf3
+ 615               	.global	__ltsf2
+ 616               	.global	__gtsf2
+ 617               	.global	__fixunssfsi
+ 618               	.global	glcd_scrolling_bar_graph_timing
+ 620               	glcd_scrolling_bar_graph_timing:
+ 621               	.LVL63:
+ 622               	.LFB12:
+ 100:glcd/graphs.c **** 	uint8_t n;
+ 623               		.loc 1 100 1 is_stmt 1 view -0
+ 624               		.cfi_startproc
+ 100:glcd/graphs.c **** 	uint8_t n;
+ 625               		.loc 1 100 1 is_stmt 0 view .LVU116
+ 626 01ee 8F92      		push r8
+ 627               	.LCFI30:
+ 628               		.cfi_def_cfa_offset 3
+ 629               		.cfi_offset 8, -2
+ 630 01f0 9F92      		push r9
+ 631               	.LCFI31:
+ 632               		.cfi_def_cfa_offset 4
+ 633               		.cfi_offset 9, -3
+ 634 01f2 AF92      		push r10
+ 635               	.LCFI32:
+ 636               		.cfi_def_cfa_offset 5
+ 637               		.cfi_offset 10, -4
+ 638 01f4 BF92      		push r11
+ 639               	.LCFI33:
+ 640               		.cfi_def_cfa_offset 6
+ 641               		.cfi_offset 11, -5
+ 642 01f6 CF92      		push r12
+ 643               	.LCFI34:
+ 644               		.cfi_def_cfa_offset 7
+ 645               		.cfi_offset 12, -6
+ 646 01f8 DF92      		push r13
+ 647               	.LCFI35:
+ 648               		.cfi_def_cfa_offset 8
+ 649               		.cfi_offset 13, -7
+ 650 01fa EF92      		push r14
+ 651               	.LCFI36:
+ 652               		.cfi_def_cfa_offset 9
+ 653               		.cfi_offset 14, -8
+ 654 01fc FF92      		push r15
+ 655               	.LCFI37:
+ 656               		.cfi_def_cfa_offset 10
+ 657               		.cfi_offset 15, -9
+ 658 01fe 0F93      		push r16
+ 659               	.LCFI38:
+ 660               		.cfi_def_cfa_offset 11
+ 661               		.cfi_offset 16, -10
+ 662 0200 CF93      		push r28
+ 663               	.LCFI39:
+ 664               		.cfi_def_cfa_offset 12
+ 665               		.cfi_offset 28, -11
+ 666               	/* prologue: function */
+ 667               	/* frame size = 0 */
+ 668               	/* stack size = 10 */
+ 669               	.L__stack_usage = 10
+ 670 0202 B82E      		mov r11,r24
+ 671 0204 A62E      		mov r10,r22
+ 672 0206 942E      		mov r9,r20
+ 673 0208 822E      		mov r8,r18
+ 674 020a C02F      		mov r28,r16
+ 101:glcd/graphs.c **** 	if (line_width == 0) {
+ 675               		.loc 1 101 2 is_stmt 1 view .LVU117
+ 102:glcd/graphs.c **** 		line_width = 1;
+ 676               		.loc 1 102 2 view .LVU118
+ 102:glcd/graphs.c **** 		line_width = 1;
+ 677               		.loc 1 102 5 is_stmt 0 view .LVU119
+ 678 020c E110      		cpse r14,__zero_reg__
+ 679 020e 00C0      		rjmp .L15
+ 103:glcd/graphs.c **** 	}
+ 680               		.loc 1 103 14 view .LVU120
+ 681 0210 EE24      		clr r14
+ 682 0212 E394      		inc r14
+ 683               	.LVL64:
+ 684               	.L15:
+ 108:glcd/graphs.c **** 		glcd_scrolling_bar_graph(x,y,width,height,val);
+ 685               		.loc 1 108 2 is_stmt 1 view .LVU121
+ 108:glcd/graphs.c **** 		glcd_scrolling_bar_graph(x,y,width,height,val);
+ 686               		.loc 1 108 8 is_stmt 0 view .LVU122
+ 687 0214 F12C      		mov r15,__zero_reg__
+ 688               	.LVL65:
+ 689               	.L16:
+ 109:glcd/graphs.c **** 	}
+ 690               		.loc 1 109 3 is_stmt 1 discriminator 3 view .LVU123
+ 691 0216 0C2F      		mov r16,r28
+ 692               	.LVL66:
+ 109:glcd/graphs.c **** 	}
+ 693               		.loc 1 109 3 is_stmt 0 discriminator 3 view .LVU124
+ 694 0218 282D      		mov r18,r8
+ 695 021a 492D      		mov r20,r9
+ 696 021c 6A2D      		mov r22,r10
+ 697 021e 8B2D      		mov r24,r11
+ 698 0220 0E94 0000 		call glcd_scrolling_bar_graph
+ 699               	.LVL67:
+ 108:glcd/graphs.c **** 		glcd_scrolling_bar_graph(x,y,width,height,val);
+ 700               		.loc 1 108 27 discriminator 3 view .LVU125
+ 701 0224 F394      		inc r15
+ 702               	.LVL68:
+ 108:glcd/graphs.c **** 		glcd_scrolling_bar_graph(x,y,width,height,val);
+ 703               		.loc 1 108 2 discriminator 3 view .LVU126
+ 704 0226 EF10      		cpse r14,r15
+ 705 0228 00C0      		rjmp .L16
+ 706               	.LVL69:
+ 112:glcd/graphs.c **** 		delay_ms(delay);
+ 707               		.loc 1 112 2 is_stmt 1 view .LVU127
+ 112:glcd/graphs.c **** 		delay_ms(delay);
+ 708               		.loc 1 112 5 is_stmt 0 view .LVU128
+ 709 022a C114      		cp r12,__zero_reg__
+ 710 022c D104      		cpc r13,__zero_reg__
+ 711 022e 01F0      		breq .L14
+ 113:glcd/graphs.c **** 	}
+ 712               		.loc 1 113 3 is_stmt 1 view .LVU129
+ 713 0230 B601      		movw r22,r12
+ 714 0232 90E0      		ldi r25,0
+ 715 0234 80E0      		ldi r24,0
+ 716 0236 0E94 0000 		call __floatunsisf
+ 717               	.LVL70:
+ 718 023a 4B01      		movw r8,r22
+ 719               	.LVL71:
+ 113:glcd/graphs.c **** 	}
+ 720               		.loc 1 113 3 is_stmt 0 view .LVU130
+ 721 023c 5C01      		movw r10,r24
+ 722               	.LVL72:
+ 723               	.LBB38:
+ 724               	.LBI38:
+ 725               		.file 2 "/usr/avr/include/util/delay.h"
+   1:/usr/avr/include/util/delay.h **** /* Copyright (c) 2002, Marek Michalkiewicz
+   2:/usr/avr/include/util/delay.h ****    Copyright (c) 2004,2005,2007 Joerg Wunsch
+   3:/usr/avr/include/util/delay.h ****    Copyright (c) 2007  Florin-Viorel Petrov
+   4:/usr/avr/include/util/delay.h ****    All rights reserved.
+   5:/usr/avr/include/util/delay.h **** 
+   6:/usr/avr/include/util/delay.h ****    Redistribution and use in source and binary forms, with or without
+   7:/usr/avr/include/util/delay.h ****    modification, are permitted provided that the following conditions are met:
+   8:/usr/avr/include/util/delay.h **** 
+   9:/usr/avr/include/util/delay.h ****    * Redistributions of source code must retain the above copyright
+  10:/usr/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer.
+  11:/usr/avr/include/util/delay.h **** 
+  12:/usr/avr/include/util/delay.h ****    * Redistributions in binary form must reproduce the above copyright
+  13:/usr/avr/include/util/delay.h ****      notice, this list of conditions and the following disclaimer in
+  14:/usr/avr/include/util/delay.h ****      the documentation and/or other materials provided with the
+  15:/usr/avr/include/util/delay.h ****      distribution.
+  16:/usr/avr/include/util/delay.h **** 
+  17:/usr/avr/include/util/delay.h ****    * Neither the name of the copyright holders nor the names of
+  18:/usr/avr/include/util/delay.h ****      contributors may be used to endorse or promote products derived
+  19:/usr/avr/include/util/delay.h ****      from this software without specific prior written permission.
+  20:/usr/avr/include/util/delay.h **** 
+  21:/usr/avr/include/util/delay.h ****   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  22:/usr/avr/include/util/delay.h ****   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  23:/usr/avr/include/util/delay.h ****   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  24:/usr/avr/include/util/delay.h ****   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  25:/usr/avr/include/util/delay.h ****   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  26:/usr/avr/include/util/delay.h ****   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  27:/usr/avr/include/util/delay.h ****   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  28:/usr/avr/include/util/delay.h ****   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  29:/usr/avr/include/util/delay.h ****   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  30:/usr/avr/include/util/delay.h ****   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  31:/usr/avr/include/util/delay.h ****   POSSIBILITY OF SUCH DAMAGE. */
+  32:/usr/avr/include/util/delay.h **** 
+  33:/usr/avr/include/util/delay.h **** /* $Id: delay.h.in 2506 2016-02-08 10:05:45Z joerg_wunsch $ */
+  34:/usr/avr/include/util/delay.h **** 
+  35:/usr/avr/include/util/delay.h **** #ifndef _UTIL_DELAY_H_
+  36:/usr/avr/include/util/delay.h **** #define _UTIL_DELAY_H_ 1
+  37:/usr/avr/include/util/delay.h **** 
+  38:/usr/avr/include/util/delay.h **** #ifndef __DOXYGEN__
+  39:/usr/avr/include/util/delay.h **** #  ifndef __HAS_DELAY_CYCLES
+  40:/usr/avr/include/util/delay.h **** #    define __HAS_DELAY_CYCLES 1
+  41:/usr/avr/include/util/delay.h **** #  endif
+  42:/usr/avr/include/util/delay.h **** #endif  /* __DOXYGEN__ */
+  43:/usr/avr/include/util/delay.h **** 
+  44:/usr/avr/include/util/delay.h **** #include <inttypes.h>
+  45:/usr/avr/include/util/delay.h **** #include <util/delay_basic.h>
+  46:/usr/avr/include/util/delay.h **** #include <math.h>
+  47:/usr/avr/include/util/delay.h **** 
+  48:/usr/avr/include/util/delay.h **** /** \file */
+  49:/usr/avr/include/util/delay.h **** /** \defgroup util_delay <util/delay.h>: Convenience functions for busy-wait delay loops
+  50:/usr/avr/include/util/delay.h ****     \code
+  51:/usr/avr/include/util/delay.h ****     #define F_CPU 1000000UL  // 1 MHz
+  52:/usr/avr/include/util/delay.h ****     //#define F_CPU 14.7456E6
+  53:/usr/avr/include/util/delay.h ****     #include <util/delay.h>
+  54:/usr/avr/include/util/delay.h ****     \endcode
+  55:/usr/avr/include/util/delay.h **** 
+  56:/usr/avr/include/util/delay.h ****     \note As an alternative method, it is possible to pass the
+  57:/usr/avr/include/util/delay.h ****     F_CPU macro down to the compiler from the Makefile.
+  58:/usr/avr/include/util/delay.h ****     Obviously, in that case, no \c \#define statement should be
+  59:/usr/avr/include/util/delay.h ****     used.
+  60:/usr/avr/include/util/delay.h **** 
+  61:/usr/avr/include/util/delay.h ****     The functions in this header file are wrappers around the basic
+  62:/usr/avr/include/util/delay.h ****     busy-wait functions from <util/delay_basic.h>.  They are meant as
+  63:/usr/avr/include/util/delay.h ****     convenience functions where actual time values can be specified
+  64:/usr/avr/include/util/delay.h ****     rather than a number of cycles to wait for.  The idea behind is
+  65:/usr/avr/include/util/delay.h ****     that compile-time constant expressions will be eliminated by
+  66:/usr/avr/include/util/delay.h ****     compiler optimization so floating-point expressions can be used
+  67:/usr/avr/include/util/delay.h ****     to calculate the number of delay cycles needed based on the CPU
+  68:/usr/avr/include/util/delay.h ****     frequency passed by the macro F_CPU.
+  69:/usr/avr/include/util/delay.h **** 
+  70:/usr/avr/include/util/delay.h ****     \note In order for these functions to work as intended, compiler
+  71:/usr/avr/include/util/delay.h ****     optimizations <em>must</em> be enabled, and the delay time
+  72:/usr/avr/include/util/delay.h ****     <em>must</em> be an expression that is a known constant at
+  73:/usr/avr/include/util/delay.h ****     compile-time.  If these requirements are not met, the resulting
+  74:/usr/avr/include/util/delay.h ****     delay will be much longer (and basically unpredictable), and
+  75:/usr/avr/include/util/delay.h ****     applications that otherwise do not use floating-point calculations
+  76:/usr/avr/include/util/delay.h ****     will experience severe code bloat by the floating-point library
+  77:/usr/avr/include/util/delay.h ****     routines linked into the application.
+  78:/usr/avr/include/util/delay.h **** 
+  79:/usr/avr/include/util/delay.h ****     The functions available allow the specification of microsecond, and
+  80:/usr/avr/include/util/delay.h ****     millisecond delays directly, using the application-supplied macro
+  81:/usr/avr/include/util/delay.h ****     F_CPU as the CPU clock frequency (in Hertz).
+  82:/usr/avr/include/util/delay.h **** 
+  83:/usr/avr/include/util/delay.h **** */
+  84:/usr/avr/include/util/delay.h **** 
+  85:/usr/avr/include/util/delay.h **** #if !defined(__DOXYGEN__)
+  86:/usr/avr/include/util/delay.h **** static __inline__ void _delay_us(double __us) __attribute__((__always_inline__));
+  87:/usr/avr/include/util/delay.h **** static __inline__ void _delay_ms(double __ms) __attribute__((__always_inline__));
+  88:/usr/avr/include/util/delay.h **** #endif
+  89:/usr/avr/include/util/delay.h **** 
+  90:/usr/avr/include/util/delay.h **** #ifndef F_CPU
+  91:/usr/avr/include/util/delay.h **** /* prevent compiler error by supplying a default */
+  92:/usr/avr/include/util/delay.h **** # warning "F_CPU not defined for <util/delay.h>"
+  93:/usr/avr/include/util/delay.h **** /** \ingroup util_delay
+  94:/usr/avr/include/util/delay.h ****     \def F_CPU
+  95:/usr/avr/include/util/delay.h ****     \brief CPU frequency in Hz
+  96:/usr/avr/include/util/delay.h **** 
+  97:/usr/avr/include/util/delay.h ****     The macro F_CPU specifies the CPU frequency to be considered by
+  98:/usr/avr/include/util/delay.h ****     the delay macros.  This macro is normally supplied by the
+  99:/usr/avr/include/util/delay.h ****     environment (e.g. from within a project header, or the project's
+ 100:/usr/avr/include/util/delay.h ****     Makefile).  The value 1 MHz here is only provided as a "vanilla"
+ 101:/usr/avr/include/util/delay.h ****     fallback if no such user-provided definition could be found.
+ 102:/usr/avr/include/util/delay.h **** 
+ 103:/usr/avr/include/util/delay.h ****     In terms of the delay functions, the CPU frequency can be given as
+ 104:/usr/avr/include/util/delay.h ****     a floating-point constant (e.g. 3.6864E6 for 3.6864 MHz).
+ 105:/usr/avr/include/util/delay.h ****     However, the macros in <util/setbaud.h> require it to be an
+ 106:/usr/avr/include/util/delay.h ****     integer value.
+ 107:/usr/avr/include/util/delay.h ****  */
+ 108:/usr/avr/include/util/delay.h **** # define F_CPU 1000000UL
+ 109:/usr/avr/include/util/delay.h **** #endif
+ 110:/usr/avr/include/util/delay.h **** 
+ 111:/usr/avr/include/util/delay.h **** #ifndef __OPTIMIZE__
+ 112:/usr/avr/include/util/delay.h **** # warning "Compiler optimizations disabled; functions from <util/delay.h> won't work as designed"
+ 113:/usr/avr/include/util/delay.h **** #endif
+ 114:/usr/avr/include/util/delay.h **** 
+ 115:/usr/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 116:/usr/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 117:/usr/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 118:/usr/avr/include/util/delay.h **** #  include <math.h>
+ 119:/usr/avr/include/util/delay.h **** #endif
+ 120:/usr/avr/include/util/delay.h **** 
+ 121:/usr/avr/include/util/delay.h **** /**
+ 122:/usr/avr/include/util/delay.h ****    \ingroup util_delay
+ 123:/usr/avr/include/util/delay.h **** 
+ 124:/usr/avr/include/util/delay.h ****    Perform a delay of \c __ms milliseconds, using _delay_loop_2().
+ 125:/usr/avr/include/util/delay.h **** 
+ 126:/usr/avr/include/util/delay.h ****    The macro F_CPU is supposed to be defined to a
+ 127:/usr/avr/include/util/delay.h ****    constant defining the CPU clock frequency (in Hertz).
+ 128:/usr/avr/include/util/delay.h **** 
+ 129:/usr/avr/include/util/delay.h ****    The maximal possible delay is 262.14 ms / F_CPU in MHz.
+ 130:/usr/avr/include/util/delay.h **** 
+ 131:/usr/avr/include/util/delay.h ****    When the user request delay which exceed the maximum possible one,
+ 132:/usr/avr/include/util/delay.h ****    _delay_ms() provides a decreased resolution functionality. In this
+ 133:/usr/avr/include/util/delay.h ****    mode _delay_ms() will work with a resolution of 1/10 ms, providing
+ 134:/usr/avr/include/util/delay.h ****    delays up to 6.5535 seconds (independent from CPU frequency).  The
+ 135:/usr/avr/include/util/delay.h ****    user will not be informed about decreased resolution.
+ 136:/usr/avr/include/util/delay.h **** 
+ 137:/usr/avr/include/util/delay.h ****    If the avr-gcc toolchain has __builtin_avr_delay_cycles()
+ 138:/usr/avr/include/util/delay.h ****    support, maximal possible delay is 4294967.295 ms/ F_CPU in MHz. For
+ 139:/usr/avr/include/util/delay.h ****    values greater than the maximal possible delay, overflows results in
+ 140:/usr/avr/include/util/delay.h ****    no delay i.e., 0ms.
+ 141:/usr/avr/include/util/delay.h **** 
+ 142:/usr/avr/include/util/delay.h ****    Conversion of \c __ms into clock cycles may not always result in
+ 143:/usr/avr/include/util/delay.h ****    integer.  By default, the clock cycles rounded up to next
+ 144:/usr/avr/include/util/delay.h ****    integer. This ensures that the user gets at least \c __ms
+ 145:/usr/avr/include/util/delay.h ****    microseconds of delay.
+ 146:/usr/avr/include/util/delay.h **** 
+ 147:/usr/avr/include/util/delay.h ****    Alternatively, by defining the macro \c __DELAY_ROUND_DOWN__, or
+ 148:/usr/avr/include/util/delay.h ****    \c __DELAY_ROUND_CLOSEST__, before including this header file, the
+ 149:/usr/avr/include/util/delay.h ****    algorithm can be made to round down, or round to closest integer,
+ 150:/usr/avr/include/util/delay.h ****    respectively.
+ 151:/usr/avr/include/util/delay.h **** 
+ 152:/usr/avr/include/util/delay.h ****    \note
+ 153:/usr/avr/include/util/delay.h **** 
+ 154:/usr/avr/include/util/delay.h ****    The implementation of _delay_ms() based on
+ 155:/usr/avr/include/util/delay.h ****    __builtin_avr_delay_cycles() is not backward compatible with older
+ 156:/usr/avr/include/util/delay.h ****    implementations.  In order to get functionality backward compatible
+ 157:/usr/avr/include/util/delay.h ****    with previous versions, the macro \c "__DELAY_BACKWARD_COMPATIBLE__"
+ 158:/usr/avr/include/util/delay.h ****    must be defined before including this header file. Also, the
+ 159:/usr/avr/include/util/delay.h ****    backward compatible algorithm will be chosen if the code is
+ 160:/usr/avr/include/util/delay.h ****    compiled in a <em>freestanding environment</em> (GCC option
+ 161:/usr/avr/include/util/delay.h ****    \c -ffreestanding), as the math functions required for rounding are
+ 162:/usr/avr/include/util/delay.h ****    not available to the compiler then.
+ 163:/usr/avr/include/util/delay.h **** 
+ 164:/usr/avr/include/util/delay.h ****  */
+ 165:/usr/avr/include/util/delay.h **** void
+ 166:/usr/avr/include/util/delay.h **** _delay_ms(double __ms)
+ 726               		.loc 2 166 1 is_stmt 1 view .LVU131
+ 727               	.LBB39:
+ 167:/usr/avr/include/util/delay.h **** {
+ 168:/usr/avr/include/util/delay.h **** 	double __tmp ;
+ 728               		.loc 2 168 2 view .LVU132
+ 169:/usr/avr/include/util/delay.h **** #if __HAS_DELAY_CYCLES && defined(__OPTIMIZE__) && \
+ 170:/usr/avr/include/util/delay.h ****   !defined(__DELAY_BACKWARD_COMPATIBLE__) &&	   \
+ 171:/usr/avr/include/util/delay.h ****   __STDC_HOSTED__
+ 172:/usr/avr/include/util/delay.h **** 	uint32_t __ticks_dc;
+ 173:/usr/avr/include/util/delay.h **** 	extern void __builtin_avr_delay_cycles(unsigned long);
+ 174:/usr/avr/include/util/delay.h **** 	__tmp = ((F_CPU) / 1e3) * __ms;
+ 175:/usr/avr/include/util/delay.h **** 
+ 176:/usr/avr/include/util/delay.h **** 	#if defined(__DELAY_ROUND_DOWN__)
+ 177:/usr/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)fabs(__tmp);
+ 178:/usr/avr/include/util/delay.h **** 
+ 179:/usr/avr/include/util/delay.h **** 	#elif defined(__DELAY_ROUND_CLOSEST__)
+ 180:/usr/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(fabs(__tmp)+0.5);
+ 181:/usr/avr/include/util/delay.h **** 
+ 182:/usr/avr/include/util/delay.h **** 	#else
+ 183:/usr/avr/include/util/delay.h **** 		//round up by default
+ 184:/usr/avr/include/util/delay.h **** 		__ticks_dc = (uint32_t)(ceil(fabs(__tmp)));
+ 185:/usr/avr/include/util/delay.h **** 	#endif
+ 186:/usr/avr/include/util/delay.h **** 
+ 187:/usr/avr/include/util/delay.h **** 	__builtin_avr_delay_cycles(__ticks_dc);
+ 188:/usr/avr/include/util/delay.h **** 
+ 189:/usr/avr/include/util/delay.h **** #else
+ 190:/usr/avr/include/util/delay.h **** 	uint16_t __ticks;
+ 729               		.loc 2 190 2 view .LVU133
+ 191:/usr/avr/include/util/delay.h **** 	__tmp = ((F_CPU) / 4e3) * __ms;
+ 730               		.loc 2 191 2 view .LVU134
+ 731               		.loc 2 191 8 is_stmt 0 view .LVU135
+ 732 023e 20E0      		ldi r18,0
+ 733 0240 30E0      		ldi r19,0
+ 734 0242 4AEF      		ldi r20,lo8(-6)
+ 735 0244 54E4      		ldi r21,lo8(68)
+ 736 0246 0E94 0000 		call __mulsf3
+ 737               	.LVL73:
+ 738 024a 6B01      		movw r12,r22
+ 739               	.LVL74:
+ 740               		.loc 2 191 8 view .LVU136
+ 741 024c 7C01      		movw r14,r24
+ 742               	.LVL75:
+ 192:/usr/avr/include/util/delay.h **** 	if (__tmp < 1.0)
+ 743               		.loc 2 192 2 is_stmt 1 view .LVU137
+ 744               		.loc 2 192 5 is_stmt 0 view .LVU138
+ 745 024e 20E0      		ldi r18,0
+ 746 0250 30E0      		ldi r19,0
+ 747 0252 40E8      		ldi r20,lo8(-128)
+ 748 0254 5FE3      		ldi r21,lo8(63)
+ 749 0256 0E94 0000 		call __ltsf2
+ 750               	.LVL76:
+ 751 025a 87FD      		sbrc r24,7
+ 752 025c 00C0      		rjmp .L23
+ 193:/usr/avr/include/util/delay.h **** 		__ticks = 1;
+ 194:/usr/avr/include/util/delay.h **** 	else if (__tmp > 65535)
+ 753               		.loc 2 194 7 is_stmt 1 view .LVU139
+ 754               		.loc 2 194 10 is_stmt 0 view .LVU140
+ 755 025e 20E0      		ldi r18,0
+ 756 0260 3FEF      		ldi r19,lo8(-1)
+ 757 0262 4FE7      		ldi r20,lo8(127)
+ 758 0264 57E4      		ldi r21,lo8(71)
+ 759 0266 C701      		movw r24,r14
+ 760 0268 B601      		movw r22,r12
+ 761 026a 0E94 0000 		call __gtsf2
+ 762               	.LVL77:
+ 763 026e 1816      		cp __zero_reg__,r24
+ 764 0270 04F4      		brge .L29
+ 195:/usr/avr/include/util/delay.h **** 	{
+ 196:/usr/avr/include/util/delay.h **** 		//	__ticks = requested delay in 1/10 ms
+ 197:/usr/avr/include/util/delay.h **** 		__ticks = (uint16_t) (__ms * 10.0);
+ 765               		.loc 2 197 3 is_stmt 1 view .LVU141
+ 766               		.loc 2 197 30 is_stmt 0 view .LVU142
+ 767 0272 20E0      		ldi r18,0
+ 768 0274 30E0      		ldi r19,0
+ 769 0276 40E2      		ldi r20,lo8(32)
+ 770 0278 51E4      		ldi r21,lo8(65)
+ 771 027a C501      		movw r24,r10
+ 772 027c B401      		movw r22,r8
+ 773 027e 0E94 0000 		call __mulsf3
+ 774               	.LVL78:
+ 775               		.loc 2 197 11 view .LVU143
+ 776 0282 0E94 0000 		call __fixunssfsi
+ 777               	.LVL79:
+ 198:/usr/avr/include/util/delay.h **** 		while(__ticks)
+ 778               		.loc 2 198 3 is_stmt 1 view .LVU144
+ 779               	.LBB40:
+ 780               	.LBB41:
+ 781               		.file 3 "/usr/avr/include/util/delay_basic.h"
+   1:/usr/avr/include/util/delay_basic.h **** /* Copyright (c) 2002, Marek Michalkiewicz
+   2:/usr/avr/include/util/delay_basic.h ****    Copyright (c) 2007 Joerg Wunsch
+   3:/usr/avr/include/util/delay_basic.h ****    All rights reserved.
+   4:/usr/avr/include/util/delay_basic.h **** 
+   5:/usr/avr/include/util/delay_basic.h ****    Redistribution and use in source and binary forms, with or without
+   6:/usr/avr/include/util/delay_basic.h ****    modification, are permitted provided that the following conditions are met:
+   7:/usr/avr/include/util/delay_basic.h **** 
+   8:/usr/avr/include/util/delay_basic.h ****    * Redistributions of source code must retain the above copyright
+   9:/usr/avr/include/util/delay_basic.h ****      notice, this list of conditions and the following disclaimer.
+  10:/usr/avr/include/util/delay_basic.h **** 
+  11:/usr/avr/include/util/delay_basic.h ****    * Redistributions in binary form must reproduce the above copyright
+  12:/usr/avr/include/util/delay_basic.h ****      notice, this list of conditions and the following disclaimer in
+  13:/usr/avr/include/util/delay_basic.h ****      the documentation and/or other materials provided with the
+  14:/usr/avr/include/util/delay_basic.h ****      distribution.
+  15:/usr/avr/include/util/delay_basic.h **** 
+  16:/usr/avr/include/util/delay_basic.h ****    * Neither the name of the copyright holders nor the names of
+  17:/usr/avr/include/util/delay_basic.h ****      contributors may be used to endorse or promote products derived
+  18:/usr/avr/include/util/delay_basic.h ****      from this software without specific prior written permission.
+  19:/usr/avr/include/util/delay_basic.h **** 
+  20:/usr/avr/include/util/delay_basic.h ****   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  21:/usr/avr/include/util/delay_basic.h ****   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  22:/usr/avr/include/util/delay_basic.h ****   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  23:/usr/avr/include/util/delay_basic.h ****   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  24:/usr/avr/include/util/delay_basic.h ****   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  25:/usr/avr/include/util/delay_basic.h ****   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  26:/usr/avr/include/util/delay_basic.h ****   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  27:/usr/avr/include/util/delay_basic.h ****   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  28:/usr/avr/include/util/delay_basic.h ****   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  29:/usr/avr/include/util/delay_basic.h ****   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  30:/usr/avr/include/util/delay_basic.h ****   POSSIBILITY OF SUCH DAMAGE. */
+  31:/usr/avr/include/util/delay_basic.h **** 
+  32:/usr/avr/include/util/delay_basic.h **** /* $Id: delay_basic.h 2453 2014-10-19 08:18:11Z saaadhu $ */
+  33:/usr/avr/include/util/delay_basic.h **** 
+  34:/usr/avr/include/util/delay_basic.h **** #ifndef _UTIL_DELAY_BASIC_H_
+  35:/usr/avr/include/util/delay_basic.h **** #define _UTIL_DELAY_BASIC_H_ 1
+  36:/usr/avr/include/util/delay_basic.h **** 
+  37:/usr/avr/include/util/delay_basic.h **** #include <inttypes.h>
+  38:/usr/avr/include/util/delay_basic.h **** 
+  39:/usr/avr/include/util/delay_basic.h **** #if !defined(__DOXYGEN__)
+  40:/usr/avr/include/util/delay_basic.h **** static __inline__ void _delay_loop_1(uint8_t __count) __attribute__((__always_inline__));
+  41:/usr/avr/include/util/delay_basic.h **** static __inline__ void _delay_loop_2(uint16_t __count) __attribute__((__always_inline__));
+  42:/usr/avr/include/util/delay_basic.h **** #endif
+  43:/usr/avr/include/util/delay_basic.h **** 
+  44:/usr/avr/include/util/delay_basic.h **** /** \file */
+  45:/usr/avr/include/util/delay_basic.h **** /** \defgroup util_delay_basic <util/delay_basic.h>: Basic busy-wait delay loops
+  46:/usr/avr/include/util/delay_basic.h ****     \code
+  47:/usr/avr/include/util/delay_basic.h ****     #include <util/delay_basic.h>
+  48:/usr/avr/include/util/delay_basic.h ****     \endcode
+  49:/usr/avr/include/util/delay_basic.h **** 
+  50:/usr/avr/include/util/delay_basic.h ****     The functions in this header file implement simple delay loops
+  51:/usr/avr/include/util/delay_basic.h ****     that perform a busy-waiting.  They are typically used to
+  52:/usr/avr/include/util/delay_basic.h ****     facilitate short delays in the program execution.  They are
+  53:/usr/avr/include/util/delay_basic.h ****     implemented as count-down loops with a well-known CPU cycle
+  54:/usr/avr/include/util/delay_basic.h ****     count per loop iteration.  As such, no other processing can
+  55:/usr/avr/include/util/delay_basic.h ****     occur simultaneously.  It should be kept in mind that the
+  56:/usr/avr/include/util/delay_basic.h ****     functions described here do not disable interrupts.
+  57:/usr/avr/include/util/delay_basic.h **** 
+  58:/usr/avr/include/util/delay_basic.h ****     In general, for long delays, the use of hardware timers is
+  59:/usr/avr/include/util/delay_basic.h ****     much preferrable, as they free the CPU, and allow for
+  60:/usr/avr/include/util/delay_basic.h ****     concurrent processing of other events while the timer is
+  61:/usr/avr/include/util/delay_basic.h ****     running.  However, in particular for very short delays, the
+  62:/usr/avr/include/util/delay_basic.h ****     overhead of setting up a hardware timer is too much compared
+  63:/usr/avr/include/util/delay_basic.h ****     to the overall delay time.
+  64:/usr/avr/include/util/delay_basic.h **** 
+  65:/usr/avr/include/util/delay_basic.h ****     Two inline functions are provided for the actual delay algorithms.
+  66:/usr/avr/include/util/delay_basic.h **** 
+  67:/usr/avr/include/util/delay_basic.h **** */
+  68:/usr/avr/include/util/delay_basic.h **** 
+  69:/usr/avr/include/util/delay_basic.h **** /** \ingroup util_delay_basic
+  70:/usr/avr/include/util/delay_basic.h **** 
+  71:/usr/avr/include/util/delay_basic.h ****     Delay loop using an 8-bit counter \c __count, so up to 256
+  72:/usr/avr/include/util/delay_basic.h ****     iterations are possible.  (The value 256 would have to be passed
+  73:/usr/avr/include/util/delay_basic.h ****     as 0.)  The loop executes three CPU cycles per iteration, not
+  74:/usr/avr/include/util/delay_basic.h ****     including the overhead the compiler needs to setup the counter
+  75:/usr/avr/include/util/delay_basic.h ****     register.
+  76:/usr/avr/include/util/delay_basic.h **** 
+  77:/usr/avr/include/util/delay_basic.h ****     Thus, at a CPU speed of 1 MHz, delays of up to 768 microseconds
+  78:/usr/avr/include/util/delay_basic.h ****     can be achieved.
+  79:/usr/avr/include/util/delay_basic.h **** */
+  80:/usr/avr/include/util/delay_basic.h **** void
+  81:/usr/avr/include/util/delay_basic.h **** _delay_loop_1(uint8_t __count)
+  82:/usr/avr/include/util/delay_basic.h **** {
+  83:/usr/avr/include/util/delay_basic.h **** 	__asm__ volatile (
+  84:/usr/avr/include/util/delay_basic.h **** 		"1: dec %0" "\n\t"
+  85:/usr/avr/include/util/delay_basic.h **** 		"brne 1b"
+  86:/usr/avr/include/util/delay_basic.h **** 		: "=r" (__count)
+  87:/usr/avr/include/util/delay_basic.h **** 		: "0" (__count)
+  88:/usr/avr/include/util/delay_basic.h **** 	);
+  89:/usr/avr/include/util/delay_basic.h **** }
+  90:/usr/avr/include/util/delay_basic.h **** 
+  91:/usr/avr/include/util/delay_basic.h **** /** \ingroup util_delay_basic
+  92:/usr/avr/include/util/delay_basic.h **** 
+  93:/usr/avr/include/util/delay_basic.h ****     Delay loop using a 16-bit counter \c __count, so up to 65536
+  94:/usr/avr/include/util/delay_basic.h ****     iterations are possible.  (The value 65536 would have to be
+  95:/usr/avr/include/util/delay_basic.h ****     passed as 0.)  The loop executes four CPU cycles per iteration,
+  96:/usr/avr/include/util/delay_basic.h ****     not including the overhead the compiler requires to setup the
+  97:/usr/avr/include/util/delay_basic.h ****     counter register pair.
+  98:/usr/avr/include/util/delay_basic.h **** 
+  99:/usr/avr/include/util/delay_basic.h ****     Thus, at a CPU speed of 1 MHz, delays of up to about 262.1
+ 100:/usr/avr/include/util/delay_basic.h ****     milliseconds can be achieved.
+ 101:/usr/avr/include/util/delay_basic.h ****  */
+ 102:/usr/avr/include/util/delay_basic.h **** void
+ 103:/usr/avr/include/util/delay_basic.h **** _delay_loop_2(uint16_t __count)
+ 104:/usr/avr/include/util/delay_basic.h **** {
+ 105:/usr/avr/include/util/delay_basic.h **** 	__asm__ volatile (
+ 782               		.loc 3 105 2 is_stmt 0 view .LVU145
+ 783 0286 28EC      		ldi r18,lo8(-56)
+ 784 0288 30E0      		ldi r19,0
+ 785               	.L21:
+ 786               	.LVL80:
+ 787               		.loc 3 105 2 view .LVU146
+ 788               	.LBE41:
+ 789               	.LBE40:
+ 790               		.loc 2 198 8 view .LVU147
+ 791 028a 6115      		cp r22,__zero_reg__
+ 792 028c 7105      		cpc r23,__zero_reg__
+ 793 028e 01F4      		brne .L22
+ 794               	.LVL81:
+ 795               	.L14:
+ 796               	/* epilogue start */
+ 797               		.loc 2 198 8 view .LVU148
+ 798               	.LBE39:
+ 799               	.LBE38:
+ 115:glcd/graphs.c **** 
+ 800               		.loc 1 115 1 view .LVU149
+ 801 0290 CF91      		pop r28
+ 802 0292 0F91      		pop r16
+ 803               	.LVL82:
+ 115:glcd/graphs.c **** 
+ 804               		.loc 1 115 1 view .LVU150
+ 805 0294 FF90      		pop r15
+ 806               	.LVL83:
+ 115:glcd/graphs.c **** 
+ 807               		.loc 1 115 1 view .LVU151
+ 808 0296 EF90      		pop r14
+ 809 0298 DF90      		pop r13
+ 810 029a CF90      		pop r12
+ 811 029c BF90      		pop r11
+ 812               	.LVL84:
+ 115:glcd/graphs.c **** 
+ 813               		.loc 1 115 1 view .LVU152
+ 814 029e AF90      		pop r10
+ 815 02a0 9F90      		pop r9
+ 816               	.LVL85:
+ 115:glcd/graphs.c **** 
+ 817               		.loc 1 115 1 view .LVU153
+ 818 02a2 8F90      		pop r8
+ 819 02a4 0895      		ret
+ 820               	.LVL86:
+ 821               	.L22:
+ 822               	.LBB48:
+ 823               	.LBB46:
+ 199:/usr/avr/include/util/delay.h **** 		{
+ 200:/usr/avr/include/util/delay.h **** 			// wait 1/10 ms
+ 201:/usr/avr/include/util/delay.h **** 			_delay_loop_2(((F_CPU) / 4e3) / 10);
+ 824               		.loc 2 201 4 is_stmt 1 view .LVU154
+ 825               	.LBB43:
+ 826               	.LBI40:
+ 103:/usr/avr/include/util/delay_basic.h **** {
+ 827               		.loc 3 103 1 view .LVU155
+ 828               	.LBB42:
+ 829               		.loc 3 105 2 view .LVU156
+ 830 02a6 C901      		movw r24,r18
+ 831               	/* #APP */
+ 832               	 ;  105 "/usr/avr/include/util/delay_basic.h" 1
+ 833 02a8 0197      		1: sbiw r24,1
+ 834 02aa 01F4      		brne 1b
+ 835               	 ;  0 "" 2
+ 836               	.LVL87:
+ 837               		.loc 3 105 2 is_stmt 0 view .LVU157
+ 838               	/* #NOAPP */
+ 839               	.LBE42:
+ 840               	.LBE43:
+ 202:/usr/avr/include/util/delay.h **** 			__ticks --;
+ 841               		.loc 2 202 4 is_stmt 1 view .LVU158
+ 842               		.loc 2 202 12 is_stmt 0 view .LVU159
+ 843 02ac 6150      		subi r22,1
+ 844 02ae 7109      		sbc r23,__zero_reg__
+ 845               	.LVL88:
+ 846               		.loc 2 202 12 view .LVU160
+ 847 02b0 00C0      		rjmp .L21
+ 848               	.LVL89:
+ 849               	.L29:
+ 203:/usr/avr/include/util/delay.h **** 		}
+ 204:/usr/avr/include/util/delay.h **** 		return;
+ 205:/usr/avr/include/util/delay.h **** 	}
+ 206:/usr/avr/include/util/delay.h **** 	else
+ 207:/usr/avr/include/util/delay.h **** 		__ticks = (uint16_t)__tmp;
+ 850               		.loc 2 207 3 is_stmt 1 view .LVU161
+ 851               		.loc 2 207 11 is_stmt 0 view .LVU162
+ 852 02b2 C701      		movw r24,r14
+ 853 02b4 B601      		movw r22,r12
+ 854 02b6 0E94 0000 		call __fixunssfsi
+ 855               	.LVL90:
+ 856               	.L18:
+ 208:/usr/avr/include/util/delay.h **** 	_delay_loop_2(__ticks);
+ 857               		.loc 2 208 2 is_stmt 1 view .LVU163
+ 858               	.LBB44:
+ 859               	.LBI44:
+ 103:/usr/avr/include/util/delay_basic.h **** {
+ 860               		.loc 3 103 1 view .LVU164
+ 861               	.LBB45:
+ 862               		.loc 3 105 2 view .LVU165
+ 863 02ba CB01      		movw r24,r22
+ 864               	/* #APP */
+ 865               	 ;  105 "/usr/avr/include/util/delay_basic.h" 1
+ 866 02bc 0197      		1: sbiw r24,1
+ 867 02be 01F4      		brne 1b
+ 868               	 ;  0 "" 2
+ 869               	.LVL91:
+ 870               		.loc 3 105 2 is_stmt 0 view .LVU166
+ 871               	/* #NOAPP */
+ 872               	.LBE45:
+ 873               	.LBE44:
+ 874               	.LBE46:
+ 875               	.LBE48:
+ 115:glcd/graphs.c **** 
+ 876               		.loc 1 115 1 view .LVU167
+ 877 02c0 00C0      		rjmp .L14
+ 878               	.LVL92:
+ 879               	.L23:
+ 880               	.LBB49:
+ 881               	.LBB47:
+ 193:/usr/avr/include/util/delay.h **** 	else if (__tmp > 65535)
+ 882               		.loc 2 193 11 view .LVU168
+ 883 02c2 61E0      		ldi r22,lo8(1)
+ 884 02c4 70E0      		ldi r23,0
+ 885 02c6 00C0      		rjmp .L18
+ 886               	.LBE47:
+ 887               	.LBE49:
+ 888               		.cfi_endproc
+ 889               	.LFE12:
+ 891               	.Letext0:
+ 892               		.file 4 "/usr/avr/include/stdint.h"
+ 893               		.file 5 "glcd/glcd.h"
+ 894               		.file 6 "glcd/unit_tests.h"
+ 895               		.file 7 "glcd/glcd_graphics.h"
+ 896               		.file 8 "glcd/glcd_controllers.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 graphs.c
+     /tmp/ccqEw5iS.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccqEw5iS.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccqEw5iS.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccqEw5iS.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccqEw5iS.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccqEw5iS.s:12     .text:0000000000000000 glcd_bar_graph_horizontal
+     /tmp/ccqEw5iS.s:119    .text:0000000000000050 glcd_bar_graph_horizontal_no_border
+     /tmp/ccqEw5iS.s:180    .text:0000000000000078 glcd_bar_graph_vertical
+     /tmp/ccqEw5iS.s:291    .text:00000000000000c8 glcd_bar_graph_vertical_no_border
+     /tmp/ccqEw5iS.s:357    .text:00000000000000f0 glcd_scrolling_bar_graph
+     /tmp/ccqEw5iS.s:620    .text:00000000000001ee glcd_scrolling_bar_graph_timing
+
+UNDEFINED SYMBOLS
+glcd_draw_rect
+__divmodhi4
+glcd_fill_rect
+glcd_draw_line
+glcd_write
+glcd_get_pixel
+glcd_set_pixel
+__floatunsisf
+__mulsf3
+__ltsf2
+__gtsf2
+__fixunssfsi

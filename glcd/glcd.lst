@@ -1,0 +1,560 @@
+   1               		.file	"glcd.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	glcd_update_bbox
+  12               	glcd_update_bbox:
+  13               	.LVL0:
+  14               	.LFB8:
+  15               		.file 1 "glcd/glcd.c"
+   1:glcd/glcd.c   **** /**
+   2:glcd/glcd.c   **** 	\file glcd.c
+   3:glcd/glcd.c   **** 	\author Andy Gock
+   4:glcd/glcd.c   **** 	\brief Basic GLCD functions affecting bounding box manipulation,
+   5:glcd/glcd.c   **** 	       clearing of screen and buffers, and basic scroll functions.
+   6:glcd/glcd.c   ****  */
+   7:glcd/glcd.c   **** 
+   8:glcd/glcd.c   **** /*
+   9:glcd/glcd.c   **** 	Copyright (c) 2012, Andy Gock
+  10:glcd/glcd.c   **** 
+  11:glcd/glcd.c   **** 	All rights reserved.
+  12:glcd/glcd.c   **** 
+  13:glcd/glcd.c   **** 	Redistribution and use in source and binary forms, with or without
+  14:glcd/glcd.c   **** 	modification, are permitted provided that the following conditions are met:
+  15:glcd/glcd.c   **** 		* Redistributions of source code must retain the above copyright
+  16:glcd/glcd.c   **** 		  notice, this list of conditions and the following disclaimer.
+  17:glcd/glcd.c   **** 		* Redistributions in binary form must reproduce the above copyright
+  18:glcd/glcd.c   **** 		  notice, this list of conditions and the following disclaimer in the
+  19:glcd/glcd.c   **** 		  documentation and/or other materials provided with the distribution.
+  20:glcd/glcd.c   **** 		* Neither the name of Andy Gock nor the
+  21:glcd/glcd.c   **** 		  names of its contributors may be used to endorse or promote products
+  22:glcd/glcd.c   **** 		  derived from this software without specific prior written permission.
+  23:glcd/glcd.c   **** 
+  24:glcd/glcd.c   **** 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  25:glcd/glcd.c   **** 	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  26:glcd/glcd.c   **** 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  27:glcd/glcd.c   **** 	DISCLAIMED. IN NO EVENT SHALL ANDY GOCK BE LIABLE FOR ANY
+  28:glcd/glcd.c   **** 	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  29:glcd/glcd.c   **** 	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  30:glcd/glcd.c   **** 	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  31:glcd/glcd.c   **** 	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  32:glcd/glcd.c   **** 	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  33:glcd/glcd.c   **** 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  34:glcd/glcd.c   **** */
+  35:glcd/glcd.c   **** 
+  36:glcd/glcd.c   **** #include <string.h>
+  37:glcd/glcd.c   **** #include <stdio.h>
+  38:glcd/glcd.c   **** #include "glcd.h"
+  39:glcd/glcd.c   **** 
+  40:glcd/glcd.c   **** /** \addtogroup GlobalVars Global Variables
+  41:glcd/glcd.c   ****  *  @{
+  42:glcd/glcd.c   ****  */
+  43:glcd/glcd.c   **** 
+  44:glcd/glcd.c   **** /**
+  45:glcd/glcd.c   ****  *  Screen buffer
+  46:glcd/glcd.c   ****  *
+  47:glcd/glcd.c   ****  *  Requires at least one bit for every pixel (e.g 504 bytes for 48x84 LCD)
+  48:glcd/glcd.c   ****  */
+  49:glcd/glcd.c   **** uint8_t glcd_buffer[GLCD_LCD_WIDTH * GLCD_LCD_HEIGHT / 8];
+  50:glcd/glcd.c   **** 
+  51:glcd/glcd.c   **** /**
+  52:glcd/glcd.c   ****  * Keeps track of bounding box of area on LCD which need to be
+  53:glcd/glcd.c   ****  * updated next reresh cycle
+  54:glcd/glcd.c   ****  */
+  55:glcd/glcd.c   **** glcd_BoundingBox_t glcd_bbox;
+  56:glcd/glcd.c   **** 
+  57:glcd/glcd.c   **** /**
+  58:glcd/glcd.c   ****  * Pointer to screen buffer currently in use.
+  59:glcd/glcd.c   ****  */
+  60:glcd/glcd.c   **** uint8_t *glcd_buffer_selected;
+  61:glcd/glcd.c   **** 
+  62:glcd/glcd.c   **** /**
+  63:glcd/glcd.c   ****  * Pointer to bounding box currently in use.
+  64:glcd/glcd.c   ****  */
+  65:glcd/glcd.c   **** glcd_BoundingBox_t *glcd_bbox_selected;
+  66:glcd/glcd.c   **** 
+  67:glcd/glcd.c   **** /** @} */
+  68:glcd/glcd.c   **** 
+  69:glcd/glcd.c   **** void glcd_update_bbox(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t ymax)
+  70:glcd/glcd.c   **** {
+  16               		.loc 1 70 1 view -0
+  17               		.cfi_startproc
+  18               	/* prologue: function */
+  19               	/* frame size = 0 */
+  20               	/* stack size = 0 */
+  21               	.L__stack_usage = 0
+  71:glcd/glcd.c   **** 	/* Keep and check bounding box within limits of LCD screen dimensions */
+  72:glcd/glcd.c   **** 	if (xmin > (GLCD_LCD_WIDTH-1)) {
+  22               		.loc 1 72 2 view .LVU1
+  23 0000 8435      		cpi r24,lo8(84)
+  24 0002 00F0      		brlo .L2
+  25 0004 83E5      		ldi r24,lo8(83)
+  26               	.LVL1:
+  27               	.L2:
+  73:glcd/glcd.c   **** 		xmin = GLCD_LCD_WIDTH-1;
+  74:glcd/glcd.c   **** 	}
+  75:glcd/glcd.c   **** 	if (xmax > (GLCD_LCD_WIDTH-1)) {
+  28               		.loc 1 75 2 view .LVU2
+  29 0006 4435      		cpi r20,lo8(84)
+  30 0008 00F0      		brlo .L3
+  31 000a 43E5      		ldi r20,lo8(83)
+  32               	.LVL2:
+  33               	.L3:
+  76:glcd/glcd.c   **** 		xmax = GLCD_LCD_WIDTH-1;
+  77:glcd/glcd.c   **** 	}
+  78:glcd/glcd.c   **** 
+  79:glcd/glcd.c   **** 	if (ymin > (GLCD_LCD_HEIGHT-1)) {
+  34               		.loc 1 79 2 view .LVU3
+  35 000c 6033      		cpi r22,lo8(48)
+  36 000e 00F0      		brlo .L4
+  37 0010 6FE2      		ldi r22,lo8(47)
+  38               	.LVL3:
+  39               	.L4:
+  80:glcd/glcd.c   **** 		ymin = GLCD_LCD_HEIGHT-1;
+  81:glcd/glcd.c   **** 	}
+  82:glcd/glcd.c   **** 	if (ymax > (GLCD_LCD_HEIGHT-1)) {
+  40               		.loc 1 82 2 view .LVU4
+  41 0012 2033      		cpi r18,lo8(48)
+  42 0014 00F0      		brlo .L5
+  43 0016 2FE2      		ldi r18,lo8(47)
+  44               	.LVL4:
+  45               	.L5:
+  83:glcd/glcd.c   **** 		ymax = GLCD_LCD_HEIGHT-1;
+  84:glcd/glcd.c   **** 	}
+  85:glcd/glcd.c   **** 
+  86:glcd/glcd.c   **** 	/* Update the bounding box size */
+  87:glcd/glcd.c   **** 	if (xmin < glcd_bbox_selected->x_min) {
+  46               		.loc 1 87 2 view .LVU5
+  47               		.loc 1 87 31 is_stmt 0 view .LVU6
+  48 0018 E091 0000 		lds r30,glcd_bbox_selected
+  49 001c F091 0000 		lds r31,glcd_bbox_selected+1
+  50               		.loc 1 87 5 view .LVU7
+  51 0020 9081      		ld r25,Z
+  52 0022 8917      		cp r24,r25
+  53 0024 00F4      		brsh .L6
+  88:glcd/glcd.c   **** 		glcd_bbox_selected->x_min = xmin;
+  54               		.loc 1 88 3 is_stmt 1 view .LVU8
+  55               		.loc 1 88 29 is_stmt 0 view .LVU9
+  56 0026 8083      		st Z,r24
+  57               	.L6:
+  89:glcd/glcd.c   **** 	}		
+  90:glcd/glcd.c   **** 	if (xmax > glcd_bbox_selected->x_max) {
+  58               		.loc 1 90 2 is_stmt 1 view .LVU10
+  59               		.loc 1 90 5 is_stmt 0 view .LVU11
+  60 0028 8281      		ldd r24,Z+2
+  61               	.LVL5:
+  62               		.loc 1 90 5 view .LVU12
+  63 002a 8417      		cp r24,r20
+  64 002c 00F4      		brsh .L7
+  91:glcd/glcd.c   **** 		glcd_bbox_selected->x_max = xmax;
+  65               		.loc 1 91 3 is_stmt 1 view .LVU13
+  66               		.loc 1 91 29 is_stmt 0 view .LVU14
+  67 002e 4283      		std Z+2,r20
+  68               	.L7:
+  92:glcd/glcd.c   **** 	}
+  93:glcd/glcd.c   **** 	if (ymin < glcd_bbox_selected->y_min) {
+  69               		.loc 1 93 2 is_stmt 1 view .LVU15
+  70               		.loc 1 93 5 is_stmt 0 view .LVU16
+  71 0030 8181      		ldd r24,Z+1
+  72 0032 6817      		cp r22,r24
+  73 0034 00F4      		brsh .L8
+  94:glcd/glcd.c   **** 		glcd_bbox_selected->y_min = ymin;
+  74               		.loc 1 94 3 is_stmt 1 view .LVU17
+  75               		.loc 1 94 29 is_stmt 0 view .LVU18
+  76 0036 6183      		std Z+1,r22
+  77               	.L8:
+  95:glcd/glcd.c   **** 	}		
+  96:glcd/glcd.c   **** 	if (ymax > glcd_bbox_selected->y_max) {
+  78               		.loc 1 96 2 is_stmt 1 view .LVU19
+  79               		.loc 1 96 5 is_stmt 0 view .LVU20
+  80 0038 8381      		ldd r24,Z+3
+  81 003a 8217      		cp r24,r18
+  82 003c 00F4      		brsh .L1
+  97:glcd/glcd.c   **** 		glcd_bbox_selected->y_max = ymax;
+  83               		.loc 1 97 3 is_stmt 1 view .LVU21
+  84               		.loc 1 97 29 is_stmt 0 view .LVU22
+  85 003e 2383      		std Z+3,r18
+  86               	.L1:
+  87               	/* epilogue start */
+  98:glcd/glcd.c   **** 	}			
+  99:glcd/glcd.c   **** }
+  88               		.loc 1 99 1 view .LVU23
+  89 0040 0895      		ret
+  90               		.cfi_endproc
+  91               	.LFE8:
+  93               	.global	glcd_reset_bbox
+  95               	glcd_reset_bbox:
+  96               	.LFB9:
+ 100:glcd/glcd.c   **** 
+ 101:glcd/glcd.c   **** void glcd_reset_bbox()
+ 102:glcd/glcd.c   **** {
+  97               		.loc 1 102 1 is_stmt 1 view -0
+  98               		.cfi_startproc
+  99               	/* prologue: function */
+ 100               	/* frame size = 0 */
+ 101               	/* stack size = 0 */
+ 102               	.L__stack_usage = 0
+ 103:glcd/glcd.c   **** 	/* Used after physically writing to the LCD */
+ 104:glcd/glcd.c   **** 	glcd_bbox_selected->x_min = GLCD_LCD_WIDTH - 1;
+ 103               		.loc 1 104 2 view .LVU25
+ 104               		.loc 1 104 20 is_stmt 0 view .LVU26
+ 105 0042 E091 0000 		lds r30,glcd_bbox_selected
+ 106 0046 F091 0000 		lds r31,glcd_bbox_selected+1
+ 107               		.loc 1 104 28 view .LVU27
+ 108 004a 83E5      		ldi r24,lo8(83)
+ 109 004c 8083      		st Z,r24
+ 105:glcd/glcd.c   **** 	glcd_bbox_selected->x_max = 0;
+ 110               		.loc 1 105 2 is_stmt 1 view .LVU28
+ 111               		.loc 1 105 28 is_stmt 0 view .LVU29
+ 112 004e 1282      		std Z+2,__zero_reg__
+ 106:glcd/glcd.c   **** 	glcd_bbox_selected->y_min = GLCD_LCD_HEIGHT -1;
+ 113               		.loc 1 106 2 is_stmt 1 view .LVU30
+ 114               		.loc 1 106 28 is_stmt 0 view .LVU31
+ 115 0050 8FE2      		ldi r24,lo8(47)
+ 116 0052 8183      		std Z+1,r24
+ 107:glcd/glcd.c   **** 	glcd_bbox_selected->y_max = 0;	
+ 117               		.loc 1 107 2 is_stmt 1 view .LVU32
+ 118               		.loc 1 107 28 is_stmt 0 view .LVU33
+ 119 0054 1382      		std Z+3,__zero_reg__
+ 120               	/* epilogue start */
+ 108:glcd/glcd.c   **** }
+ 121               		.loc 1 108 1 view .LVU34
+ 122 0056 0895      		ret
+ 123               		.cfi_endproc
+ 124               	.LFE9:
+ 126               	.global	glcd_bbox_reset
+ 128               	glcd_bbox_reset:
+ 129               	.LFB10:
+ 109:glcd/glcd.c   **** 
+ 110:glcd/glcd.c   **** void glcd_bbox_reset() {
+ 130               		.loc 1 110 24 is_stmt 1 view -0
+ 131               		.cfi_startproc
+ 132               	/* prologue: function */
+ 133               	/* frame size = 0 */
+ 134               	/* stack size = 0 */
+ 135               	.L__stack_usage = 0
+ 111:glcd/glcd.c   **** 	glcd_reset_bbox();
+ 136               		.loc 1 111 2 view .LVU36
+ 137 0058 0C94 0000 		jmp glcd_reset_bbox
+ 138               	.LVL6:
+ 139               		.cfi_endproc
+ 140               	.LFE10:
+ 142               	.global	glcd_bbox_refresh
+ 144               	glcd_bbox_refresh:
+ 145               	.LFB11:
+ 112:glcd/glcd.c   **** }
+ 113:glcd/glcd.c   **** 
+ 114:glcd/glcd.c   **** void glcd_bbox_refresh() {
+ 146               		.loc 1 114 26 view -0
+ 147               		.cfi_startproc
+ 148               	/* prologue: function */
+ 149               	/* frame size = 0 */
+ 150               	/* stack size = 0 */
+ 151               	.L__stack_usage = 0
+ 115:glcd/glcd.c   **** 	/* Marks bounding box as entire screen, so on next glcd_write(), it writes the entire buffer to th
+ 116:glcd/glcd.c   **** 	glcd_bbox_selected->x_min = 0;
+ 152               		.loc 1 116 2 view .LVU38
+ 153               		.loc 1 116 20 is_stmt 0 view .LVU39
+ 154 005c E091 0000 		lds r30,glcd_bbox_selected
+ 155 0060 F091 0000 		lds r31,glcd_bbox_selected+1
+ 156               		.loc 1 116 28 view .LVU40
+ 157 0064 1082      		st Z,__zero_reg__
+ 117:glcd/glcd.c   **** 	glcd_bbox_selected->x_max = GLCD_LCD_WIDTH - 1;
+ 158               		.loc 1 117 2 is_stmt 1 view .LVU41
+ 159               		.loc 1 117 28 is_stmt 0 view .LVU42
+ 160 0066 83E5      		ldi r24,lo8(83)
+ 161 0068 8283      		std Z+2,r24
+ 118:glcd/glcd.c   **** 	glcd_bbox_selected->y_min = 0;
+ 162               		.loc 1 118 2 is_stmt 1 view .LVU43
+ 163               		.loc 1 118 28 is_stmt 0 view .LVU44
+ 164 006a 1182      		std Z+1,__zero_reg__
+ 119:glcd/glcd.c   **** 	glcd_bbox_selected->y_max = GLCD_LCD_HEIGHT -1;		
+ 165               		.loc 1 119 2 is_stmt 1 view .LVU45
+ 166               		.loc 1 119 28 is_stmt 0 view .LVU46
+ 167 006c 8FE2      		ldi r24,lo8(47)
+ 168 006e 8383      		std Z+3,r24
+ 169               	/* epilogue start */
+ 120:glcd/glcd.c   **** }
+ 170               		.loc 1 120 1 view .LVU47
+ 171 0070 0895      		ret
+ 172               		.cfi_endproc
+ 173               	.LFE11:
+ 175               	.global	glcd_clear
+ 177               	glcd_clear:
+ 178               	.LFB12:
+ 121:glcd/glcd.c   **** 
+ 122:glcd/glcd.c   **** void glcd_clear(void) {
+ 179               		.loc 1 122 23 is_stmt 1 view -0
+ 180               		.cfi_startproc
+ 181               	/* prologue: function */
+ 182               	/* frame size = 0 */
+ 183               	/* stack size = 0 */
+ 184               	.L__stack_usage = 0
+ 123:glcd/glcd.c   **** 	memset(glcd_buffer_selected, 0x00, GLCD_LCD_WIDTH * GLCD_LCD_HEIGHT / 8);
+ 185               		.loc 1 123 2 view .LVU49
+ 186 0072 E091 0000 		lds r30,glcd_buffer_selected
+ 187 0076 F091 0000 		lds r31,glcd_buffer_selected+1
+ 188 007a 88EF      		ldi r24,lo8(-8)
+ 189 007c 91E0      		ldi r25,lo8(1)
+ 190 007e DF01      		movw r26,r30
+ 191 0080 9C01      		movw r18,r24
+ 192               		0:
+ 193 0082 1D92      		st X+,__zero_reg__
+ 194 0084 2150      		subi r18,1
+ 195 0086 3040      		sbci r19,0
+ 196 0088 01F4      		brne 0b
+ 124:glcd/glcd.c   **** 	glcd_update_bbox(0,0,GLCD_LCD_WIDTH - 1,GLCD_LCD_HEIGHT - 1);
+ 197               		.loc 1 124 2 view .LVU50
+ 198 008a 2FE2      		ldi r18,lo8(47)
+ 199 008c 43E5      		ldi r20,lo8(83)
+ 200 008e 60E0      		ldi r22,0
+ 201 0090 80E0      		ldi r24,0
+ 202 0092 0E94 0000 		call glcd_update_bbox
+ 203               	.LVL7:
+ 125:glcd/glcd.c   **** 	glcd_write();
+ 204               		.loc 1 125 2 view .LVU51
+ 205 0096 0C94 0000 		jmp glcd_write
+ 206               	.LVL8:
+ 207               		.cfi_endproc
+ 208               	.LFE12:
+ 210               	.global	glcd_clear_buffer
+ 212               	glcd_clear_buffer:
+ 213               	.LFB13:
+ 126:glcd/glcd.c   **** }
+ 127:glcd/glcd.c   **** 
+ 128:glcd/glcd.c   **** void glcd_clear_buffer(void) {
+ 214               		.loc 1 128 30 view -0
+ 215               		.cfi_startproc
+ 216               	/* prologue: function */
+ 217               	/* frame size = 0 */
+ 218               	/* stack size = 0 */
+ 219               	.L__stack_usage = 0
+ 129:glcd/glcd.c   **** 	memset(glcd_buffer_selected, 0x00, GLCD_LCD_WIDTH * GLCD_LCD_HEIGHT / 8);
+ 220               		.loc 1 129 2 view .LVU53
+ 221 009a E091 0000 		lds r30,glcd_buffer_selected
+ 222 009e F091 0000 		lds r31,glcd_buffer_selected+1
+ 223 00a2 88EF      		ldi r24,lo8(-8)
+ 224 00a4 91E0      		ldi r25,lo8(1)
+ 225 00a6 DF01      		movw r26,r30
+ 226 00a8 9C01      		movw r18,r24
+ 227               		0:
+ 228 00aa 1D92      		st X+,__zero_reg__
+ 229 00ac 2150      		subi r18,1
+ 230 00ae 3040      		sbci r19,0
+ 231 00b0 01F4      		brne 0b
+ 130:glcd/glcd.c   **** 	glcd_update_bbox(0,0,GLCD_LCD_WIDTH - 1,GLCD_LCD_HEIGHT - 1);
+ 232               		.loc 1 130 2 view .LVU54
+ 233 00b2 2FE2      		ldi r18,lo8(47)
+ 234 00b4 43E5      		ldi r20,lo8(83)
+ 235 00b6 60E0      		ldi r22,0
+ 236 00b8 80E0      		ldi r24,0
+ 237 00ba 0C94 0000 		jmp glcd_update_bbox
+ 238               	.LVL9:
+ 239               		.cfi_endproc
+ 240               	.LFE13:
+ 242               	.global	glcd_select_screen
+ 244               	glcd_select_screen:
+ 245               	.LVL10:
+ 246               	.LFB14:
+ 131:glcd/glcd.c   **** }
+ 132:glcd/glcd.c   **** 
+ 133:glcd/glcd.c   **** void glcd_select_screen(uint8_t *buffer, glcd_BoundingBox_t *bbox)
+ 134:glcd/glcd.c   **** {
+ 247               		.loc 1 134 1 view -0
+ 248               		.cfi_startproc
+ 249               	/* prologue: function */
+ 250               	/* frame size = 0 */
+ 251               	/* stack size = 0 */
+ 252               	.L__stack_usage = 0
+ 135:glcd/glcd.c   **** 	glcd_buffer_selected = buffer;
+ 253               		.loc 1 135 2 view .LVU56
+ 254               		.loc 1 135 23 is_stmt 0 view .LVU57
+ 255 00be 9093 0000 		sts glcd_buffer_selected+1,r25
+ 256 00c2 8093 0000 		sts glcd_buffer_selected,r24
+ 136:glcd/glcd.c   **** 	glcd_bbox_selected = bbox;
+ 257               		.loc 1 136 2 is_stmt 1 view .LVU58
+ 258               		.loc 1 136 21 is_stmt 0 view .LVU59
+ 259 00c6 7093 0000 		sts glcd_bbox_selected+1,r23
+ 260 00ca 6093 0000 		sts glcd_bbox_selected,r22
+ 261               	/* epilogue start */
+ 137:glcd/glcd.c   **** }
+ 262               		.loc 1 137 1 view .LVU60
+ 263 00ce 0895      		ret
+ 264               		.cfi_endproc
+ 265               	.LFE14:
+ 267               	.global	glcd_scroll
+ 269               	glcd_scroll:
+ 270               	.LVL11:
+ 271               	.LFB15:
+ 138:glcd/glcd.c   **** 
+ 139:glcd/glcd.c   **** void glcd_scroll(int8_t x, int8_t y)
+ 140:glcd/glcd.c   **** {
+ 272               		.loc 1 140 1 is_stmt 1 view -0
+ 273               		.cfi_startproc
+ 274               	/* prologue: function */
+ 275               	/* frame size = 0 */
+ 276               	/* stack size = 0 */
+ 277               	.L__stack_usage = 0
+ 141:glcd/glcd.c   **** 	/** \todo Skeleton */
+ 142:glcd/glcd.c   **** 	
+ 143:glcd/glcd.c   **** 	uint8_t row;
+ 278               		.loc 1 143 2 view .LVU62
+ 144:glcd/glcd.c   **** 	
+ 145:glcd/glcd.c   **** 	for (row=0; row<(GLCD_LCD_HEIGHT / 8); row++) {
+ 279               		.loc 1 145 2 view .LVU63
+ 280               	/* epilogue start */
+ 146:glcd/glcd.c   **** 		uint8_t x;
+ 147:glcd/glcd.c   **** 		for (x=0; x<GLCD_LCD_WIDTH; x++) {
+ 148:glcd/glcd.c   **** 			
+ 149:glcd/glcd.c   **** 		}
+ 150:glcd/glcd.c   **** 	}
+ 151:glcd/glcd.c   **** }
+ 281               		.loc 1 151 1 is_stmt 0 view .LVU64
+ 282 00d0 0895      		ret
+ 283               		.cfi_endproc
+ 284               	.LFE15:
+ 286               	.global	glcd_scroll_line
+ 288               	glcd_scroll_line:
+ 289               	.LFB16:
+ 152:glcd/glcd.c   **** 
+ 153:glcd/glcd.c   **** void glcd_scroll_line(void)
+ 154:glcd/glcd.c   **** {
+ 290               		.loc 1 154 1 is_stmt 1 view -0
+ 291               		.cfi_startproc
+ 292               	/* prologue: function */
+ 293               	/* frame size = 0 */
+ 294               	/* stack size = 0 */
+ 295               	.L__stack_usage = 0
+ 155:glcd/glcd.c   **** 	uint8_t y;
+ 296               		.loc 1 155 2 view .LVU66
+ 156:glcd/glcd.c   **** 	uint8_t number_of_rows = GLCD_LCD_HEIGHT / 8;
+ 297               		.loc 1 156 2 view .LVU67
+ 298               	.LVL12:
+ 157:glcd/glcd.c   **** 	for (y=0; y<number_of_rows; y++) {
+ 299               		.loc 1 157 2 view .LVU68
+ 154:glcd/glcd.c   **** 	uint8_t y;
+ 300               		.loc 1 154 1 is_stmt 0 view .LVU69
+ 301 00d2 24E5      		ldi r18,lo8(84)
+ 302 00d4 30E0      		ldi r19,0
+ 303               		.loc 1 157 8 view .LVU70
+ 304 00d6 80E0      		ldi r24,0
+ 158:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 159:glcd/glcd.c   **** 			/* All lines except the last */
+ 160:glcd/glcd.c   **** 			memcpy(glcd_buffer_selected + y*GLCD_LCD_WIDTH, glcd_buffer_selected + y*GLCD_LCD_WIDTH + GLCD_L
+ 161:glcd/glcd.c   **** 		} else {
+ 162:glcd/glcd.c   **** 			/* Last line, clear it */
+ 163:glcd/glcd.c   **** 			memset(glcd_buffer_selected + (number_of_rows - 1)*GLCD_LCD_WIDTH, 0x00, GLCD_LCD_WIDTH);
+ 305               		.loc 1 163 4 view .LVU71
+ 306 00d8 44E5      		ldi r20,lo8(84)
+ 307               	.LVL13:
+ 308               	.L20:
+ 158:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 309               		.loc 1 158 3 is_stmt 1 view .LVU72
+ 310 00da E091 0000 		lds r30,glcd_buffer_selected
+ 311 00de F091 0000 		lds r31,glcd_buffer_selected+1
+ 158:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 312               		.loc 1 158 6 is_stmt 0 view .LVU73
+ 313 00e2 8530      		cpi r24,lo8(5)
+ 314 00e4 01F0      		breq .L18
+ 160:glcd/glcd.c   **** 		} else {
+ 315               		.loc 1 160 4 is_stmt 1 view .LVU74
+ 160:glcd/glcd.c   **** 		} else {
+ 316               		.loc 1 160 32 is_stmt 0 view .LVU75
+ 317 00e6 D901      		movw r26,r18
+ 318 00e8 A455      		subi r26,84
+ 319 00ea B109      		sbc r27,__zero_reg__
+ 320 00ec AE0F      		add r26,r30
+ 321 00ee BF1F      		adc r27,r31
+ 160:glcd/glcd.c   **** 		} else {
+ 322               		.loc 1 160 92 view .LVU76
+ 323 00f0 E20F      		add r30,r18
+ 324 00f2 F31F      		adc r31,r19
+ 160:glcd/glcd.c   **** 		} else {
+ 325               		.loc 1 160 4 view .LVU77
+ 326 00f4 94E5      		ldi r25,lo8(84)
+ 327               		0:
+ 328 00f6 0190      		ld r0,Z+
+ 329 00f8 0D92      		st X+,r0
+ 330 00fa 9A95      		dec r25
+ 331 00fc 01F4      		brne 0b
+ 332               	.L19:
+ 157:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 333               		.loc 1 157 31 discriminator 2 view .LVU78
+ 334 00fe 8F5F      		subi r24,lo8(-(1))
+ 335               	.LVL14:
+ 157:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 336               		.loc 1 157 31 discriminator 2 view .LVU79
+ 337 0100 2C5A      		subi r18,-84
+ 338 0102 3F4F      		sbci r19,-1
+ 157:glcd/glcd.c   **** 		if (y < (number_of_rows - 1)) {
+ 339               		.loc 1 157 2 discriminator 2 view .LVU80
+ 340 0104 8630      		cpi r24,lo8(6)
+ 341 0106 01F4      		brne .L20
+ 342               	.LVL15:
+ 164:glcd/glcd.c   **** 		}
+ 165:glcd/glcd.c   **** 	}
+ 166:glcd/glcd.c   **** 	glcd_update_bbox(0,0,GLCD_LCD_WIDTH - 1,GLCD_LCD_HEIGHT - 1);
+ 343               		.loc 1 166 2 is_stmt 1 view .LVU81
+ 344 0108 2FE2      		ldi r18,lo8(47)
+ 345 010a 43E5      		ldi r20,lo8(83)
+ 346 010c 60E0      		ldi r22,0
+ 347 010e 80E0      		ldi r24,0
+ 348 0110 0C94 0000 		jmp glcd_update_bbox
+ 349               	.LVL16:
+ 350               	.L18:
+ 163:glcd/glcd.c   **** 		}
+ 351               		.loc 1 163 4 view .LVU82
+ 163:glcd/glcd.c   **** 		}
+ 352               		.loc 1 163 32 is_stmt 0 view .LVU83
+ 353 0114 EC55      		subi r30,92
+ 354 0116 FE4F      		sbci r31,-2
+ 163:glcd/glcd.c   **** 		}
+ 355               		.loc 1 163 4 view .LVU84
+ 356 0118 DF01      		movw r26,r30
+ 357 011a 942F      		mov r25,r20
+ 358               		0:
+ 359 011c 1D92      		st X+,__zero_reg__
+ 360 011e 9A95      		dec r25
+ 361 0120 01F4      		brne 0b
+ 362 0122 00C0      		rjmp .L19
+ 363               		.cfi_endproc
+ 364               	.LFE16:
+ 366               		.comm	glcd_bbox_selected,2,1
+ 367               		.comm	glcd_buffer_selected,2,1
+ 368               		.comm	glcd_bbox,4,1
+ 369               		.comm	glcd_buffer,504,1
+ 370               	.Letext0:
+ 371               		.file 2 "/usr/avr/include/stdint.h"
+ 372               		.file 3 "/usr/avr/include/stdio.h"
+ 373               		.file 4 "glcd/glcd.h"
+ 374               		.file 5 "glcd/unit_tests.h"
+ 375               		.file 6 "glcd/glcd_controllers.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 glcd.c
+     /tmp/cc5WiBIE.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/cc5WiBIE.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/cc5WiBIE.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/cc5WiBIE.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/cc5WiBIE.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/cc5WiBIE.s:12     .text:0000000000000000 glcd_update_bbox
+                            *COM*:0000000000000002 glcd_bbox_selected
+     /tmp/cc5WiBIE.s:95     .text:0000000000000042 glcd_reset_bbox
+     /tmp/cc5WiBIE.s:128    .text:0000000000000058 glcd_bbox_reset
+     /tmp/cc5WiBIE.s:144    .text:000000000000005c glcd_bbox_refresh
+     /tmp/cc5WiBIE.s:177    .text:0000000000000072 glcd_clear
+                            *COM*:0000000000000002 glcd_buffer_selected
+     /tmp/cc5WiBIE.s:212    .text:000000000000009a glcd_clear_buffer
+     /tmp/cc5WiBIE.s:244    .text:00000000000000be glcd_select_screen
+     /tmp/cc5WiBIE.s:269    .text:00000000000000d0 glcd_scroll
+     /tmp/cc5WiBIE.s:288    .text:00000000000000d2 glcd_scroll_line
+                            *COM*:0000000000000004 glcd_bbox
+                            *COM*:00000000000001f8 glcd_buffer
+
+UNDEFINED SYMBOLS
+glcd_write
+__do_clear_bss

@@ -1,0 +1,219 @@
+   1               		.file	"byteordering.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	read16
+  12               	read16:
+  13               	.LVL0:
+  14               	.LFB0:
+  15               		.file 1 "byteordering.c"
+   1:byteordering.c **** 
+   2:byteordering.c **** /*
+   3:byteordering.c ****  * Copyright (c) 2006-2012 by Roland Riegel <feedback@roland-riegel.de>
+   4:byteordering.c ****  *
+   5:byteordering.c ****  * This file is free software; you can redistribute it and/or modify
+   6:byteordering.c ****  * it under the terms of either the GNU General Public License version 2
+   7:byteordering.c ****  * or the GNU Lesser General Public License version 2.1, both as
+   8:byteordering.c ****  * published by the Free Software Foundation.
+   9:byteordering.c ****  */
+  10:byteordering.c **** 
+  11:byteordering.c **** #include "byteordering.h"
+  12:byteordering.c **** 
+  13:byteordering.c **** /**
+  14:byteordering.c ****  * \addtogroup byteordering
+  15:byteordering.c ****  *
+  16:byteordering.c ****  * Architecture-dependent handling of byte-ordering.
+  17:byteordering.c ****  *
+  18:byteordering.c ****  * @{
+  19:byteordering.c ****  */
+  20:byteordering.c **** /**
+  21:byteordering.c ****  * \file
+  22:byteordering.c ****  * Byte-order handling implementation (license: GPLv2 or LGPLv2.1)
+  23:byteordering.c ****  *
+  24:byteordering.c ****  * \author Roland Riegel
+  25:byteordering.c ****  */
+  26:byteordering.c **** 
+  27:byteordering.c **** #if DOXYGEN || SWAP_NEEDED
+  28:byteordering.c **** 
+  29:byteordering.c **** /**
+  30:byteordering.c ****  * \internal
+  31:byteordering.c ****  * Swaps the bytes of a 16-bit integer.
+  32:byteordering.c ****  *
+  33:byteordering.c ****  * \param[in] i A 16-bit integer which to swap.
+  34:byteordering.c ****  * \returns The swapped 16-bit integer.
+  35:byteordering.c ****  */
+  36:byteordering.c **** uint16_t swap16(uint16_t i)
+  37:byteordering.c **** {
+  38:byteordering.c ****     return SWAP16(i);
+  39:byteordering.c **** }
+  40:byteordering.c **** 
+  41:byteordering.c **** /**
+  42:byteordering.c ****  * \internal
+  43:byteordering.c ****  * Swaps the bytes of a 32-bit integer.
+  44:byteordering.c ****  *
+  45:byteordering.c ****  * \param[in] i A 32-bit integer which to swap.
+  46:byteordering.c ****  * \returns The swapped 32-bit integer.
+  47:byteordering.c ****  */
+  48:byteordering.c **** uint32_t swap32(uint32_t i)
+  49:byteordering.c **** {
+  50:byteordering.c ****     return SWAP32(i);
+  51:byteordering.c **** }
+  52:byteordering.c **** 
+  53:byteordering.c **** #endif
+  54:byteordering.c **** 
+  55:byteordering.c **** /**
+  56:byteordering.c ****  * Reads a 16-bit integer from memory in little-endian byte order.
+  57:byteordering.c ****  *
+  58:byteordering.c ****  * \param[in] p Pointer from where to read the integer.
+  59:byteordering.c ****  * \returns The 16-bit integer read from memory.
+  60:byteordering.c ****  */
+  61:byteordering.c **** uint16_t read16(const uint8_t* p)
+  62:byteordering.c **** {
+  16               		.loc 1 62 1 view -0
+  17               		.cfi_startproc
+  18               	/* prologue: function */
+  19               	/* frame size = 0 */
+  20               	/* stack size = 0 */
+  21               	.L__stack_usage = 0
+  63:byteordering.c ****     return (((uint16_t) p[1]) << 8) |
+  22               		.loc 1 63 5 view .LVU1
+  64:byteordering.c ****            (((uint16_t) p[0]) << 0);
+  65:byteordering.c **** }
+  23               		.loc 1 65 1 is_stmt 0 view .LVU2
+  24 0000 FC01      		movw r30,r24
+  25 0002 8081      		ld r24,Z
+  26 0004 9181      		ldd r25,Z+1
+  27               	.LVL1:
+  28               	/* epilogue start */
+  29               		.loc 1 65 1 view .LVU3
+  30 0006 0895      		ret
+  31               		.cfi_endproc
+  32               	.LFE0:
+  34               	.global	read32
+  36               	read32:
+  37               	.LVL2:
+  38               	.LFB1:
+  66:byteordering.c **** 
+  67:byteordering.c **** /**
+  68:byteordering.c ****  * Reads a 32-bit integer from memory in little-endian byte order.
+  69:byteordering.c ****  *
+  70:byteordering.c ****  * \param[in] p Pointer from where to read the integer.
+  71:byteordering.c ****  * \returns The 32-bit integer read from memory.
+  72:byteordering.c ****  */
+  73:byteordering.c **** uint32_t read32(const uint8_t* p)
+  74:byteordering.c **** {
+  39               		.loc 1 74 1 is_stmt 1 view -0
+  40               		.cfi_startproc
+  41               	/* prologue: function */
+  42               	/* frame size = 0 */
+  43               	/* stack size = 0 */
+  44               	.L__stack_usage = 0
+  75:byteordering.c ****     return (((uint32_t) p[3]) << 24) |
+  45               		.loc 1 75 5 view .LVU5
+  76:byteordering.c ****            (((uint32_t) p[2]) << 16) |
+  77:byteordering.c ****            (((uint32_t) p[1]) <<  8) |
+  46               		.loc 1 77 38 is_stmt 0 view .LVU6
+  47 0008 FC01      		movw r30,r24
+  48 000a 6081      		ld r22,Z
+  49 000c 7181      		ldd r23,Z+1
+  50 000e 8281      		ldd r24,Z+2
+  51 0010 9381      		ldd r25,Z+3
+  52               	/* epilogue start */
+  78:byteordering.c ****            (((uint32_t) p[0]) <<  0);
+  79:byteordering.c **** }
+  53               		.loc 1 79 1 view .LVU7
+  54 0012 0895      		ret
+  55               		.cfi_endproc
+  56               	.LFE1:
+  58               	.global	write16
+  60               	write16:
+  61               	.LVL3:
+  62               	.LFB2:
+  80:byteordering.c **** 
+  81:byteordering.c **** /**
+  82:byteordering.c ****  * Writes a 16-bit integer into memory in little-endian byte order.
+  83:byteordering.c ****  *
+  84:byteordering.c ****  * \param[in] p Pointer where to write the integer to.
+  85:byteordering.c ****  * \param[in] i The 16-bit integer to write.
+  86:byteordering.c ****  */
+  87:byteordering.c **** void write16(uint8_t* p, uint16_t i)
+  88:byteordering.c **** {
+  63               		.loc 1 88 1 is_stmt 1 view -0
+  64               		.cfi_startproc
+  65               	/* prologue: function */
+  66               	/* frame size = 0 */
+  67               	/* stack size = 0 */
+  68               	.L__stack_usage = 0
+  89:byteordering.c ****     p[1] = (uint8_t) ((i & 0xff00) >> 8);
+  69               		.loc 1 89 5 view .LVU9
+  90:byteordering.c ****     p[0] = (uint8_t) ((i & 0x00ff) >> 0);
+  70               		.loc 1 90 5 view .LVU10
+  71               		.loc 1 90 10 is_stmt 0 view .LVU11
+  72 0014 FC01      		movw r30,r24
+  73 0016 7183      		std Z+1,r23
+  74 0018 6083      		st Z,r22
+  75               	/* epilogue start */
+  91:byteordering.c **** }
+  76               		.loc 1 91 1 view .LVU12
+  77 001a 0895      		ret
+  78               		.cfi_endproc
+  79               	.LFE2:
+  81               	.global	write32
+  83               	write32:
+  84               	.LVL4:
+  85               	.LFB3:
+  92:byteordering.c **** 
+  93:byteordering.c **** /**
+  94:byteordering.c ****  * Writes a 32-bit integer into memory in little-endian byte order.
+  95:byteordering.c ****  *
+  96:byteordering.c ****  * \param[in] p Pointer where to write the integer to.
+  97:byteordering.c ****  * \param[in] i The 32-bit integer to write.
+  98:byteordering.c ****  */
+  99:byteordering.c **** void write32(uint8_t* p, uint32_t i)
+ 100:byteordering.c **** {
+  86               		.loc 1 100 1 is_stmt 1 view -0
+  87               		.cfi_startproc
+  88               	/* prologue: function */
+  89               	/* frame size = 0 */
+  90               	/* stack size = 0 */
+  91               	.L__stack_usage = 0
+ 101:byteordering.c ****     p[3] = (uint8_t) ((i & 0xff000000) >> 24);
+  92               		.loc 1 101 5 view .LVU14
+ 102:byteordering.c ****     p[2] = (uint8_t) ((i & 0x00ff0000) >> 16);
+  93               		.loc 1 102 5 view .LVU15
+ 103:byteordering.c ****     p[1] = (uint8_t) ((i & 0x0000ff00) >>  8);
+  94               		.loc 1 103 5 view .LVU16
+ 104:byteordering.c ****     p[0] = (uint8_t) ((i & 0x000000ff) >>  0);
+  95               		.loc 1 104 5 view .LVU17
+  96               		.loc 1 104 10 is_stmt 0 view .LVU18
+  97 001c FC01      		movw r30,r24
+  98 001e 4083      		st Z,r20
+  99 0020 5183      		std Z+1,r21
+ 100 0022 6283      		std Z+2,r22
+ 101 0024 7383      		std Z+3,r23
+ 102               	/* epilogue start */
+ 105:byteordering.c **** }
+ 103               		.loc 1 105 1 view .LVU19
+ 104 0026 0895      		ret
+ 105               		.cfi_endproc
+ 106               	.LFE3:
+ 108               	.Letext0:
+ 109               		.file 2 "/usr/avr/include/stdint.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 byteordering.c
+     /tmp/ccSCcYUp.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccSCcYUp.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccSCcYUp.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccSCcYUp.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccSCcYUp.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccSCcYUp.s:12     .text:0000000000000000 read16
+     /tmp/ccSCcYUp.s:36     .text:0000000000000008 read32
+     /tmp/ccSCcYUp.s:60     .text:0000000000000014 write16
+     /tmp/ccSCcYUp.s:83     .text:000000000000001c write32
+
+NO UNDEFINED SYMBOLS

@@ -1,0 +1,1912 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	__vector_11
+  12               	__vector_11:
+  13               	.LFB13:
+  14               		.file 1 "main.c"
+   1:main.c        **** /*
+   2:main.c        **** Nokia Sensorboard
+   3:main.c        **** * 
+   4:main.c        **** * Done:
+   5:main.c        **** * => Read Sensor BME280
+   6:main.c        **** * => Write Sensor Data on Display
+   7:main.c        **** * => Write Sensor Data on USART (formatted for KST plotting with KST)
+   8:main.c        **** * 
+   9:main.c        **** * Pending:
+  10:main.c        **** * 
+  11:main.c        **** * => read / write EEPROM (12C)
+  12:main.c        **** * => read / write RTC (I2C)
+  13:main.c        **** * => logging function
+  14:main.c        **** * 
+  15:main.c        **** * 
+  16:main.c        **** */
+  17:main.c        **** 
+  18:main.c        **** 
+  19:main.c        **** #define F_CPU 8000000UL                 // set the CPU clock
+  20:main.c        **** 
+  21:main.c        **** #include <avr/io.h>
+  22:main.c        **** #include "glcd/glcd.h"
+  23:main.c        **** #include <avr/interrupt.h>
+  24:main.c        **** #include <stdio.h>
+  25:main.c        **** #include <stdlib.h>
+  26:main.c        **** #include "glcd/fonts/font5x7.h"
+  27:main.c        **** #include <avr/pgmspace.h>
+  28:main.c        **** #include "bme280_i2c.h"
+  29:main.c        **** #include "i2cmaster.h"
+  30:main.c        **** 
+  31:main.c        **** #include <string.h>
+  32:main.c        **** #include "fat.h"
+  33:main.c        **** #include "fat_config.h"
+  34:main.c        **** #include "partition.h"
+  35:main.c        **** #include "sd_raw.h"
+  36:main.c        **** #include "sd_raw_config.h"
+  37:main.c        **** #include "uart.h"
+  38:main.c        **** 
+  39:main.c        **** 
+  40:main.c        **** #define T_RED !(PIND & (1<<PD5)) && (entprell == 0)
+  41:main.c        **** #define T_BLUE !(PIND & (1<<PD6)) && (entprell == 0)
+  42:main.c        **** #define T_GREEN !(PIND & (1<<PD2)) && (entprell == 0)
+  43:main.c        **** #define RELOAD_ENTPRELL 80
+  44:main.c        **** 
+  45:main.c        **** #define LED_EIN PORTC |= (1<<PC3)
+  46:main.c        **** #define LED_AUS	PORTC &= ~(1<<PC3);					//LED ausschalten
+  47:main.c        **** 
+  48:main.c        **** 
+  49:main.c        **** 
+  50:main.c        **** 
+  51:main.c        **** uint8_t test1, test1_alt, aaa,bbb,ccc, ddd, error;
+  52:main.c        **** uint16_t zaehler, test2, test2_alt, test3;
+  53:main.c        **** int32_t temperatur;
+  54:main.c        **** uint32_t pressure, humidity;
+  55:main.c        **** uint8_t sekunden, sekunden_alt, minuten, stunden;
+  56:main.c        **** volatile uint8_t 	received_byte;
+  57:main.c        **** int32_t temp, press, hum;
+  58:main.c        **** uint16_t vork, nachk; 
+  59:main.c        **** 
+  60:main.c        **** uint8_t flag_send, flag_send_index;
+  61:main.c        **** // String für Zahlenausgabe
+  62:main.c        **** char string[30] = "";
+  63:main.c        **** 
+  64:main.c        **** uint8_t ms, ms10,ms100,sec,min,entprell, state;
+  65:main.c        **** uint8_t end_ms100, end_sec, end_min;
+  66:main.c        **** enum state{WAIT, COUNT, TIME, TIME_WAIT,FLIGHT_TIME};
+  67:main.c        **** 
+  68:main.c        **** 
+  69:main.c        **** 
+  70:main.c        **** 
+  71:main.c        **** 
+  72:main.c        **** 
+  73:main.c        **** 
+  74:main.c        **** 
+  75:main.c        **** 
+  76:main.c        **** #define DEBUG 1
+  77:main.c        **** 
+  78:main.c        **** static uint8_t print_disk_info(const struct fat_fs_struct* fs);
+  79:main.c        **** 
+  80:main.c        **** /* Function prototypes */
+  81:main.c        **** static void setup(void);
+  82:main.c        **** 
+  83:main.c        **** static void setup(void)
+  84:main.c        **** {
+  85:main.c        **** 	/* Set up glcd, also sets up SPI and relevent GPIO pins */
+  86:main.c        **** 	glcd_init();
+  87:main.c        **** }
+  88:main.c        **** 
+  89:main.c        **** ISR (TIMER1_COMPA_vect)
+  90:main.c        **** {
+  15               		.loc 1 90 1 view -0
+  16               		.cfi_startproc
+  17 0000 1F92 1FB6 		__gcc_isr 1
+  17      1F92 1124 
+  17      8F93 
+  18 000a 9F93      		push r25
+  19               	.LCFI0:
+  20               		.cfi_def_cfa_offset 3
+  21               		.cfi_offset 25, -2
+  22               	/* prologue: Signal */
+  23               	/* frame size = 0 */
+  24               	/* stack size = 1...5 */
+  25               	.L__stack_usage = 1 + __gcc_isr.n_pushed
+  91:main.c        **** 	ms10++;
+  26               		.loc 1 91 2 view .LVU1
+  27               		.loc 1 91 6 is_stmt 0 view .LVU2
+  28 000c 8091 0000 		lds r24,ms10
+  29 0010 8F5F      		subi r24,lo8(-(1))
+  30 0012 8093 0000 		sts ms10,r24
+  92:main.c        **** 	if(entprell != 0)entprell--;
+  31               		.loc 1 92 2 is_stmt 1 view .LVU3
+  32               		.loc 1 92 14 is_stmt 0 view .LVU4
+  33 0016 9091 0000 		lds r25,entprell
+  34               		.loc 1 92 4 view .LVU5
+  35 001a 9923      		tst r25
+  36 001c 01F0      		breq .L2
+  37               		.loc 1 92 19 is_stmt 1 discriminator 1 view .LVU6
+  38               		.loc 1 92 27 is_stmt 0 discriminator 1 view .LVU7
+  39 001e 9150      		subi r25,lo8(-(-1))
+  40 0020 9093 0000 		sts entprell,r25
+  41               	.L2:
+  93:main.c        **** 	if(ms10==10)	//10ms
+  42               		.loc 1 93 2 is_stmt 1 view .LVU8
+  43               		.loc 1 93 4 is_stmt 0 view .LVU9
+  44 0024 8A30      		cpi r24,lo8(10)
+  45 0026 01F4      		brne .L3
+  46 0028 8091 0000 		lds r24,ms100
+  94:main.c        **** 	{
+  95:main.c        **** 		ms10=0;
+  47               		.loc 1 95 3 is_stmt 1 view .LVU10
+  48               		.loc 1 95 7 is_stmt 0 view .LVU11
+  49 002c 1092 0000 		sts ms10,__zero_reg__
+  96:main.c        **** 		ms100++;
+  50               		.loc 1 96 3 is_stmt 1 view .LVU12
+  51               		.loc 1 96 8 is_stmt 0 view .LVU13
+  52 0030 8F5F      		subi r24,lo8(-(1))
+  53 0032 8093 0000 		sts ms100,r24
+  54               	.L3:
+  97:main.c        **** 	}
+  98:main.c        ****     if(ms100==10)	//100ms
+  55               		.loc 1 98 5 is_stmt 1 view .LVU14
+  56               		.loc 1 98 7 is_stmt 0 view .LVU15
+  57 0036 8091 0000 		lds r24,ms100
+  58 003a 8A30      		cpi r24,lo8(10)
+  59 003c 01F4      		brne .L4
+  60 003e 8091 0000 		lds r24,sec
+  99:main.c        **** 	{
+ 100:main.c        **** 		ms100=0;
+  61               		.loc 1 100 3 is_stmt 1 view .LVU16
+  62               		.loc 1 100 8 is_stmt 0 view .LVU17
+  63 0042 1092 0000 		sts ms100,__zero_reg__
+ 101:main.c        **** 		sec++;
+  64               		.loc 1 101 3 is_stmt 1 view .LVU18
+  65               		.loc 1 101 6 is_stmt 0 view .LVU19
+  66 0046 8F5F      		subi r24,lo8(-(1))
+  67 0048 8093 0000 		sts sec,r24
+  68               	.L4:
+ 102:main.c        **** 	}
+ 103:main.c        **** 	if(sec==60)	//Minute
+  69               		.loc 1 103 2 is_stmt 1 view .LVU20
+  70               		.loc 1 103 4 is_stmt 0 view .LVU21
+  71 004c 8091 0000 		lds r24,sec
+  72 0050 8C33      		cpi r24,lo8(60)
+  73 0052 01F4      		brne .L1
+ 104:main.c        **** 	{
+ 105:main.c        **** 		sec=0;
+  74               		.loc 1 105 3 is_stmt 1 view .LVU22
+  75               		.loc 1 105 6 is_stmt 0 view .LVU23
+  76 0054 1092 0000 		sts sec,__zero_reg__
+ 106:main.c        **** 		min++;
+  77               		.loc 1 106 3 is_stmt 1 view .LVU24
+  78               		.loc 1 106 6 is_stmt 0 view .LVU25
+  79 0058 8091 0000 		lds r24,min
+  80 005c 8F5F      		subi r24,lo8(-(1))
+  81 005e 8093 0000 		sts min,r24
+  82               	.L1:
+  83               	/* epilogue start */
+ 107:main.c        **** 	}
+ 108:main.c        **** }
+  84               		.loc 1 108 1 view .LVU26
+  85 0062 9F91      		pop r25
+  86 0064 8F91 1F90 		__gcc_isr 2
+  86      1FBE 1F90 
+  87 006c 1895      		reti
+  88               		__gcc_isr 0,r24
+  89               		.cfi_endproc
+  90               	.LFE13:
+  92               		.section	.rodata.str1.1,"aMS",@progbits,1
+  93               	.LC0:
+  94 0000 496E 6974 		.string	"Init fail..."
+  94      2066 6169 
+  94      6C2E 2E2E 
+  94      00
+  95               	.LC1:
+  96 000d 7061 7274 		.string	"part failed..."
+  96      2066 6169 
+  96      6C65 642E 
+  96      2E2E 00
+  97               	.LC2:
+  98 001c 6673 2066 		.string	"fs failed..."
+  98      6169 6C65 
+  98      642E 2E2E 
+  98      00
+  99               	.LC3:
+ 100 0029 2F00      		.string	"/"
+ 101               	.LC4:
+ 102 002b 726F 6F74 		.string	"root failed..."
+ 102      2066 6169 
+ 102      6C65 642E 
+ 102      2E2E 00
+ 103               	.LC5:
+ 104 003a 5344 2073 		.string	"SD success..."
+ 104      7563 6365 
+ 104      7373 2E2E 
+ 104      2E00 
+ 105               		.section	.text.startup,"ax",@progbits
+ 106               	.global	main
+ 108               	main:
+ 109               	.LFB14:
+ 109:main.c        **** 
+ 110:main.c        **** int main(void)
+ 111:main.c        **** {
+ 110               		.loc 1 111 1 is_stmt 1 view -0
+ 111               		.cfi_startproc
+ 112 0000 CDB7      		in r28,__SP_L__
+ 113 0002 DEB7      		in r29,__SP_H__
+ 114               	.LCFI1:
+ 115               		.cfi_def_cfa_register 28
+ 116 0004 C454      		subi r28,68
+ 117 0006 D109      		sbc r29,__zero_reg__
+ 118               	.LCFI2:
+ 119               		.cfi_def_cfa_offset 70
+ 120 0008 0FB6      		in __tmp_reg__,__SREG__
+ 121 000a F894      		cli
+ 122 000c DEBF      		out __SP_H__,r29
+ 123 000e 0FBE      		out __SREG__,__tmp_reg__
+ 124 0010 CDBF      		out __SP_L__,r28
+ 125               	/* prologue: function */
+ 126               	/* frame size = 68 */
+ 127               	/* stack size = 68 */
+ 128               	.L__stack_usage = 68
+ 112:main.c        **** 	/* Backlight pin PL3, set as output, set high for 100% output */
+ 113:main.c        **** 	DDRB |= (1<<PB2);
+ 129               		.loc 1 113 2 view .LVU28
+ 130               		.loc 1 113 7 is_stmt 0 view .LVU29
+ 131 0012 229A      		sbi 0x4,2
+ 114:main.c        **** 	PORTB |= (1<<PB2);
+ 132               		.loc 1 114 2 is_stmt 1 view .LVU30
+ 133               		.loc 1 114 8 is_stmt 0 view .LVU31
+ 134 0014 2A9A      		sbi 0x5,2
+ 115:main.c        **** 	//PORTB &= ~(1<<PB2);
+ 116:main.c        **** 	
+ 117:main.c        **** 	
+ 118:main.c        **** 	DDRC |=(1<<PC3); 	//Ausgang LED
+ 135               		.loc 1 118 2 is_stmt 1 view .LVU32
+ 136               		.loc 1 118 7 is_stmt 0 view .LVU33
+ 137 0016 3B9A      		sbi 0x7,3
+ 119:main.c        **** 	PORTC |= (1<<PC3);	//Led ein
+ 138               		.loc 1 119 2 is_stmt 1 view .LVU34
+ 139               		.loc 1 119 8 is_stmt 0 view .LVU35
+ 140 0018 439A      		sbi 0x8,3
+ 120:main.c        **** 	
+ 121:main.c        **** 	
+ 122:main.c        **** 	DDRD &= ~((1<<PD6) | (1<<PD2) | (1<<PD5)); 	//Taster 1-3
+ 141               		.loc 1 122 2 is_stmt 1 view .LVU36
+ 142               		.loc 1 122 7 is_stmt 0 view .LVU37
+ 143 001a 8AB1      		in r24,0xa
+ 144 001c 8B79      		andi r24,lo8(-101)
+ 145 001e 8AB9      		out 0xa,r24
+ 123:main.c        **** 	PORTD |= ((1<<PD6) | (1<<PD2) | (1<<PD5)); 	//PUllups für Taster einschalten
+ 146               		.loc 1 123 2 is_stmt 1 view .LVU38
+ 147               		.loc 1 123 8 is_stmt 0 view .LVU39
+ 148 0020 8BB1      		in r24,0xb
+ 149 0022 8466      		ori r24,lo8(100)
+ 150 0024 8BB9      		out 0xb,r24
+ 124:main.c        **** 	
+ 125:main.c        **** 	DDRD &= ~(1<<PD4); //T0 Counter Input
+ 151               		.loc 1 125 2 is_stmt 1 view .LVU40
+ 152               		.loc 1 125 7 is_stmt 0 view .LVU41
+ 153 0026 5498      		cbi 0xa,4
+ 126:main.c        **** 	TCCR0B |= (1<<CS02) | (1<<CS01) | (1<<CS00);//Counter 0 enabled clock on rising edge
+ 154               		.loc 1 126 2 is_stmt 1 view .LVU42
+ 155               		.loc 1 126 9 is_stmt 0 view .LVU43
+ 156 0028 85B5      		in r24,0x25
+ 157 002a 8760      		ori r24,lo8(7)
+ 158 002c 85BD      		out 0x25,r24
+ 127:main.c        **** 	
+ 128:main.c        **** 	//Timer 1 Configuration
+ 129:main.c        **** 	OCR1A = 0x009C;	//OCR1A = 0x3D08;==1sec
+ 159               		.loc 1 129 2 is_stmt 1 view .LVU44
+ 160               		.loc 1 129 8 is_stmt 0 view .LVU45
+ 161 002e 8CE9      		ldi r24,lo8(-100)
+ 162 0030 90E0      		ldi r25,0
+ 163 0032 9093 8900 		sts 136+1,r25
+ 164 0036 8093 8800 		sts 136,r24
+ 130:main.c        **** 	
+ 131:main.c        ****     TCCR1B |= (1 << WGM12);
+ 165               		.loc 1 131 5 is_stmt 1 view .LVU46
+ 166               		.loc 1 131 12 is_stmt 0 view .LVU47
+ 167 003a 8091 8100 		lds r24,129
+ 168 003e 8860      		ori r24,lo8(8)
+ 169 0040 8093 8100 		sts 129,r24
+ 132:main.c        ****     // Mode 4, CTC on OCR1A
+ 133:main.c        **** 
+ 134:main.c        ****     TIMSK1 |= (1 << OCIE1A);
+ 170               		.loc 1 134 5 is_stmt 1 view .LVU48
+ 171               		.loc 1 134 12 is_stmt 0 view .LVU49
+ 172 0044 8091 6F00 		lds r24,111
+ 173 0048 8260      		ori r24,lo8(2)
+ 174 004a 8093 6F00 		sts 111,r24
+ 135:main.c        ****     //Set interrupt on compare match
+ 136:main.c        **** 
+ 137:main.c        ****     TCCR1B |= (1 << CS12) | (1 << CS10);
+ 175               		.loc 1 137 5 is_stmt 1 view .LVU50
+ 176               		.loc 1 137 12 is_stmt 0 view .LVU51
+ 177 004e 8091 8100 		lds r24,129
+ 178 0052 8560      		ori r24,lo8(5)
+ 179 0054 8093 8100 		sts 129,r24
+ 138:main.c        ****     // set prescaler to 1024 and start the timer
+ 139:main.c        **** 
+ 140:main.c        **** 
+ 141:main.c        **** 
+ 142:main.c        ****     sei();
+ 180               		.loc 1 142 5 is_stmt 1 view .LVU52
+ 181               	/* #APP */
+ 182               	 ;  142 "main.c" 1
+ 183 0058 7894      		sei
+ 184               	 ;  0 "" 2
+ 143:main.c        ****     // enable interrupts
+ 144:main.c        **** 	
+ 145:main.c        **** 	setup();
+ 185               		.loc 1 145 2 view .LVU53
+ 186               	/* #NOAPP */
+ 187               	.LBB20:
+ 188               	.LBI20:
+  83:main.c        **** {
+ 189               		.loc 1 83 13 view .LVU54
+ 190               	.LBB21:
+  86:main.c        **** }
+ 191               		.loc 1 86 2 view .LVU55
+ 192 005a 0E94 0000 		call glcd_init
+ 193               	.LVL0:
+ 194               	.LBE21:
+ 195               	.LBE20:
+ 146:main.c        **** 	
+ 147:main.c        **** 	
+ 148:main.c        **** 	
+ 149:main.c        **** 	
+ 150:main.c        **** 	zaehler=222;
+ 196               		.loc 1 150 2 view .LVU56
+ 197               		.loc 1 150 9 is_stmt 0 view .LVU57
+ 198 005e 8EED      		ldi r24,lo8(-34)
+ 199 0060 90E0      		ldi r25,0
+ 200 0062 9093 0000 		sts zaehler+1,r25
+ 201 0066 8093 0000 		sts zaehler,r24
+ 151:main.c        **** 	entprell=0;
+ 202               		.loc 1 151 2 is_stmt 1 view .LVU58
+ 203               		.loc 1 151 10 is_stmt 0 view .LVU59
+ 204 006a 1092 0000 		sts entprell,__zero_reg__
+ 152:main.c        **** 	test1=0;
+ 205               		.loc 1 152 2 is_stmt 1 view .LVU60
+ 206               		.loc 1 152 7 is_stmt 0 view .LVU61
+ 207 006e 1092 0000 		sts test1,__zero_reg__
+ 153:main.c        **** 	test1_alt=0;
+ 208               		.loc 1 153 2 is_stmt 1 view .LVU62
+ 209               		.loc 1 153 11 is_stmt 0 view .LVU63
+ 210 0072 1092 0000 		sts test1_alt,__zero_reg__
+ 154:main.c        **** 	test2=0;
+ 211               		.loc 1 154 2 is_stmt 1 view .LVU64
+ 212               		.loc 1 154 7 is_stmt 0 view .LVU65
+ 213 0076 1092 0000 		sts test2+1,__zero_reg__
+ 214 007a 1092 0000 		sts test2,__zero_reg__
+ 155:main.c        **** 	test2_alt=0;
+ 215               		.loc 1 155 2 is_stmt 1 view .LVU66
+ 216               		.loc 1 155 11 is_stmt 0 view .LVU67
+ 217 007e 1092 0000 		sts test2_alt+1,__zero_reg__
+ 218 0082 1092 0000 		sts test2_alt,__zero_reg__
+ 156:main.c        **** 	ms10=0;
+ 219               		.loc 1 156 2 is_stmt 1 view .LVU68
+ 220               		.loc 1 156 6 is_stmt 0 view .LVU69
+ 221 0086 1092 0000 		sts ms10,__zero_reg__
+ 157:main.c        **** 	ms100=0;
+ 222               		.loc 1 157 2 is_stmt 1 view .LVU70
+ 223               		.loc 1 157 7 is_stmt 0 view .LVU71
+ 224 008a 1092 0000 		sts ms100,__zero_reg__
+ 158:main.c        **** 	sec=0;
+ 225               		.loc 1 158 2 is_stmt 1 view .LVU72
+ 226               		.loc 1 158 5 is_stmt 0 view .LVU73
+ 227 008e 1092 0000 		sts sec,__zero_reg__
+ 159:main.c        **** 	min=0;
+ 228               		.loc 1 159 2 is_stmt 1 view .LVU74
+ 229               		.loc 1 159 5 is_stmt 0 view .LVU75
+ 230 0092 1092 0000 		sts min,__zero_reg__
+ 160:main.c        **** 	sekunden=0;
+ 231               		.loc 1 160 2 is_stmt 1 view .LVU76
+ 232               		.loc 1 160 10 is_stmt 0 view .LVU77
+ 233 0096 1092 0000 		sts sekunden,__zero_reg__
+ 161:main.c        **** 	sekunden_alt=0;
+ 234               		.loc 1 161 2 is_stmt 1 view .LVU78
+ 235               		.loc 1 161 14 is_stmt 0 view .LVU79
+ 236 009a 1092 0000 		sts sekunden_alt,__zero_reg__
+ 162:main.c        **** 	minuten=0;
+ 237               		.loc 1 162 2 is_stmt 1 view .LVU80
+ 238               		.loc 1 162 9 is_stmt 0 view .LVU81
+ 239 009e 1092 0000 		sts minuten,__zero_reg__
+ 163:main.c        **** 	stunden=0;
+ 240               		.loc 1 163 2 is_stmt 1 view .LVU82
+ 241               		.loc 1 163 9 is_stmt 0 view .LVU83
+ 242 00a2 1092 0000 		sts stunden,__zero_reg__
+ 164:main.c        **** 	test3=0;
+ 243               		.loc 1 164 2 is_stmt 1 view .LVU84
+ 244               		.loc 1 164 7 is_stmt 0 view .LVU85
+ 245 00a6 1092 0000 		sts test3+1,__zero_reg__
+ 246 00aa 1092 0000 		sts test3,__zero_reg__
+ 165:main.c        **** 	aaa=255;
+ 247               		.loc 1 165 2 is_stmt 1 view .LVU86
+ 248               		.loc 1 165 5 is_stmt 0 view .LVU87
+ 249 00ae 8FEF      		ldi r24,lo8(-1)
+ 250 00b0 8093 0000 		sts aaa,r24
+ 166:main.c        **** 	bbb=0;
+ 251               		.loc 1 166 2 is_stmt 1 view .LVU88
+ 252               		.loc 1 166 5 is_stmt 0 view .LVU89
+ 253 00b4 1092 0000 		sts bbb,__zero_reg__
+ 167:main.c        **** 	ccc=0;
+ 254               		.loc 1 167 2 is_stmt 1 view .LVU90
+ 255               		.loc 1 167 5 is_stmt 0 view .LVU91
+ 256 00b8 1092 0000 		sts ccc,__zero_reg__
+ 168:main.c        **** 	ddd=0;
+ 257               		.loc 1 168 2 is_stmt 1 view .LVU92
+ 258               		.loc 1 168 5 is_stmt 0 view .LVU93
+ 259 00bc 1092 0000 		sts ddd,__zero_reg__
+ 169:main.c        **** 	temperatur=0;
+ 260               		.loc 1 169 2 is_stmt 1 view .LVU94
+ 261               		.loc 1 169 12 is_stmt 0 view .LVU95
+ 262 00c0 1092 0000 		sts temperatur,__zero_reg__
+ 263 00c4 1092 0000 		sts temperatur+1,__zero_reg__
+ 264 00c8 1092 0000 		sts temperatur+2,__zero_reg__
+ 265 00cc 1092 0000 		sts temperatur+3,__zero_reg__
+ 170:main.c        **** 	error=0;
+ 266               		.loc 1 170 2 is_stmt 1 view .LVU96
+ 267               		.loc 1 170 7 is_stmt 0 view .LVU97
+ 268 00d0 1092 0000 		sts error,__zero_reg__
+ 171:main.c        **** 	pressure = 0;
+ 269               		.loc 1 171 2 is_stmt 1 view .LVU98
+ 270               		.loc 1 171 11 is_stmt 0 view .LVU99
+ 271 00d4 1092 0000 		sts pressure,__zero_reg__
+ 272 00d8 1092 0000 		sts pressure+1,__zero_reg__
+ 273 00dc 1092 0000 		sts pressure+2,__zero_reg__
+ 274 00e0 1092 0000 		sts pressure+3,__zero_reg__
+ 172:main.c        **** 	humidity = 0;
+ 275               		.loc 1 172 2 is_stmt 1 view .LVU100
+ 276               		.loc 1 172 11 is_stmt 0 view .LVU101
+ 277 00e4 1092 0000 		sts humidity,__zero_reg__
+ 278 00e8 1092 0000 		sts humidity+1,__zero_reg__
+ 279 00ec 1092 0000 		sts humidity+2,__zero_reg__
+ 280 00f0 1092 0000 		sts humidity+3,__zero_reg__
+ 173:main.c        **** 	nachk =0;
+ 281               		.loc 1 173 2 is_stmt 1 view .LVU102
+ 282               		.loc 1 173 8 is_stmt 0 view .LVU103
+ 283 00f4 1092 0000 		sts nachk+1,__zero_reg__
+ 284 00f8 1092 0000 		sts nachk,__zero_reg__
+ 174:main.c        **** 	vork =0;
+ 285               		.loc 1 174 2 is_stmt 1 view .LVU104
+ 286               		.loc 1 174 7 is_stmt 0 view .LVU105
+ 287 00fc 1092 0000 		sts vork+1,__zero_reg__
+ 288 0100 1092 0000 		sts vork,__zero_reg__
+ 175:main.c        **** 	flag_send=0;
+ 289               		.loc 1 175 2 is_stmt 1 view .LVU106
+ 290               		.loc 1 175 11 is_stmt 0 view .LVU107
+ 291 0104 1092 0000 		sts flag_send,__zero_reg__
+ 176:main.c        **** 	flag_send_index=0;
+ 292               		.loc 1 176 2 is_stmt 1 view .LVU108
+ 293               		.loc 1 176 17 is_stmt 0 view .LVU109
+ 294 0108 1092 0000 		sts flag_send_index,__zero_reg__
+ 177:main.c        **** 
+ 178:main.c        **** 	
+ 179:main.c        **** 		glcd_tiny_set_font(Font5x7,5,7,32,127);
+ 295               		.loc 1 179 3 is_stmt 1 view .LVU110
+ 296 010c 0FE7      		ldi r16,lo8(127)
+ 297 010e 20E2      		ldi r18,lo8(32)
+ 298 0110 47E0      		ldi r20,lo8(7)
+ 299 0112 65E0      		ldi r22,lo8(5)
+ 300 0114 80E0      		ldi r24,lo8(Font5x7)
+ 301 0116 90E0      		ldi r25,hi8(Font5x7)
+ 302 0118 0E94 0000 		call glcd_tiny_set_font
+ 303               	.LVL1:
+ 180:main.c        **** 		glcd_clear_buffer();
+ 304               		.loc 1 180 3 view .LVU111
+ 305 011c 0E94 0000 		call glcd_clear_buffer
+ 306               	.LVL2:
+ 181:main.c        **** 		
+ 182:main.c        **** 	
+ 183:main.c        ****   
+ 184:main.c        **** 	BME280_init();
+ 307               		.loc 1 184 2 view .LVU112
+ 308 0120 0E94 0000 		call BME280_init
+ 309               	.LVL3:
+ 185:main.c        ****    BME280_set_filter(BME280_FILTER_16);
+ 310               		.loc 1 185 4 view .LVU113
+ 311 0124 84E0      		ldi r24,lo8(4)
+ 312 0126 0E94 0000 		call BME280_set_filter
+ 313               	.LVL4:
+ 186:main.c        **** 	BME280_set_standby(BME280_TSB_10);
+ 314               		.loc 1 186 2 view .LVU114
+ 315 012a 86E0      		ldi r24,lo8(6)
+ 316 012c 0E94 0000 		call BME280_set_standby
+ 317               	.LVL5:
+ 187:main.c        ****    BME280_set_measure(BME280_OVER_16, BME280_HUM);
+ 318               		.loc 1 187 4 view .LVU115
+ 319 0130 60E0      		ldi r22,0
+ 320 0132 85E0      		ldi r24,lo8(5)
+ 321 0134 0E94 0000 		call BME280_set_measure
+ 322               	.LVL6:
+ 188:main.c        ****    BME280_set_measure(BME280_OVER_16,  BME280_PRESS);
+ 323               		.loc 1 188 4 view .LVU116
+ 324 0138 61E0      		ldi r22,lo8(1)
+ 325 013a 85E0      		ldi r24,lo8(5)
+ 326 013c 0E94 0000 		call BME280_set_measure
+ 327               	.LVL7:
+ 189:main.c        ****    BME280_set_measure(BME280_OVER_16, BME280_TEMP);
+ 328               		.loc 1 189 4 view .LVU117
+ 329 0140 62E0      		ldi r22,lo8(2)
+ 330 0142 85E0      		ldi r24,lo8(5)
+ 331 0144 0E94 0000 		call BME280_set_measure
+ 332               	.LVL8:
+ 190:main.c        ****    BME280_set_measuremode(BME280_MODE_NORM);
+ 333               		.loc 1 190 4 view .LVU118
+ 334 0148 83E0      		ldi r24,lo8(3)
+ 335 014a 0E94 0000 		call BME280_set_measuremode
+ 336               	.LVL9:
+ 191:main.c        **** 	
+ 192:main.c        ****  		
+ 193:main.c        ****  	
+ 194:main.c        **** 		glcd_clear();
+ 337               		.loc 1 194 3 view .LVU119
+ 338 014e 0E94 0000 		call glcd_clear
+ 339               	.LVL10:
+ 195:main.c        **** 		  /* setup uart */
+ 196:main.c        ****     uart_init();
+ 340               		.loc 1 196 5 view .LVU120
+ 341 0152 0E94 0000 		call uart_init
+ 342               	.LVL11:
+ 197:main.c        **** 		     // setup sd card slot
+ 198:main.c        ****         if(!sd_raw_init())
+ 343               		.loc 1 198 9 view .LVU121
+ 344               		.loc 1 198 13 is_stmt 0 view .LVU122
+ 345 0156 0E94 0000 		call sd_raw_init
+ 346               	.LVL12:
+ 347               		.loc 1 198 11 view .LVU123
+ 348 015a 8111      		cpse r24,__zero_reg__
+ 349 015c 00C0      		rjmp .L10
+ 199:main.c        ****         {
+ 200:main.c        ****            glcd_draw_string_xy(0,0,"Init fail...");
+ 350               		.loc 1 200 12 is_stmt 1 view .LVU124
+ 351 015e 40E0      		ldi r20,lo8(.LC0)
+ 352 0160 50E0      		ldi r21,hi8(.LC0)
+ 353 0162 60E0      		ldi r22,0
+ 354 0164 0E94 0000 		call glcd_draw_string_xy
+ 355               	.LVL13:
+ 356               	.L10:
+ 201:main.c        ****         }
+ 202:main.c        **** 
+ 203:main.c        **** 	 // open first partition 
+ 204:main.c        ****         struct partition_struct* partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw
+ 357               		.loc 1 204 9 view .LVU125
+ 358               		.loc 1 204 46 is_stmt 0 view .LVU126
+ 359 0168 00E0      		ldi r16,0
+ 360 016a 20E0      		ldi r18,lo8(gs(sd_raw_write_interval))
+ 361 016c 30E0      		ldi r19,hi8(gs(sd_raw_write_interval))
+ 362 016e 40E0      		ldi r20,lo8(gs(sd_raw_write))
+ 363 0170 50E0      		ldi r21,hi8(gs(sd_raw_write))
+ 364 0172 60E0      		ldi r22,lo8(gs(sd_raw_read_interval))
+ 365 0174 70E0      		ldi r23,hi8(gs(sd_raw_read_interval))
+ 366 0176 80E0      		ldi r24,lo8(gs(sd_raw_read))
+ 367 0178 90E0      		ldi r25,hi8(gs(sd_raw_read))
+ 368 017a 0E94 0000 		call partition_open
+ 369               	.LVL14:
+ 370 017e 8C01      		movw r16,r24
+ 371               	.LVL15:
+ 205:main.c        ****                                                            
+ 206:main.c        **** 		if(!partition)
+ 372               		.loc 1 206 3 is_stmt 1 view .LVU127
+ 373               		.loc 1 206 5 is_stmt 0 view .LVU128
+ 374 0180 892B      		or r24,r25
+ 375 0182 01F4      		brne .L11
+ 207:main.c        **** 		{
+ 208:main.c        ****            // If the partition did not open, assume the storage device
+ 209:main.c        ****              // is a "superfloppy", i.e. has no MBR.
+ 210:main.c        ****              
+ 211:main.c        ****             partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw_write,sd_raw_write_i
+ 376               		.loc 1 211 13 is_stmt 1 view .LVU129
+ 377               		.loc 1 211 25 is_stmt 0 view .LVU130
+ 378 0184 0FEF      		ldi r16,lo8(-1)
+ 379               	.LVL16:
+ 380               		.loc 1 211 25 view .LVU131
+ 381 0186 20E0      		ldi r18,lo8(gs(sd_raw_write_interval))
+ 382 0188 30E0      		ldi r19,hi8(gs(sd_raw_write_interval))
+ 383 018a 40E0      		ldi r20,lo8(gs(sd_raw_write))
+ 384 018c 50E0      		ldi r21,hi8(gs(sd_raw_write))
+ 385 018e 60E0      		ldi r22,lo8(gs(sd_raw_read_interval))
+ 386 0190 70E0      		ldi r23,hi8(gs(sd_raw_read_interval))
+ 387 0192 80E0      		ldi r24,lo8(gs(sd_raw_read))
+ 388 0194 90E0      		ldi r25,hi8(gs(sd_raw_read))
+ 389               	.LVL17:
+ 390               		.loc 1 211 25 view .LVU132
+ 391 0196 0E94 0000 		call partition_open
+ 392               	.LVL18:
+ 393 019a 8C01      		movw r16,r24
+ 394               	.LVL19:
+ 212:main.c        ****             if(!partition)
+ 395               		.loc 1 212 13 is_stmt 1 view .LVU133
+ 396               		.loc 1 212 15 is_stmt 0 view .LVU134
+ 397 019c 892B      		or r24,r25
+ 398 019e 01F4      		brne .L11
+ 213:main.c        ****             {
+ 214:main.c        **** 				glcd_draw_string_xy(0,0,"part failed...");
+ 399               		.loc 1 214 5 is_stmt 1 view .LVU135
+ 400 01a0 40E0      		ldi r20,lo8(.LC1)
+ 401 01a2 50E0      		ldi r21,hi8(.LC1)
+ 402 01a4 60E0      		ldi r22,0
+ 403 01a6 80E0      		ldi r24,0
+ 404 01a8 0E94 0000 		call glcd_draw_string_xy
+ 405               	.LVL20:
+ 406               	.L11:
+ 215:main.c        ****             }
+ 216:main.c        ****         }                                               
+ 217:main.c        ****      
+ 218:main.c        **** 		 /* open file system */
+ 219:main.c        ****         struct fat_fs_struct* fs = fat_open(partition);
+ 407               		.loc 1 219 9 view .LVU136
+ 408               		.loc 1 219 36 is_stmt 0 view .LVU137
+ 409 01ac C801      		movw r24,r16
+ 410 01ae 0E94 0000 		call fat_open
+ 411               	.LVL21:
+ 412 01b2 8C01      		movw r16,r24
+ 413               	.LVL22:
+ 220:main.c        ****         if(!fs)
+ 414               		.loc 1 220 9 is_stmt 1 view .LVU138
+ 415               		.loc 1 220 11 is_stmt 0 view .LVU139
+ 416 01b4 892B      		or r24,r25
+ 417 01b6 01F4      		brne .L12
+ 221:main.c        ****         {
+ 222:main.c        ****             glcd_draw_string_xy(0,0,"fs failed...");
+ 418               		.loc 1 222 13 is_stmt 1 view .LVU140
+ 419 01b8 40E0      		ldi r20,lo8(.LC2)
+ 420 01ba 50E0      		ldi r21,hi8(.LC2)
+ 421 01bc 60E0      		ldi r22,0
+ 422 01be 80E0      		ldi r24,0
+ 423 01c0 0E94 0000 		call glcd_draw_string_xy
+ 424               	.LVL23:
+ 425               	.L12:
+ 223:main.c        ****         }
+ 224:main.c        **** 
+ 225:main.c        ****         /* open root directory */
+ 226:main.c        ****         struct fat_dir_entry_struct directory;
+ 426               		.loc 1 226 9 view .LVU141
+ 227:main.c        ****         fat_get_dir_entry_of_path(fs, "/", &directory);
+ 427               		.loc 1 227 9 view .LVU142
+ 428 01c4 AE01      		movw r20,r28
+ 429 01c6 4F5F      		subi r20,-1
+ 430 01c8 5F4F      		sbci r21,-1
+ 431 01ca 60E0      		ldi r22,lo8(.LC3)
+ 432 01cc 70E0      		ldi r23,hi8(.LC3)
+ 433 01ce C801      		movw r24,r16
+ 434 01d0 0E94 0000 		call fat_get_dir_entry_of_path
+ 435               	.LVL24:
+ 228:main.c        **** 
+ 229:main.c        ****         struct fat_dir_struct* dd = fat_open_dir(fs, &directory);
+ 436               		.loc 1 229 9 view .LVU143
+ 437               		.loc 1 229 37 is_stmt 0 view .LVU144
+ 438 01d4 BE01      		movw r22,r28
+ 439 01d6 6F5F      		subi r22,-1
+ 440 01d8 7F4F      		sbci r23,-1
+ 441 01da C801      		movw r24,r16
+ 442 01dc 0E94 0000 		call fat_open_dir
+ 443               	.LVL25:
+ 230:main.c        ****         if(!dd)
+ 444               		.loc 1 230 9 is_stmt 1 view .LVU145
+ 445               		.loc 1 230 11 is_stmt 0 view .LVU146
+ 446 01e0 892B      		or r24,r25
+ 447 01e2 01F4      		brne .L13
+ 231:main.c        ****         {
+ 232:main.c        ****             glcd_draw_string_xy(0,0,"root failed...");
+ 448               		.loc 1 232 13 is_stmt 1 view .LVU147
+ 449 01e4 40E0      		ldi r20,lo8(.LC4)
+ 450 01e6 50E0      		ldi r21,hi8(.LC4)
+ 451 01e8 60E0      		ldi r22,0
+ 452 01ea 80E0      		ldi r24,0
+ 453               	.LVL26:
+ 454               		.loc 1 232 13 is_stmt 0 view .LVU148
+ 455 01ec 0E94 0000 		call glcd_draw_string_xy
+ 456               	.LVL27:
+ 457               	.L13:
+ 233:main.c        ****         }
+ 234:main.c        ****         
+ 235:main.c        ****          /* print some card information as a boot message */
+ 236:main.c        ****         print_disk_info(fs);
+ 458               		.loc 1 236 9 is_stmt 1 view .LVU149
+ 459               	.LBB22:
+ 460               	.LBI22:
+ 237:main.c        **** 		while(1) 
+ 238:main.c        **** 		{	
+ 239:main.c        **** 		
+ 240:main.c        **** 		  
+ 241:main.c        **** 	
+ 242:main.c        **** 	glcd_draw_string_xy(0,0,"SD success...");
+ 243:main.c        **** 
+ 244:main.c        **** 		/*
+ 245:main.c        **** 			BME280_readout(&temp, &press, &hum);
+ 246:main.c        **** 				
+ 247:main.c        **** 
+ 248:main.c        **** 			sprintf(string,"Temp: %lu", temp);
+ 249:main.c        **** 			glcd_draw_string_xy(0,0,string);
+ 250:main.c        **** 			
+ 251:main.c        **** 			sprintf(string,"pres %lu",press);
+ 252:main.c        **** 			glcd_draw_string_xy(0,15,string);
+ 253:main.c        **** 				
+ 254:main.c        **** 			sprintf(string,"hum %lu", hum);
+ 255:main.c        **** 			glcd_draw_string_xy(0,30,string);
+ 256:main.c        **** 			*/
+ 257:main.c        **** 			/*
+ 258:main.c        **** 			 * 
+ 259:main.c        **** 			 * "Control characters
+ 260:main.c        **** 				$P or $p= form feed
+ 261:main.c        **** 				$L or $l= line feed
+ 262:main.c        **** 				$R or $r= carriage return
+ 263:main.c        **** 				$T or $t= tabulator
+ 264:main.c        **** 				$N or $n= new line"
+ 265:main.c        **** 			 * */
+ 266:main.c        **** 			 
+ 267:main.c        **** 		/*
+ 268:main.c        **** 					flag_send_index=1;
+ 269:main.c        **** 					uart_send_char('A');
+ 270:main.c        **** 					uart_send_char('\r');
+ 271:main.c        **** 					uart_send_char('\n');
+ 272:main.c        **** 					uart_send_string("Feuchtigkeit");
+ 273:main.c        **** 					uart_send_char(';');
+ 274:main.c        **** 					uart_send_string("Temperatur");
+ 275:main.c        **** 					uart_send_char(';');
+ 276:main.c        **** 					uart_send_string("Luftdruck");
+ 277:main.c        **** 					uart_send_char('\r');
+ 278:main.c        **** 					uart_send_char('\n');
+ 279:main.c        **** 					uart_send_char(';');
+ 280:main.c        **** 					uart_send_string("%");
+ 281:main.c        **** 					uart_send_char(';');
+ 282:main.c        **** 					uart_send_string("C");
+ 283:main.c        **** 					uart_send_char(';');
+ 284:main.c        **** 					uart_send_string("hPa");
+ 285:main.c        **** 					uart_send_char('\r');
+ 286:main.c        **** 					uart_send_char('\n');
+ 287:main.c        **** 				*/
+ 288:main.c        **** 					 
+ 289:main.c        **** 				/*Umwandlung in Vorkomma und Nachkommawerte 
+ 290:main.c        **** 				 * um ueber uart float uebertragen zu können*/
+ 291:main.c        **** 				 /*
+ 292:main.c        **** 				vork = hum/1024;
+ 293:main.c        **** 				nachk = hum-vork*1024;
+ 294:main.c        **** 							
+ 295:main.c        **** 				uart_send_u16data(vork);
+ 296:main.c        **** 				uart_send_char('.');
+ 297:main.c        **** 				uart_send_u16data(nachk);
+ 298:main.c        **** 				uart_send_char(';');
+ 299:main.c        **** 				
+ 300:main.c        **** 				vork = temp /100;
+ 301:main.c        **** 				nachk = temp-vork*100;
+ 302:main.c        **** 				
+ 303:main.c        **** 				uart_send_u16data(vork);
+ 304:main.c        **** 				uart_send_char('.');
+ 305:main.c        **** 				uart_send_u16data(nachk);
+ 306:main.c        **** 				uart_send_char(';');
+ 307:main.c        **** 				
+ 308:main.c        **** 				vork = press/100;
+ 309:main.c        **** 				nachk = press-vork*100;
+ 310:main.c        **** 				
+ 311:main.c        **** 				uart_send_u16data(vork);
+ 312:main.c        **** 				uart_send_char('.');
+ 313:main.c        **** 				uart_send_u16data(nachk);
+ 314:main.c        **** 				
+ 315:main.c        **** 				uart_send_char('\r');
+ 316:main.c        **** 				uart_send_char('\n');
+ 317:main.c        **** 			*/
+ 318:main.c        **** 		
+ 319:main.c        **** 		if(T_RED)
+ 320:main.c        **** 		{
+ 321:main.c        **** 			flag_send=1;
+ 322:main.c        **** 			LED_AUS;
+ 323:main.c        **** 			flag_send_index=0;
+ 324:main.c        **** 		}
+ 325:main.c        **** 		
+ 326:main.c        **** 		if(T_BLUE)
+ 327:main.c        **** 		{
+ 328:main.c        **** 			LED_EIN;
+ 329:main.c        **** 			flag_send=0;
+ 330:main.c        **** 			flag_send_index=1;
+ 331:main.c        **** 		}
+ 332:main.c        **** 		
+ 333:main.c        **** 	
+ 334:main.c        **** 	glcd_write();
+ 335:main.c        **** 	}//End of while
+ 336:main.c        **** 	
+ 337:main.c        **** 	return 0;
+ 338:main.c        **** }//end of main
+ 339:main.c        **** 
+ 340:main.c        **** uint8_t print_disk_info(const struct fat_fs_struct* fs)
+ 461               		.loc 1 340 9 view .LVU150
+ 462               	.LBB23:
+ 341:main.c        **** {
+ 342:main.c        ****     if(!fs)
+ 463               		.loc 1 342 5 view .LVU151
+ 464               		.loc 1 342 7 is_stmt 0 view .LVU152
+ 465 01f0 0115      		cp r16,__zero_reg__
+ 466 01f2 1105      		cpc r17,__zero_reg__
+ 467 01f4 01F4      		brne .+2
+ 468 01f6 00C0      		rjmp .L15
+ 343:main.c        ****         return 0;
+ 344:main.c        **** 
+ 345:main.c        ****     struct sd_raw_info disk_info;
+ 469               		.loc 1 345 5 is_stmt 1 view .LVU153
+ 346:main.c        ****     if(!sd_raw_get_info(&disk_info))
+ 470               		.loc 1 346 5 view .LVU154
+ 471               		.loc 1 346 9 is_stmt 0 view .LVU155
+ 472 01f8 CE01      		movw r24,r28
+ 473 01fa 8C96      		adiw r24,44
+ 474 01fc 0E94 0000 		call sd_raw_get_info
+ 475               	.LVL28:
+ 476               		.loc 1 346 7 view .LVU156
+ 477 0200 8823      		tst r24
+ 478 0202 01F4      		brne .+2
+ 479 0204 00C0      		rjmp .L15
+ 347:main.c        ****         return 0;
+ 348:main.c        **** 
+ 349:main.c        ****     uart_puts_p(PSTR("manuf:  0x")); uart_putc_hex(disk_info.manufacturer); uart_putc('\n');
+ 480               		.loc 1 349 5 is_stmt 1 view .LVU157
+ 481               	.LBE23:
+ 482               	.LBE22:
+ 483               		.loc 1 349 17 view .LVU158
+ 484               		.loc 1 349 17 view .LVU159
+ 485               	.LBB36:
+ 486               	.LBB24:
+ 487               		.loc 1 349 5 is_stmt 0 view .LVU160
+ 488 0206 80E0      		ldi r24,lo8(__c.2858)
+ 489 0208 90E0      		ldi r25,hi8(__c.2858)
+ 490 020a 0E94 0000 		call uart_puts_p
+ 491               	.LVL29:
+ 492               		.loc 1 349 38 is_stmt 1 view .LVU161
+ 493 020e 8CA5      		ldd r24,Y+44
+ 494 0210 0E94 0000 		call uart_putc_hex
+ 495               	.LVL30:
+ 496               		.loc 1 349 77 view .LVU162
+ 497 0214 8AE0      		ldi r24,lo8(10)
+ 498 0216 0E94 0000 		call uart_putc
+ 499               	.LVL31:
+ 350:main.c        ****     uart_puts_p(PSTR("oem:    ")); uart_puts((char*) disk_info.oem); uart_putc('\n');
+ 500               		.loc 1 350 5 view .LVU163
+ 501               	.LBE24:
+ 502               	.LBE36:
+ 503               		.loc 1 350 17 view .LVU164
+ 504               		.loc 1 350 17 view .LVU165
+ 505               	.LBB37:
+ 506               	.LBB25:
+ 507               		.loc 1 350 5 is_stmt 0 view .LVU166
+ 508 021a 80E0      		ldi r24,lo8(__c.2860)
+ 509 021c 90E0      		ldi r25,hi8(__c.2860)
+ 510 021e 0E94 0000 		call uart_puts_p
+ 511               	.LVL32:
+ 512               		.loc 1 350 36 is_stmt 1 view .LVU167
+ 513 0222 CE01      		movw r24,r28
+ 514 0224 8D96      		adiw r24,45
+ 515 0226 0E94 0000 		call uart_puts
+ 516               	.LVL33:
+ 517               		.loc 1 350 70 view .LVU168
+ 518 022a 8AE0      		ldi r24,lo8(10)
+ 519 022c 0E94 0000 		call uart_putc
+ 520               	.LVL34:
+ 351:main.c        ****     uart_puts_p(PSTR("prod:   ")); uart_puts((char*) disk_info.product); uart_putc('\n');
+ 521               		.loc 1 351 5 view .LVU169
+ 522               	.LBE25:
+ 523               	.LBE37:
+ 524               		.loc 1 351 17 view .LVU170
+ 525               		.loc 1 351 17 view .LVU171
+ 526               	.LBB38:
+ 527               	.LBB26:
+ 528               		.loc 1 351 5 is_stmt 0 view .LVU172
+ 529 0230 80E0      		ldi r24,lo8(__c.2862)
+ 530 0232 90E0      		ldi r25,hi8(__c.2862)
+ 531 0234 0E94 0000 		call uart_puts_p
+ 532               	.LVL35:
+ 533               		.loc 1 351 36 is_stmt 1 view .LVU173
+ 534 0238 CE01      		movw r24,r28
+ 535 023a C096      		adiw r24,48
+ 536 023c 0E94 0000 		call uart_puts
+ 537               	.LVL36:
+ 538               		.loc 1 351 74 view .LVU174
+ 539 0240 8AE0      		ldi r24,lo8(10)
+ 540 0242 0E94 0000 		call uart_putc
+ 541               	.LVL37:
+ 352:main.c        ****     uart_puts_p(PSTR("rev:    ")); uart_putc_hex(disk_info.revision); uart_putc('\n');
+ 542               		.loc 1 352 5 view .LVU175
+ 543               	.LBE26:
+ 544               	.LBE38:
+ 545               		.loc 1 352 17 view .LVU176
+ 546               		.loc 1 352 17 view .LVU177
+ 547               	.LBB39:
+ 548               	.LBB27:
+ 549               		.loc 1 352 5 is_stmt 0 view .LVU178
+ 550 0246 80E0      		ldi r24,lo8(__c.2864)
+ 551 0248 90E0      		ldi r25,hi8(__c.2864)
+ 552 024a 0E94 0000 		call uart_puts_p
+ 553               	.LVL38:
+ 554               		.loc 1 352 36 is_stmt 1 view .LVU179
+ 555 024e 8EA9      		ldd r24,Y+54
+ 556 0250 0E94 0000 		call uart_putc_hex
+ 557               	.LVL39:
+ 558               		.loc 1 352 71 view .LVU180
+ 559 0254 8AE0      		ldi r24,lo8(10)
+ 560 0256 0E94 0000 		call uart_putc
+ 561               	.LVL40:
+ 353:main.c        ****     uart_puts_p(PSTR("serial: 0x")); uart_putdw_hex(disk_info.serial); uart_putc('\n');
+ 562               		.loc 1 353 5 view .LVU181
+ 563               	.LBE27:
+ 564               	.LBE39:
+ 565               		.loc 1 353 17 view .LVU182
+ 566               		.loc 1 353 17 view .LVU183
+ 567               	.LBB40:
+ 568               	.LBB28:
+ 569               		.loc 1 353 5 is_stmt 0 view .LVU184
+ 570 025a 80E0      		ldi r24,lo8(__c.2866)
+ 571 025c 90E0      		ldi r25,hi8(__c.2866)
+ 572 025e 0E94 0000 		call uart_puts_p
+ 573               	.LVL41:
+ 574               		.loc 1 353 38 is_stmt 1 view .LVU185
+ 575 0262 6FA9      		ldd r22,Y+55
+ 576 0264 78AD      		ldd r23,Y+56
+ 577 0266 89AD      		ldd r24,Y+57
+ 578 0268 9AAD      		ldd r25,Y+58
+ 579 026a 0E94 0000 		call uart_putdw_hex
+ 580               	.LVL42:
+ 581               		.loc 1 353 72 view .LVU186
+ 582 026e 8AE0      		ldi r24,lo8(10)
+ 583 0270 0E94 0000 		call uart_putc
+ 584               	.LVL43:
+ 354:main.c        ****     uart_puts_p(PSTR("date:   ")); uart_putw_dec(disk_info.manufacturing_month); uart_putc('/');
+ 585               		.loc 1 354 5 view .LVU187
+ 586               	.LBE28:
+ 587               	.LBE40:
+ 588               		.loc 1 354 17 view .LVU188
+ 589               		.loc 1 354 17 view .LVU189
+ 590               	.LBB41:
+ 591               	.LBB29:
+ 592               		.loc 1 354 5 is_stmt 0 view .LVU190
+ 593 0274 80E0      		ldi r24,lo8(__c.2868)
+ 594 0276 90E0      		ldi r25,hi8(__c.2868)
+ 595 0278 0E94 0000 		call uart_puts_p
+ 596               	.LVL44:
+ 597               		.loc 1 354 36 is_stmt 1 view .LVU191
+ 598 027c 8CAD      		ldd r24,Y+60
+ 599 027e 90E0      		ldi r25,0
+ 600 0280 0E94 0000 		call uart_putw_dec
+ 601               	.LVL45:
+ 602               		.loc 1 354 82 view .LVU192
+ 603 0284 8FE2      		ldi r24,lo8(47)
+ 604 0286 0E94 0000 		call uart_putc
+ 605               	.LVL46:
+ 355:main.c        ****                                    uart_putw_dec(disk_info.manufacturing_year); uart_putc('\n');
+ 606               		.loc 1 355 36 view .LVU193
+ 607 028a 8BAD      		ldd r24,Y+59
+ 608 028c 90E0      		ldi r25,0
+ 609 028e 0E94 0000 		call uart_putw_dec
+ 610               	.LVL47:
+ 611               		.loc 1 355 81 view .LVU194
+ 612 0292 8AE0      		ldi r24,lo8(10)
+ 613 0294 0E94 0000 		call uart_putc
+ 614               	.LVL48:
+ 356:main.c        ****     uart_puts_p(PSTR("size:   ")); uart_putdw_dec(disk_info.capacity / 1024 / 1024); uart_puts_p(PS
+ 615               		.loc 1 356 5 view .LVU195
+ 616               	.LBE29:
+ 617               	.LBE41:
+ 618               		.loc 1 356 17 view .LVU196
+ 619               		.loc 1 356 17 view .LVU197
+ 620               	.LBB42:
+ 621               	.LBB30:
+ 622               		.loc 1 356 5 is_stmt 0 view .LVU198
+ 623 0298 80E0      		ldi r24,lo8(__c.2870)
+ 624 029a 90E0      		ldi r25,hi8(__c.2870)
+ 625 029c 0E94 0000 		call uart_puts_p
+ 626               	.LVL49:
+ 627               		.loc 1 356 36 is_stmt 1 view .LVU199
+ 628 02a0 2196      		adiw r28,61-60
+ 629 02a2 6CAD      		ldd r22,Y+60
+ 630 02a4 7DAD      		ldd r23,Y+61
+ 631 02a6 8EAD      		ldd r24,Y+62
+ 632 02a8 9FAD      		ldd r25,Y+63
+ 633 02aa 2197      		sbiw r28,61-60
+ 634 02ac 24E1      		ldi r18,20
+ 635               		1:
+ 636 02ae 9695      		lsr r25
+ 637 02b0 8795      		ror r24
+ 638 02b2 7795      		ror r23
+ 639 02b4 6795      		ror r22
+ 640 02b6 2A95      		dec r18
+ 641 02b8 01F4      		brne 1b
+ 642 02ba 0E94 0000 		call uart_putdw_dec
+ 643               	.LVL50:
+ 644               		.loc 1 356 86 view .LVU200
+ 645               	.LBE30:
+ 646               	.LBE42:
+ 647               		.loc 1 356 98 view .LVU201
+ 648               		.loc 1 356 98 view .LVU202
+ 649               	.LBB43:
+ 650               	.LBB31:
+ 651               		.loc 1 356 86 is_stmt 0 view .LVU203
+ 652 02be 80E0      		ldi r24,lo8(__c.2872)
+ 653 02c0 90E0      		ldi r25,hi8(__c.2872)
+ 654 02c2 0E94 0000 		call uart_puts_p
+ 655               	.LVL51:
+ 357:main.c        ****     uart_puts_p(PSTR("copy:   ")); uart_putw_dec(disk_info.flag_copy); uart_putc('\n');
+ 656               		.loc 1 357 5 is_stmt 1 view .LVU204
+ 657               	.LBE31:
+ 658               	.LBE43:
+ 659               		.loc 1 357 17 view .LVU205
+ 660               		.loc 1 357 17 view .LVU206
+ 661               	.LBB44:
+ 662               	.LBB32:
+ 663               		.loc 1 357 5 is_stmt 0 view .LVU207
+ 664 02c6 80E0      		ldi r24,lo8(__c.2874)
+ 665 02c8 90E0      		ldi r25,hi8(__c.2874)
+ 666 02ca 0E94 0000 		call uart_puts_p
+ 667               	.LVL52:
+ 668               		.loc 1 357 36 is_stmt 1 view .LVU208
+ 669 02ce 2296      		adiw r28,65-63
+ 670 02d0 8FAD      		ldd r24,Y+63
+ 671 02d2 2297      		sbiw r28,65-63
+ 672 02d4 90E0      		ldi r25,0
+ 673 02d6 0E94 0000 		call uart_putw_dec
+ 674               	.LVL53:
+ 675               		.loc 1 357 72 view .LVU209
+ 676 02da 8AE0      		ldi r24,lo8(10)
+ 677 02dc 0E94 0000 		call uart_putc
+ 678               	.LVL54:
+ 358:main.c        ****     uart_puts_p(PSTR("wr.pr.: ")); uart_putw_dec(disk_info.flag_write_protect_temp); uart_putc('/')
+ 679               		.loc 1 358 5 view .LVU210
+ 680               	.LBE32:
+ 681               	.LBE44:
+ 682               		.loc 1 358 17 view .LVU211
+ 683               		.loc 1 358 17 view .LVU212
+ 684               	.LBB45:
+ 685               	.LBB33:
+ 686               		.loc 1 358 5 is_stmt 0 view .LVU213
+ 687 02e0 80E0      		ldi r24,lo8(__c.2876)
+ 688 02e2 90E0      		ldi r25,hi8(__c.2876)
+ 689 02e4 0E94 0000 		call uart_puts_p
+ 690               	.LVL55:
+ 691               		.loc 1 358 36 is_stmt 1 view .LVU214
+ 692 02e8 2496      		adiw r28,67-63
+ 693 02ea 8FAD      		ldd r24,Y+63
+ 694 02ec 2497      		sbiw r28,67-63
+ 695 02ee 90E0      		ldi r25,0
+ 696 02f0 0E94 0000 		call uart_putw_dec
+ 697               	.LVL56:
+ 698               		.loc 1 358 86 view .LVU215
+ 699 02f4 8FE2      		ldi r24,lo8(47)
+ 700 02f6 0E94 0000 		call uart_putc
+ 701               	.LVL57:
+ 359:main.c        ****                                    uart_putw_dec(disk_info.flag_write_protect); uart_putc('\n');
+ 702               		.loc 1 359 36 view .LVU216
+ 703 02fa 2396      		adiw r28,66-63
+ 704 02fc 8FAD      		ldd r24,Y+63
+ 705 02fe 2397      		sbiw r28,66-63
+ 706 0300 90E0      		ldi r25,0
+ 707 0302 0E94 0000 		call uart_putw_dec
+ 708               	.LVL58:
+ 709               		.loc 1 359 81 view .LVU217
+ 710 0306 8AE0      		ldi r24,lo8(10)
+ 711 0308 0E94 0000 		call uart_putc
+ 712               	.LVL59:
+ 360:main.c        ****     uart_puts_p(PSTR("format: ")); uart_putw_dec(disk_info.format); uart_putc('\n');
+ 713               		.loc 1 360 5 view .LVU218
+ 714               	.LBE33:
+ 715               	.LBE45:
+ 716               		.loc 1 360 17 view .LVU219
+ 717               		.loc 1 360 17 view .LVU220
+ 718               	.LBB46:
+ 719               	.LBB34:
+ 720               		.loc 1 360 5 is_stmt 0 view .LVU221
+ 721 030c 80E0      		ldi r24,lo8(__c.2878)
+ 722 030e 90E0      		ldi r25,hi8(__c.2878)
+ 723 0310 0E94 0000 		call uart_puts_p
+ 724               	.LVL60:
+ 725               		.loc 1 360 36 is_stmt 1 view .LVU222
+ 726 0314 2596      		adiw r28,68-63
+ 727 0316 8FAD      		ldd r24,Y+63
+ 728 0318 2597      		sbiw r28,68-63
+ 729 031a 90E0      		ldi r25,0
+ 730 031c 0E94 0000 		call uart_putw_dec
+ 731               	.LVL61:
+ 732               		.loc 1 360 69 view .LVU223
+ 733 0320 8AE0      		ldi r24,lo8(10)
+ 734 0322 0E94 0000 		call uart_putc
+ 735               	.LVL62:
+ 361:main.c        ****     uart_puts_p(PSTR("free:   ")); uart_putdw_dec(fat_get_fs_free(fs)); uart_putc('/');
+ 736               		.loc 1 361 5 view .LVU224
+ 737               	.LBE34:
+ 738               	.LBE46:
+ 739               		.loc 1 361 17 view .LVU225
+ 740               		.loc 1 361 17 view .LVU226
+ 741               	.LBB47:
+ 742               	.LBB35:
+ 743               		.loc 1 361 5 is_stmt 0 view .LVU227
+ 744 0326 80E0      		ldi r24,lo8(__c.2880)
+ 745 0328 90E0      		ldi r25,hi8(__c.2880)
+ 746 032a 0E94 0000 		call uart_puts_p
+ 747               	.LVL63:
+ 748               		.loc 1 361 36 is_stmt 1 view .LVU228
+ 749 032e C801      		movw r24,r16
+ 750 0330 0E94 0000 		call fat_get_fs_free
+ 751               	.LVL64:
+ 752 0334 0E94 0000 		call uart_putdw_dec
+ 753               	.LVL65:
+ 754               		.loc 1 361 73 view .LVU229
+ 755 0338 8FE2      		ldi r24,lo8(47)
+ 756 033a 0E94 0000 		call uart_putc
+ 757               	.LVL66:
+ 362:main.c        ****                                    uart_putdw_dec(fat_get_fs_size(fs)); uart_putc('\n');
+ 758               		.loc 1 362 36 view .LVU230
+ 759 033e C801      		movw r24,r16
+ 760 0340 0E94 0000 		call fat_get_fs_size
+ 761               	.LVL67:
+ 762 0344 0E94 0000 		call uart_putdw_dec
+ 763               	.LVL68:
+ 764               		.loc 1 362 73 view .LVU231
+ 765 0348 8AE0      		ldi r24,lo8(10)
+ 766 034a 0E94 0000 		call uart_putc
+ 767               	.LVL69:
+ 363:main.c        **** 
+ 364:main.c        ****     return 1;
+ 768               		.loc 1 364 5 view .LVU232
+ 769               	.L15:
+ 770               		.loc 1 364 5 is_stmt 0 view .LVU233
+ 771               	.LBE35:
+ 772               	.LBE47:
+ 321:main.c        **** 			LED_AUS;
+ 773               		.loc 1 321 13 view .LVU234
+ 774 034e 11E0      		ldi r17,lo8(1)
+ 775               	.L19:
+ 237:main.c        **** 		{	
+ 776               		.loc 1 237 3 is_stmt 1 view .LVU235
+ 242:main.c        **** 
+ 777               		.loc 1 242 2 view .LVU236
+ 778 0350 40E0      		ldi r20,lo8(.LC5)
+ 779 0352 50E0      		ldi r21,hi8(.LC5)
+ 780 0354 60E0      		ldi r22,0
+ 781 0356 80E0      		ldi r24,0
+ 782 0358 0E94 0000 		call glcd_draw_string_xy
+ 783               	.LVL70:
+ 319:main.c        **** 		{
+ 784               		.loc 1 319 3 view .LVU237
+ 319:main.c        **** 		{
+ 785               		.loc 1 319 6 is_stmt 0 view .LVU238
+ 786 035c 89B1      		in r24,0x9
+ 787 035e 8072      		andi r24,lo8(32)
+ 788 0360 9091 0000 		lds r25,entprell
+ 789 0364 892B      		or r24,r25
+ 790 0366 01F4      		brne .L17
+ 321:main.c        **** 			LED_AUS;
+ 791               		.loc 1 321 4 is_stmt 1 view .LVU239
+ 321:main.c        **** 			LED_AUS;
+ 792               		.loc 1 321 13 is_stmt 0 view .LVU240
+ 793 0368 1093 0000 		sts flag_send,r17
+ 322:main.c        **** 			flag_send_index=0;
+ 794               		.loc 1 322 4 is_stmt 1 view .LVU241
+ 795 036c 4398      		cbi 0x8,3
+ 322:main.c        **** 			flag_send_index=0;
+ 796               		.loc 1 322 11 view .LVU242
+ 323:main.c        **** 		}
+ 797               		.loc 1 323 4 view .LVU243
+ 323:main.c        **** 		}
+ 798               		.loc 1 323 19 is_stmt 0 view .LVU244
+ 799 036e 1092 0000 		sts flag_send_index,__zero_reg__
+ 800               	.L17:
+ 326:main.c        **** 		{
+ 801               		.loc 1 326 3 is_stmt 1 view .LVU245
+ 326:main.c        **** 		{
+ 802               		.loc 1 326 6 is_stmt 0 view .LVU246
+ 803 0372 89B1      		in r24,0x9
+ 804 0374 8074      		andi r24,lo8(64)
+ 805 0376 9091 0000 		lds r25,entprell
+ 806 037a 892B      		or r24,r25
+ 807 037c 01F4      		brne .L18
+ 328:main.c        **** 			flag_send=0;
+ 808               		.loc 1 328 4 is_stmt 1 view .LVU247
+ 809 037e 439A      		sbi 0x8,3
+ 329:main.c        **** 			flag_send_index=1;
+ 810               		.loc 1 329 4 view .LVU248
+ 329:main.c        **** 			flag_send_index=1;
+ 811               		.loc 1 329 13 is_stmt 0 view .LVU249
+ 812 0380 1092 0000 		sts flag_send,__zero_reg__
+ 330:main.c        **** 		}
+ 813               		.loc 1 330 4 is_stmt 1 view .LVU250
+ 330:main.c        **** 		}
+ 814               		.loc 1 330 19 is_stmt 0 view .LVU251
+ 815 0384 1093 0000 		sts flag_send_index,r17
+ 816               	.L18:
+ 334:main.c        **** 	}//End of while
+ 817               		.loc 1 334 2 is_stmt 1 view .LVU252
+ 818 0388 0E94 0000 		call glcd_write
+ 819               	.LVL71:
+ 242:main.c        **** 
+ 820               		.loc 1 242 2 is_stmt 0 view .LVU253
+ 821 038c 00C0      		rjmp .L19
+ 822               		.cfi_endproc
+ 823               	.LFE14:
+ 825               		.section	.progmem.data,"a",@progbits
+ 828               	__c.2880:
+ 829 0000 6672 6565 		.string	"free:   "
+ 829      3A20 2020 
+ 829      00
+ 832               	__c.2878:
+ 833 0009 666F 726D 		.string	"format: "
+ 833      6174 3A20 
+ 833      00
+ 836               	__c.2876:
+ 837 0012 7772 2E70 		.string	"wr.pr.: "
+ 837      722E 3A20 
+ 837      00
+ 840               	__c.2874:
+ 841 001b 636F 7079 		.string	"copy:   "
+ 841      3A20 2020 
+ 841      00
+ 844               	__c.2872:
+ 845 0024 4D42 0A00 		.string	"MB\n"
+ 848               	__c.2870:
+ 849 0028 7369 7A65 		.string	"size:   "
+ 849      3A20 2020 
+ 849      00
+ 852               	__c.2868:
+ 853 0031 6461 7465 		.string	"date:   "
+ 853      3A20 2020 
+ 853      00
+ 856               	__c.2866:
+ 857 003a 7365 7269 		.string	"serial: 0x"
+ 857      616C 3A20 
+ 857      3078 00
+ 860               	__c.2864:
+ 861 0045 7265 763A 		.string	"rev:    "
+ 861      2020 2020 
+ 861      00
+ 864               	__c.2862:
+ 865 004e 7072 6F64 		.string	"prod:   "
+ 865      3A20 2020 
+ 865      00
+ 868               	__c.2860:
+ 869 0057 6F65 6D3A 		.string	"oem:    "
+ 869      2020 2020 
+ 869      00
+ 872               	__c.2858:
+ 873 0060 6D61 6E75 		.string	"manuf:  0x"
+ 873      663A 2020 
+ 873      3078 00
+ 874               		.comm	end_min,1,1
+ 875               		.comm	end_sec,1,1
+ 876               		.comm	end_ms100,1,1
+ 877               		.comm	state,1,1
+ 878               		.comm	entprell,1,1
+ 879               		.comm	min,1,1
+ 880               		.comm	sec,1,1
+ 881               		.comm	ms100,1,1
+ 882               		.comm	ms10,1,1
+ 883               		.comm	ms,1,1
+ 884               	.global	string
+ 885               		.section .bss
+ 888               	string:
+ 889 0000 0000 0000 		.zero	30
+ 889      0000 0000 
+ 889      0000 0000 
+ 889      0000 0000 
+ 889      0000 0000 
+ 890               		.comm	flag_send_index,1,1
+ 891               		.comm	flag_send,1,1
+ 892               		.comm	nachk,2,1
+ 893               		.comm	vork,2,1
+ 894               		.comm	hum,4,1
+ 895               		.comm	press,4,1
+ 896               		.comm	temp,4,1
+ 897               		.comm	received_byte,1,1
+ 898               		.comm	stunden,1,1
+ 899               		.comm	minuten,1,1
+ 900               		.comm	sekunden_alt,1,1
+ 901               		.comm	sekunden,1,1
+ 902               		.comm	humidity,4,1
+ 903               		.comm	pressure,4,1
+ 904               		.comm	temperatur,4,1
+ 905               		.comm	test3,2,1
+ 906               		.comm	test2_alt,2,1
+ 907               		.comm	test2,2,1
+ 908               		.comm	zaehler,2,1
+ 909               		.comm	error,1,1
+ 910               		.comm	ddd,1,1
+ 911               		.comm	ccc,1,1
+ 912               		.comm	bbb,1,1
+ 913               		.comm	aaa,1,1
+ 914               		.comm	test1_alt,1,1
+ 915               		.comm	test1,1,1
+ 916               		.section	.progmem.data,"a",@progbits
+ 919               	Font5x7:
+ 920 006b 00        		.byte	0
+ 921 006c 00        		.byte	0
+ 922 006d 00        		.byte	0
+ 923 006e 00        		.byte	0
+ 924 006f 00        		.byte	0
+ 925 0070 00        		.byte	0
+ 926 0071 00        		.byte	0
+ 927 0072 5F        		.byte	95
+ 928 0073 00        		.byte	0
+ 929 0074 00        		.byte	0
+ 930 0075 00        		.byte	0
+ 931 0076 07        		.byte	7
+ 932 0077 00        		.byte	0
+ 933 0078 07        		.byte	7
+ 934 0079 00        		.byte	0
+ 935 007a 14        		.byte	20
+ 936 007b 7F        		.byte	127
+ 937 007c 14        		.byte	20
+ 938 007d 7F        		.byte	127
+ 939 007e 14        		.byte	20
+ 940 007f 24        		.byte	36
+ 941 0080 2A        		.byte	42
+ 942 0081 7F        		.byte	127
+ 943 0082 2A        		.byte	42
+ 944 0083 12        		.byte	18
+ 945 0084 23        		.byte	35
+ 946 0085 13        		.byte	19
+ 947 0086 08        		.byte	8
+ 948 0087 64        		.byte	100
+ 949 0088 62        		.byte	98
+ 950 0089 36        		.byte	54
+ 951 008a 49        		.byte	73
+ 952 008b 55        		.byte	85
+ 953 008c 22        		.byte	34
+ 954 008d 50        		.byte	80
+ 955 008e 00        		.byte	0
+ 956 008f 05        		.byte	5
+ 957 0090 03        		.byte	3
+ 958 0091 00        		.byte	0
+ 959 0092 00        		.byte	0
+ 960 0093 00        		.byte	0
+ 961 0094 1C        		.byte	28
+ 962 0095 22        		.byte	34
+ 963 0096 41        		.byte	65
+ 964 0097 00        		.byte	0
+ 965 0098 00        		.byte	0
+ 966 0099 41        		.byte	65
+ 967 009a 22        		.byte	34
+ 968 009b 1C        		.byte	28
+ 969 009c 00        		.byte	0
+ 970 009d 08        		.byte	8
+ 971 009e 2A        		.byte	42
+ 972 009f 1C        		.byte	28
+ 973 00a0 2A        		.byte	42
+ 974 00a1 08        		.byte	8
+ 975 00a2 08        		.byte	8
+ 976 00a3 08        		.byte	8
+ 977 00a4 3E        		.byte	62
+ 978 00a5 08        		.byte	8
+ 979 00a6 08        		.byte	8
+ 980 00a7 00        		.byte	0
+ 981 00a8 50        		.byte	80
+ 982 00a9 30        		.byte	48
+ 983 00aa 00        		.byte	0
+ 984 00ab 00        		.byte	0
+ 985 00ac 08        		.byte	8
+ 986 00ad 08        		.byte	8
+ 987 00ae 08        		.byte	8
+ 988 00af 08        		.byte	8
+ 989 00b0 08        		.byte	8
+ 990 00b1 00        		.byte	0
+ 991 00b2 60        		.byte	96
+ 992 00b3 60        		.byte	96
+ 993 00b4 00        		.byte	0
+ 994 00b5 00        		.byte	0
+ 995 00b6 20        		.byte	32
+ 996 00b7 10        		.byte	16
+ 997 00b8 08        		.byte	8
+ 998 00b9 04        		.byte	4
+ 999 00ba 02        		.byte	2
+ 1000 00bb 3E        		.byte	62
+ 1001 00bc 51        		.byte	81
+ 1002 00bd 49        		.byte	73
+ 1003 00be 45        		.byte	69
+ 1004 00bf 3E        		.byte	62
+ 1005 00c0 00        		.byte	0
+ 1006 00c1 42        		.byte	66
+ 1007 00c2 7F        		.byte	127
+ 1008 00c3 40        		.byte	64
+ 1009 00c4 00        		.byte	0
+ 1010 00c5 42        		.byte	66
+ 1011 00c6 61        		.byte	97
+ 1012 00c7 51        		.byte	81
+ 1013 00c8 49        		.byte	73
+ 1014 00c9 46        		.byte	70
+ 1015 00ca 21        		.byte	33
+ 1016 00cb 41        		.byte	65
+ 1017 00cc 45        		.byte	69
+ 1018 00cd 4B        		.byte	75
+ 1019 00ce 31        		.byte	49
+ 1020 00cf 18        		.byte	24
+ 1021 00d0 14        		.byte	20
+ 1022 00d1 12        		.byte	18
+ 1023 00d2 7F        		.byte	127
+ 1024 00d3 10        		.byte	16
+ 1025 00d4 27        		.byte	39
+ 1026 00d5 45        		.byte	69
+ 1027 00d6 45        		.byte	69
+ 1028 00d7 45        		.byte	69
+ 1029 00d8 39        		.byte	57
+ 1030 00d9 3C        		.byte	60
+ 1031 00da 4A        		.byte	74
+ 1032 00db 49        		.byte	73
+ 1033 00dc 49        		.byte	73
+ 1034 00dd 30        		.byte	48
+ 1035 00de 01        		.byte	1
+ 1036 00df 71        		.byte	113
+ 1037 00e0 09        		.byte	9
+ 1038 00e1 05        		.byte	5
+ 1039 00e2 03        		.byte	3
+ 1040 00e3 36        		.byte	54
+ 1041 00e4 49        		.byte	73
+ 1042 00e5 49        		.byte	73
+ 1043 00e6 49        		.byte	73
+ 1044 00e7 36        		.byte	54
+ 1045 00e8 06        		.byte	6
+ 1046 00e9 49        		.byte	73
+ 1047 00ea 49        		.byte	73
+ 1048 00eb 29        		.byte	41
+ 1049 00ec 1E        		.byte	30
+ 1050 00ed 00        		.byte	0
+ 1051 00ee 36        		.byte	54
+ 1052 00ef 36        		.byte	54
+ 1053 00f0 00        		.byte	0
+ 1054 00f1 00        		.byte	0
+ 1055 00f2 00        		.byte	0
+ 1056 00f3 56        		.byte	86
+ 1057 00f4 36        		.byte	54
+ 1058 00f5 00        		.byte	0
+ 1059 00f6 00        		.byte	0
+ 1060 00f7 00        		.byte	0
+ 1061 00f8 08        		.byte	8
+ 1062 00f9 14        		.byte	20
+ 1063 00fa 22        		.byte	34
+ 1064 00fb 41        		.byte	65
+ 1065 00fc 14        		.byte	20
+ 1066 00fd 14        		.byte	20
+ 1067 00fe 14        		.byte	20
+ 1068 00ff 14        		.byte	20
+ 1069 0100 14        		.byte	20
+ 1070 0101 41        		.byte	65
+ 1071 0102 22        		.byte	34
+ 1072 0103 14        		.byte	20
+ 1073 0104 08        		.byte	8
+ 1074 0105 00        		.byte	0
+ 1075 0106 02        		.byte	2
+ 1076 0107 01        		.byte	1
+ 1077 0108 51        		.byte	81
+ 1078 0109 09        		.byte	9
+ 1079 010a 06        		.byte	6
+ 1080 010b 32        		.byte	50
+ 1081 010c 49        		.byte	73
+ 1082 010d 79        		.byte	121
+ 1083 010e 41        		.byte	65
+ 1084 010f 3E        		.byte	62
+ 1085 0110 7E        		.byte	126
+ 1086 0111 11        		.byte	17
+ 1087 0112 11        		.byte	17
+ 1088 0113 11        		.byte	17
+ 1089 0114 7E        		.byte	126
+ 1090 0115 7F        		.byte	127
+ 1091 0116 49        		.byte	73
+ 1092 0117 49        		.byte	73
+ 1093 0118 49        		.byte	73
+ 1094 0119 36        		.byte	54
+ 1095 011a 3E        		.byte	62
+ 1096 011b 41        		.byte	65
+ 1097 011c 41        		.byte	65
+ 1098 011d 41        		.byte	65
+ 1099 011e 22        		.byte	34
+ 1100 011f 7F        		.byte	127
+ 1101 0120 41        		.byte	65
+ 1102 0121 41        		.byte	65
+ 1103 0122 22        		.byte	34
+ 1104 0123 1C        		.byte	28
+ 1105 0124 7F        		.byte	127
+ 1106 0125 49        		.byte	73
+ 1107 0126 49        		.byte	73
+ 1108 0127 49        		.byte	73
+ 1109 0128 41        		.byte	65
+ 1110 0129 7F        		.byte	127
+ 1111 012a 09        		.byte	9
+ 1112 012b 09        		.byte	9
+ 1113 012c 01        		.byte	1
+ 1114 012d 01        		.byte	1
+ 1115 012e 3E        		.byte	62
+ 1116 012f 41        		.byte	65
+ 1117 0130 41        		.byte	65
+ 1118 0131 51        		.byte	81
+ 1119 0132 32        		.byte	50
+ 1120 0133 7F        		.byte	127
+ 1121 0134 08        		.byte	8
+ 1122 0135 08        		.byte	8
+ 1123 0136 08        		.byte	8
+ 1124 0137 7F        		.byte	127
+ 1125 0138 00        		.byte	0
+ 1126 0139 41        		.byte	65
+ 1127 013a 7F        		.byte	127
+ 1128 013b 41        		.byte	65
+ 1129 013c 00        		.byte	0
+ 1130 013d 20        		.byte	32
+ 1131 013e 40        		.byte	64
+ 1132 013f 41        		.byte	65
+ 1133 0140 3F        		.byte	63
+ 1134 0141 01        		.byte	1
+ 1135 0142 7F        		.byte	127
+ 1136 0143 08        		.byte	8
+ 1137 0144 14        		.byte	20
+ 1138 0145 22        		.byte	34
+ 1139 0146 41        		.byte	65
+ 1140 0147 7F        		.byte	127
+ 1141 0148 40        		.byte	64
+ 1142 0149 40        		.byte	64
+ 1143 014a 40        		.byte	64
+ 1144 014b 40        		.byte	64
+ 1145 014c 7F        		.byte	127
+ 1146 014d 02        		.byte	2
+ 1147 014e 04        		.byte	4
+ 1148 014f 02        		.byte	2
+ 1149 0150 7F        		.byte	127
+ 1150 0151 7F        		.byte	127
+ 1151 0152 04        		.byte	4
+ 1152 0153 08        		.byte	8
+ 1153 0154 10        		.byte	16
+ 1154 0155 7F        		.byte	127
+ 1155 0156 3E        		.byte	62
+ 1156 0157 41        		.byte	65
+ 1157 0158 41        		.byte	65
+ 1158 0159 41        		.byte	65
+ 1159 015a 3E        		.byte	62
+ 1160 015b 7F        		.byte	127
+ 1161 015c 09        		.byte	9
+ 1162 015d 09        		.byte	9
+ 1163 015e 09        		.byte	9
+ 1164 015f 06        		.byte	6
+ 1165 0160 3E        		.byte	62
+ 1166 0161 41        		.byte	65
+ 1167 0162 51        		.byte	81
+ 1168 0163 21        		.byte	33
+ 1169 0164 5E        		.byte	94
+ 1170 0165 7F        		.byte	127
+ 1171 0166 09        		.byte	9
+ 1172 0167 19        		.byte	25
+ 1173 0168 29        		.byte	41
+ 1174 0169 46        		.byte	70
+ 1175 016a 46        		.byte	70
+ 1176 016b 49        		.byte	73
+ 1177 016c 49        		.byte	73
+ 1178 016d 49        		.byte	73
+ 1179 016e 31        		.byte	49
+ 1180 016f 01        		.byte	1
+ 1181 0170 01        		.byte	1
+ 1182 0171 7F        		.byte	127
+ 1183 0172 01        		.byte	1
+ 1184 0173 01        		.byte	1
+ 1185 0174 3F        		.byte	63
+ 1186 0175 40        		.byte	64
+ 1187 0176 40        		.byte	64
+ 1188 0177 40        		.byte	64
+ 1189 0178 3F        		.byte	63
+ 1190 0179 1F        		.byte	31
+ 1191 017a 20        		.byte	32
+ 1192 017b 40        		.byte	64
+ 1193 017c 20        		.byte	32
+ 1194 017d 1F        		.byte	31
+ 1195 017e 7F        		.byte	127
+ 1196 017f 20        		.byte	32
+ 1197 0180 18        		.byte	24
+ 1198 0181 20        		.byte	32
+ 1199 0182 7F        		.byte	127
+ 1200 0183 63        		.byte	99
+ 1201 0184 14        		.byte	20
+ 1202 0185 08        		.byte	8
+ 1203 0186 14        		.byte	20
+ 1204 0187 63        		.byte	99
+ 1205 0188 03        		.byte	3
+ 1206 0189 04        		.byte	4
+ 1207 018a 78        		.byte	120
+ 1208 018b 04        		.byte	4
+ 1209 018c 03        		.byte	3
+ 1210 018d 61        		.byte	97
+ 1211 018e 51        		.byte	81
+ 1212 018f 49        		.byte	73
+ 1213 0190 45        		.byte	69
+ 1214 0191 43        		.byte	67
+ 1215 0192 00        		.byte	0
+ 1216 0193 00        		.byte	0
+ 1217 0194 7F        		.byte	127
+ 1218 0195 41        		.byte	65
+ 1219 0196 41        		.byte	65
+ 1220 0197 02        		.byte	2
+ 1221 0198 04        		.byte	4
+ 1222 0199 08        		.byte	8
+ 1223 019a 10        		.byte	16
+ 1224 019b 20        		.byte	32
+ 1225 019c 41        		.byte	65
+ 1226 019d 41        		.byte	65
+ 1227 019e 7F        		.byte	127
+ 1228 019f 00        		.byte	0
+ 1229 01a0 00        		.byte	0
+ 1230 01a1 04        		.byte	4
+ 1231 01a2 02        		.byte	2
+ 1232 01a3 01        		.byte	1
+ 1233 01a4 02        		.byte	2
+ 1234 01a5 04        		.byte	4
+ 1235 01a6 40        		.byte	64
+ 1236 01a7 40        		.byte	64
+ 1237 01a8 40        		.byte	64
+ 1238 01a9 40        		.byte	64
+ 1239 01aa 40        		.byte	64
+ 1240 01ab 00        		.byte	0
+ 1241 01ac 01        		.byte	1
+ 1242 01ad 02        		.byte	2
+ 1243 01ae 04        		.byte	4
+ 1244 01af 00        		.byte	0
+ 1245 01b0 20        		.byte	32
+ 1246 01b1 54        		.byte	84
+ 1247 01b2 54        		.byte	84
+ 1248 01b3 54        		.byte	84
+ 1249 01b4 78        		.byte	120
+ 1250 01b5 7F        		.byte	127
+ 1251 01b6 48        		.byte	72
+ 1252 01b7 44        		.byte	68
+ 1253 01b8 44        		.byte	68
+ 1254 01b9 38        		.byte	56
+ 1255 01ba 38        		.byte	56
+ 1256 01bb 44        		.byte	68
+ 1257 01bc 44        		.byte	68
+ 1258 01bd 44        		.byte	68
+ 1259 01be 20        		.byte	32
+ 1260 01bf 38        		.byte	56
+ 1261 01c0 44        		.byte	68
+ 1262 01c1 44        		.byte	68
+ 1263 01c2 48        		.byte	72
+ 1264 01c3 7F        		.byte	127
+ 1265 01c4 38        		.byte	56
+ 1266 01c5 54        		.byte	84
+ 1267 01c6 54        		.byte	84
+ 1268 01c7 54        		.byte	84
+ 1269 01c8 18        		.byte	24
+ 1270 01c9 08        		.byte	8
+ 1271 01ca 7E        		.byte	126
+ 1272 01cb 09        		.byte	9
+ 1273 01cc 01        		.byte	1
+ 1274 01cd 02        		.byte	2
+ 1275 01ce 08        		.byte	8
+ 1276 01cf 14        		.byte	20
+ 1277 01d0 54        		.byte	84
+ 1278 01d1 54        		.byte	84
+ 1279 01d2 3C        		.byte	60
+ 1280 01d3 7F        		.byte	127
+ 1281 01d4 08        		.byte	8
+ 1282 01d5 04        		.byte	4
+ 1283 01d6 04        		.byte	4
+ 1284 01d7 78        		.byte	120
+ 1285 01d8 00        		.byte	0
+ 1286 01d9 44        		.byte	68
+ 1287 01da 7D        		.byte	125
+ 1288 01db 40        		.byte	64
+ 1289 01dc 00        		.byte	0
+ 1290 01dd 20        		.byte	32
+ 1291 01de 40        		.byte	64
+ 1292 01df 44        		.byte	68
+ 1293 01e0 3D        		.byte	61
+ 1294 01e1 00        		.byte	0
+ 1295 01e2 00        		.byte	0
+ 1296 01e3 7F        		.byte	127
+ 1297 01e4 10        		.byte	16
+ 1298 01e5 28        		.byte	40
+ 1299 01e6 44        		.byte	68
+ 1300 01e7 00        		.byte	0
+ 1301 01e8 41        		.byte	65
+ 1302 01e9 7F        		.byte	127
+ 1303 01ea 40        		.byte	64
+ 1304 01eb 00        		.byte	0
+ 1305 01ec 7C        		.byte	124
+ 1306 01ed 04        		.byte	4
+ 1307 01ee 18        		.byte	24
+ 1308 01ef 04        		.byte	4
+ 1309 01f0 78        		.byte	120
+ 1310 01f1 7C        		.byte	124
+ 1311 01f2 08        		.byte	8
+ 1312 01f3 04        		.byte	4
+ 1313 01f4 04        		.byte	4
+ 1314 01f5 78        		.byte	120
+ 1315 01f6 38        		.byte	56
+ 1316 01f7 44        		.byte	68
+ 1317 01f8 44        		.byte	68
+ 1318 01f9 44        		.byte	68
+ 1319 01fa 38        		.byte	56
+ 1320 01fb 7C        		.byte	124
+ 1321 01fc 14        		.byte	20
+ 1322 01fd 14        		.byte	20
+ 1323 01fe 14        		.byte	20
+ 1324 01ff 08        		.byte	8
+ 1325 0200 08        		.byte	8
+ 1326 0201 14        		.byte	20
+ 1327 0202 14        		.byte	20
+ 1328 0203 18        		.byte	24
+ 1329 0204 7C        		.byte	124
+ 1330 0205 7C        		.byte	124
+ 1331 0206 08        		.byte	8
+ 1332 0207 04        		.byte	4
+ 1333 0208 04        		.byte	4
+ 1334 0209 08        		.byte	8
+ 1335 020a 48        		.byte	72
+ 1336 020b 54        		.byte	84
+ 1337 020c 54        		.byte	84
+ 1338 020d 54        		.byte	84
+ 1339 020e 20        		.byte	32
+ 1340 020f 04        		.byte	4
+ 1341 0210 3F        		.byte	63
+ 1342 0211 44        		.byte	68
+ 1343 0212 40        		.byte	64
+ 1344 0213 20        		.byte	32
+ 1345 0214 3C        		.byte	60
+ 1346 0215 40        		.byte	64
+ 1347 0216 40        		.byte	64
+ 1348 0217 20        		.byte	32
+ 1349 0218 7C        		.byte	124
+ 1350 0219 1C        		.byte	28
+ 1351 021a 20        		.byte	32
+ 1352 021b 40        		.byte	64
+ 1353 021c 20        		.byte	32
+ 1354 021d 1C        		.byte	28
+ 1355 021e 3C        		.byte	60
+ 1356 021f 40        		.byte	64
+ 1357 0220 30        		.byte	48
+ 1358 0221 40        		.byte	64
+ 1359 0222 3C        		.byte	60
+ 1360 0223 44        		.byte	68
+ 1361 0224 28        		.byte	40
+ 1362 0225 10        		.byte	16
+ 1363 0226 28        		.byte	40
+ 1364 0227 44        		.byte	68
+ 1365 0228 0C        		.byte	12
+ 1366 0229 50        		.byte	80
+ 1367 022a 50        		.byte	80
+ 1368 022b 50        		.byte	80
+ 1369 022c 3C        		.byte	60
+ 1370 022d 44        		.byte	68
+ 1371 022e 64        		.byte	100
+ 1372 022f 54        		.byte	84
+ 1373 0230 4C        		.byte	76
+ 1374 0231 44        		.byte	68
+ 1375 0232 00        		.byte	0
+ 1376 0233 08        		.byte	8
+ 1377 0234 36        		.byte	54
+ 1378 0235 41        		.byte	65
+ 1379 0236 00        		.byte	0
+ 1380 0237 00        		.byte	0
+ 1381 0238 00        		.byte	0
+ 1382 0239 7F        		.byte	127
+ 1383 023a 00        		.byte	0
+ 1384 023b 00        		.byte	0
+ 1385 023c 00        		.byte	0
+ 1386 023d 41        		.byte	65
+ 1387 023e 36        		.byte	54
+ 1388 023f 08        		.byte	8
+ 1389 0240 00        		.byte	0
+ 1390 0241 08        		.byte	8
+ 1391 0242 08        		.byte	8
+ 1392 0243 2A        		.byte	42
+ 1393 0244 1C        		.byte	28
+ 1394 0245 08        		.byte	8
+ 1395 0246 08        		.byte	8
+ 1396 0247 1C        		.byte	28
+ 1397 0248 2A        		.byte	42
+ 1398 0249 08        		.byte	8
+ 1399 024a 08        		.byte	8
+ 1400               		.text
+ 1401               	.Letext0:
+ 1402               		.file 2 "/usr/avr/include/stdint.h"
+ 1403               		.file 3 "/usr/lib/gcc/avr/8.3.0/include/stddef.h"
+ 1404               		.file 4 "glcd/glcd.h"
+ 1405               		.file 5 "glcd/unit_tests.h"
+ 1406               		.file 6 "/usr/avr/include/stdio.h"
+ 1407               		.file 7 "/usr/avr/include/stdlib.h"
+ 1408               		.file 8 "sd_raw_config.h"
+ 1409               		.file 9 "fat_config.h"
+ 1410               		.file 10 "fat.h"
+ 1411               		.file 11 "partition.h"
+ 1412               		.file 12 "sd_raw.h"
+ 1413               		.file 13 "glcd/fonts/font5x7.h"
+ 1414               		.file 14 "glcd/glcd_devices.h"
+ 1415               		.file 15 "uart.h"
+ 1416               		.file 16 "glcd/glcd_text_tiny.h"
+ 1417               		.file 17 "bme280_i2c.h"
+ 1418               		.file 18 "glcd/glcd_text.h"
+ 1419               		.file 19 "glcd/glcd_controllers.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccD96Fqd.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccD96Fqd.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccD96Fqd.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccD96Fqd.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccD96Fqd.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccD96Fqd.s:12     .text:0000000000000000 __vector_11
+                            *ABS*:0000000000000003 __gcc_isr.n_pushed.001
+                            *COM*:0000000000000001 ms10
+                            *COM*:0000000000000001 entprell
+                            *COM*:0000000000000001 ms100
+                            *COM*:0000000000000001 sec
+                            *COM*:0000000000000001 min
+     /tmp/ccD96Fqd.s:108    .text.startup:0000000000000000 main
+                            *COM*:0000000000000002 zaehler
+                            *COM*:0000000000000001 test1
+                            *COM*:0000000000000001 test1_alt
+                            *COM*:0000000000000002 test2
+                            *COM*:0000000000000002 test2_alt
+                            *COM*:0000000000000001 sekunden
+                            *COM*:0000000000000001 sekunden_alt
+                            *COM*:0000000000000001 minuten
+                            *COM*:0000000000000001 stunden
+                            *COM*:0000000000000002 test3
+                            *COM*:0000000000000001 aaa
+                            *COM*:0000000000000001 bbb
+                            *COM*:0000000000000001 ccc
+                            *COM*:0000000000000001 ddd
+                            *COM*:0000000000000004 temperatur
+                            *COM*:0000000000000001 error
+                            *COM*:0000000000000004 pressure
+                            *COM*:0000000000000004 humidity
+                            *COM*:0000000000000002 nachk
+                            *COM*:0000000000000002 vork
+                            *COM*:0000000000000001 flag_send
+                            *COM*:0000000000000001 flag_send_index
+     /tmp/ccD96Fqd.s:919    .progmem.data:000000000000006b Font5x7
+     /tmp/ccD96Fqd.s:872    .progmem.data:0000000000000060 __c.2858
+     /tmp/ccD96Fqd.s:868    .progmem.data:0000000000000057 __c.2860
+     /tmp/ccD96Fqd.s:864    .progmem.data:000000000000004e __c.2862
+     /tmp/ccD96Fqd.s:860    .progmem.data:0000000000000045 __c.2864
+     /tmp/ccD96Fqd.s:856    .progmem.data:000000000000003a __c.2866
+     /tmp/ccD96Fqd.s:852    .progmem.data:0000000000000031 __c.2868
+     /tmp/ccD96Fqd.s:848    .progmem.data:0000000000000028 __c.2870
+     /tmp/ccD96Fqd.s:844    .progmem.data:0000000000000024 __c.2872
+     /tmp/ccD96Fqd.s:840    .progmem.data:000000000000001b __c.2874
+     /tmp/ccD96Fqd.s:836    .progmem.data:0000000000000012 __c.2876
+     /tmp/ccD96Fqd.s:832    .progmem.data:0000000000000009 __c.2878
+     /tmp/ccD96Fqd.s:828    .progmem.data:0000000000000000 __c.2880
+                            *COM*:0000000000000001 end_min
+                            *COM*:0000000000000001 end_sec
+                            *COM*:0000000000000001 end_ms100
+                            *COM*:0000000000000001 state
+                            *COM*:0000000000000001 ms
+     /tmp/ccD96Fqd.s:888    .bss:0000000000000000 string
+                            *COM*:0000000000000004 hum
+                            *COM*:0000000000000004 press
+                            *COM*:0000000000000004 temp
+                            *COM*:0000000000000001 received_byte
+
+UNDEFINED SYMBOLS
+glcd_init
+glcd_tiny_set_font
+glcd_clear_buffer
+BME280_init
+BME280_set_filter
+BME280_set_standby
+BME280_set_measure
+BME280_set_measuremode
+glcd_clear
+uart_init
+sd_raw_init
+glcd_draw_string_xy
+sd_raw_write_interval
+sd_raw_write
+sd_raw_read_interval
+sd_raw_read
+partition_open
+fat_open
+fat_get_dir_entry_of_path
+fat_open_dir
+sd_raw_get_info
+uart_puts_p
+uart_putc_hex
+uart_putc
+uart_puts
+uart_putdw_hex
+uart_putw_dec
+uart_putdw_dec
+fat_get_fs_free
+fat_get_fs_size
+glcd_write
+__do_copy_data
+__do_clear_bss

@@ -1,0 +1,516 @@
+   1               		.file	"PCD8544.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	glcd_command
+  12               	glcd_command:
+  13               	.LVL0:
+  14               	.LFB7:
+  15               		.file 1 "glcd/controllers/PCD8544.c"
+   1:glcd/controllers/PCD8544.c **** /**
+   2:glcd/controllers/PCD8544.c ****  * \file PCD8544.c
+   3:glcd/controllers/PCD8544.c ****  * \brief Functions relating to PCD8544 LCD Controller (Nokia 5110 LCD).
+   4:glcd/controllers/PCD8544.c ****  * \author Andy Gock
+   5:glcd/controllers/PCD8544.c ****  * \see glcd.h
+   6:glcd/controllers/PCD8544.c ****  */
+   7:glcd/controllers/PCD8544.c **** 
+   8:glcd/controllers/PCD8544.c **** /*
+   9:glcd/controllers/PCD8544.c **** 	Copyright (c) 2012, Andy Gock
+  10:glcd/controllers/PCD8544.c **** 
+  11:glcd/controllers/PCD8544.c **** 	All rights reserved.
+  12:glcd/controllers/PCD8544.c **** 
+  13:glcd/controllers/PCD8544.c **** 	Redistribution and use in source and binary forms, with or without
+  14:glcd/controllers/PCD8544.c **** 	modification, are permitted provided that the following conditions are met:
+  15:glcd/controllers/PCD8544.c **** 		* Redistributions of source code must retain the above copyright
+  16:glcd/controllers/PCD8544.c **** 		  notice, this list of conditions and the following disclaimer.
+  17:glcd/controllers/PCD8544.c **** 		* Redistributions in binary form must reproduce the above copyright
+  18:glcd/controllers/PCD8544.c **** 		  notice, this list of conditions and the following disclaimer in the
+  19:glcd/controllers/PCD8544.c **** 		  documentation and/or other materials provided with the distribution.
+  20:glcd/controllers/PCD8544.c **** 		* Neither the name of Andy Gock nor the
+  21:glcd/controllers/PCD8544.c **** 		  names of its contributors may be used to endorse or promote products
+  22:glcd/controllers/PCD8544.c **** 		  derived from this software without specific prior written permission.
+  23:glcd/controllers/PCD8544.c **** 
+  24:glcd/controllers/PCD8544.c **** 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  25:glcd/controllers/PCD8544.c **** 	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  26:glcd/controllers/PCD8544.c **** 	WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  27:glcd/controllers/PCD8544.c **** 	DISCLAIMED. IN NO EVENT SHALL ANDY GOCK BE LIABLE FOR ANY
+  28:glcd/controllers/PCD8544.c **** 	DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  29:glcd/controllers/PCD8544.c **** 	(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  30:glcd/controllers/PCD8544.c **** 	LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  31:glcd/controllers/PCD8544.c **** 	ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  32:glcd/controllers/PCD8544.c **** 	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  33:glcd/controllers/PCD8544.c **** 	SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  34:glcd/controllers/PCD8544.c **** */
+  35:glcd/controllers/PCD8544.c **** 
+  36:glcd/controllers/PCD8544.c **** #if defined(GLCD_CONTROLLER_PCD8544)
+  37:glcd/controllers/PCD8544.c **** 
+  38:glcd/controllers/PCD8544.c **** #include "../glcd.h"
+  39:glcd/controllers/PCD8544.c **** 
+  40:glcd/controllers/PCD8544.c **** void glcd_command(uint8_t c)
+  41:glcd/controllers/PCD8544.c **** {
+  16               		.loc 1 41 1 view -0
+  17               		.cfi_startproc
+  18               	/* prologue: function */
+  19               	/* frame size = 0 */
+  20               	/* stack size = 0 */
+  21               	.L__stack_usage = 0
+  42:glcd/controllers/PCD8544.c **** 	GLCD_DC_LOW();
+  22               		.loc 1 42 2 view .LVU1
+  23 0000 2998      		cbi 0x5,1
+  43:glcd/controllers/PCD8544.c **** 	glcd_spi_write(c);
+  24               		.loc 1 43 2 view .LVU2
+  25 0002 0C94 0000 		jmp glcd_spi_write
+  26               	.LVL1:
+  27               		.loc 1 43 2 is_stmt 0 view .LVU3
+  28               		.cfi_endproc
+  29               	.LFE7:
+  31               	.global	glcd_data
+  33               	glcd_data:
+  34               	.LVL2:
+  35               	.LFB8:
+  44:glcd/controllers/PCD8544.c **** }
+  45:glcd/controllers/PCD8544.c **** 
+  46:glcd/controllers/PCD8544.c **** void glcd_data(uint8_t c)
+  47:glcd/controllers/PCD8544.c **** {
+  36               		.loc 1 47 1 is_stmt 1 view -0
+  37               		.cfi_startproc
+  38               	/* prologue: function */
+  39               	/* frame size = 0 */
+  40               	/* stack size = 0 */
+  41               	.L__stack_usage = 0
+  48:glcd/controllers/PCD8544.c **** 	GLCD_DC_HIGH();
+  42               		.loc 1 48 2 view .LVU5
+  43 0006 299A      		sbi 0x5,1
+  49:glcd/controllers/PCD8544.c **** 	glcd_spi_write(c);
+  44               		.loc 1 49 2 view .LVU6
+  45 0008 0C94 0000 		jmp glcd_spi_write
+  46               	.LVL3:
+  47               		.loc 1 49 2 is_stmt 0 view .LVU7
+  48               		.cfi_endproc
+  49               	.LFE8:
+  51               	.global	glcd_set_contrast
+  53               	glcd_set_contrast:
+  54               	.LVL4:
+  55               	.LFB9:
+  50:glcd/controllers/PCD8544.c **** }
+  51:glcd/controllers/PCD8544.c **** 
+  52:glcd/controllers/PCD8544.c **** void glcd_set_contrast(uint8_t val) {
+  56               		.loc 1 52 37 is_stmt 1 view -0
+  57               		.cfi_startproc
+  58               		.loc 1 52 37 is_stmt 0 view .LVU9
+  59 000c CF93      		push r28
+  60               	.LCFI0:
+  61               		.cfi_def_cfa_offset 3
+  62               		.cfi_offset 28, -2
+  63               	/* prologue: function */
+  64               	/* frame size = 0 */
+  65               	/* stack size = 1 */
+  66               	.L__stack_usage = 1
+  67 000e C82F      		mov r28,r24
+  53:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET | PCD8544_EXTENDED_INSTRUCTION);
+  68               		.loc 1 53 2 is_stmt 1 view .LVU10
+  69 0010 81E2      		ldi r24,lo8(33)
+  70               	.LVL5:
+  71               		.loc 1 53 2 is_stmt 0 view .LVU11
+  72 0012 0E94 0000 		call glcd_command
+  73               	.LVL6:
+  54:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_SET_VOP | (val&0x7f));
+  74               		.loc 1 54 2 is_stmt 1 view .LVU12
+  75 0016 8C2F      		mov r24,r28
+  76 0018 8068      		ori r24,lo8(-128)
+  77 001a 0E94 0000 		call glcd_command
+  78               	.LVL7:
+  55:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET);
+  79               		.loc 1 55 2 view .LVU13
+  80 001e 80E2      		ldi r24,lo8(32)
+  81 0020 0E94 0000 		call glcd_command
+  82               	.LVL8:
+  56:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_DISPLAY_CONTROL | PCD8544_DISPLAY_NORMAL);
+  83               		.loc 1 56 2 view .LVU14
+  84 0024 8CE0      		ldi r24,lo8(12)
+  85               	/* epilogue start */
+  57:glcd/controllers/PCD8544.c **** }
+  86               		.loc 1 57 1 is_stmt 0 view .LVU15
+  87 0026 CF91      		pop r28
+  88               	.LVL9:
+  56:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_DISPLAY_CONTROL | PCD8544_DISPLAY_NORMAL);
+  89               		.loc 1 56 2 view .LVU16
+  90 0028 0C94 0000 		jmp glcd_command
+  91               	.LVL10:
+  92               		.cfi_endproc
+  93               	.LFE9:
+  95               	.global	glcd_power_down
+  97               	glcd_power_down:
+  98               	.LFB10:
+  58:glcd/controllers/PCD8544.c **** 
+  59:glcd/controllers/PCD8544.c **** void glcd_power_down(void)
+  60:glcd/controllers/PCD8544.c **** {
+  99               		.loc 1 60 1 is_stmt 1 view -0
+ 100               		.cfi_startproc
+ 101               	/* prologue: function */
+ 102               	/* frame size = 0 */
+ 103               	/* stack size = 0 */
+ 104               	.L__stack_usage = 0
+  61:glcd/controllers/PCD8544.c **** 	/* First, fill RAM with zeroes to ensure minimum specified current consumption */
+  62:glcd/controllers/PCD8544.c **** 	glcd_clear();
+ 105               		.loc 1 62 2 view .LVU18
+ 106 002c 0E94 0000 		call glcd_clear
+ 107               	.LVL11:
+  63:glcd/controllers/PCD8544.c **** 
+  64:glcd/controllers/PCD8544.c **** 	/* Power down */
+  65:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET|PCD8544_POWER_DOWN);
+ 108               		.loc 1 65 2 view .LVU19
+ 109 0030 84E2      		ldi r24,lo8(36)
+ 110 0032 0C94 0000 		jmp glcd_command
+ 111               	.LVL12:
+ 112               		.cfi_endproc
+ 113               	.LFE10:
+ 115               	.global	glcd_power_up
+ 117               	glcd_power_up:
+ 118               	.LFB11:
+  66:glcd/controllers/PCD8544.c **** }
+  67:glcd/controllers/PCD8544.c **** 
+  68:glcd/controllers/PCD8544.c **** void glcd_power_up(void)
+  69:glcd/controllers/PCD8544.c **** {
+ 119               		.loc 1 69 1 view -0
+ 120               		.cfi_startproc
+ 121               	/* prologue: function */
+ 122               	/* frame size = 0 */
+ 123               	/* stack size = 0 */
+ 124               	.L__stack_usage = 0
+  70:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET);
+ 125               		.loc 1 70 2 view .LVU21
+ 126 0036 80E2      		ldi r24,lo8(32)
+ 127 0038 0C94 0000 		jmp glcd_command
+ 128               	.LVL13:
+ 129               		.cfi_endproc
+ 130               	.LFE11:
+ 132               	.global	glcd_set_y_address
+ 134               	glcd_set_y_address:
+ 135               	.LVL14:
+ 136               	.LFB12:
+  71:glcd/controllers/PCD8544.c **** }
+  72:glcd/controllers/PCD8544.c **** 
+  73:glcd/controllers/PCD8544.c **** void glcd_set_y_address(uint8_t y)
+  74:glcd/controllers/PCD8544.c **** {
+ 137               		.loc 1 74 1 view -0
+ 138               		.cfi_startproc
+ 139               	/* prologue: function */
+ 140               	/* frame size = 0 */
+ 141               	/* stack size = 0 */
+ 142               	.L__stack_usage = 0
+  75:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_SET_Y_ADDRESS|(y > 5 ? 5 : y));
+ 143               		.loc 1 75 2 view .LVU23
+ 144               		.loc 1 75 48 is_stmt 0 view .LVU24
+ 145 003c 8630      		cpi r24,lo8(6)
+ 146 003e 00F0      		brlo .L7
+ 147 0040 85E0      		ldi r24,lo8(5)
+ 148               	.LVL15:
+ 149               	.L7:
+ 150               		.loc 1 75 2 view .LVU25
+ 151 0042 8064      		ori r24,lo8(64)
+ 152 0044 0C94 0000 		jmp glcd_command
+ 153               	.LVL16:
+ 154               		.cfi_endproc
+ 155               	.LFE12:
+ 157               	.global	glcd_set_x_address
+ 159               	glcd_set_x_address:
+ 160               	.LVL17:
+ 161               	.LFB13:
+  76:glcd/controllers/PCD8544.c **** }
+  77:glcd/controllers/PCD8544.c **** 
+  78:glcd/controllers/PCD8544.c **** void glcd_set_x_address(uint8_t x)
+  79:glcd/controllers/PCD8544.c **** {
+ 162               		.loc 1 79 1 is_stmt 1 view -0
+ 163               		.cfi_startproc
+ 164               	/* prologue: function */
+ 165               	/* frame size = 0 */
+ 166               	/* stack size = 0 */
+ 167               	.L__stack_usage = 0
+  80:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_SET_X_ADDRESS|(x & 0x7f));
+ 168               		.loc 1 80 2 view .LVU27
+ 169 0048 8068      		ori r24,lo8(-128)
+ 170               	.LVL18:
+ 171               		.loc 1 80 2 is_stmt 0 view .LVU28
+ 172 004a 0C94 0000 		jmp glcd_command
+ 173               	.LVL19:
+ 174               		.cfi_endproc
+ 175               	.LFE13:
+ 177               	.global	glcd_write
+ 179               	glcd_write:
+ 180               	.LFB14:
+  81:glcd/controllers/PCD8544.c **** }
+  82:glcd/controllers/PCD8544.c **** 
+  83:glcd/controllers/PCD8544.c **** void glcd_write()
+  84:glcd/controllers/PCD8544.c **** {
+ 181               		.loc 1 84 1 is_stmt 1 view -0
+ 182               		.cfi_startproc
+ 183 004e EF92      		push r14
+ 184               	.LCFI1:
+ 185               		.cfi_def_cfa_offset 3
+ 186               		.cfi_offset 14, -2
+ 187 0050 FF92      		push r15
+ 188               	.LCFI2:
+ 189               		.cfi_def_cfa_offset 4
+ 190               		.cfi_offset 15, -3
+ 191 0052 0F93      		push r16
+ 192               	.LCFI3:
+ 193               		.cfi_def_cfa_offset 5
+ 194               		.cfi_offset 16, -4
+ 195 0054 1F93      		push r17
+ 196               	.LCFI4:
+ 197               		.cfi_def_cfa_offset 6
+ 198               		.cfi_offset 17, -5
+ 199 0056 CF93      		push r28
+ 200               	.LCFI5:
+ 201               		.cfi_def_cfa_offset 7
+ 202               		.cfi_offset 28, -6
+ 203 0058 DF93      		push r29
+ 204               	.LCFI6:
+ 205               		.cfi_def_cfa_offset 8
+ 206               		.cfi_offset 29, -7
+ 207               	/* prologue: function */
+ 208               	/* frame size = 0 */
+ 209               	/* stack size = 6 */
+ 210               	.L__stack_usage = 6
+  85:glcd/controllers/PCD8544.c **** 	uint8_t bank;
+ 211               		.loc 1 85 2 view .LVU30
+  86:glcd/controllers/PCD8544.c **** 
+  87:glcd/controllers/PCD8544.c **** 	for (bank = 0; bank < PCD8544_MAX_BANKS; bank++) {
+ 212               		.loc 1 87 2 view .LVU31
+ 213               	.LVL20:
+  84:glcd/controllers/PCD8544.c **** 	uint8_t bank;
+ 214               		.loc 1 84 1 is_stmt 0 view .LVU32
+ 215 005a F12C      		mov r15,__zero_reg__
+ 216 005c E12C      		mov r14,__zero_reg__
+ 217 005e 08E0      		ldi r16,lo8(8)
+ 218 0060 10E0      		ldi r17,0
+ 219               		.loc 1 87 12 view .LVU33
+ 220 0062 C0E0      		ldi r28,0
+ 221               	.LVL21:
+ 222               	.L11:
+ 223               	.LBB2:
+  88:glcd/controllers/PCD8544.c **** 		/* Each bank is a single row 8 bits tall */
+  89:glcd/controllers/PCD8544.c **** 		uint8_t column;
+ 224               		.loc 1 89 3 is_stmt 1 view .LVU34
+  90:glcd/controllers/PCD8544.c **** 
+  91:glcd/controllers/PCD8544.c **** 		if (glcd_bbox_selected->y_min >= (bank+1)*8) {
+ 225               		.loc 1 91 3 view .LVU35
+ 226               		.loc 1 91 25 is_stmt 0 view .LVU36
+ 227 0064 E091 0000 		lds r30,glcd_bbox_selected
+ 228 0068 F091 0000 		lds r31,glcd_bbox_selected+1
+ 229 006c 8181      		ldd r24,Z+1
+ 230               		.loc 1 91 6 view .LVU37
+ 231 006e 8017      		cp r24,r16
+ 232 0070 1106      		cpc __zero_reg__,r17
+ 233 0072 04F0      		brlt .L10
+ 234               	.L15:
+ 235               	.LBE2:
+  87:glcd/controllers/PCD8544.c **** 		/* Each bank is a single row 8 bits tall */
+ 236               		.loc 1 87 47 view .LVU38
+ 237 0074 CF5F      		subi r28,lo8(-(1))
+ 238               	.LVL22:
+  87:glcd/controllers/PCD8544.c **** 		/* Each bank is a single row 8 bits tall */
+ 239               		.loc 1 87 47 view .LVU39
+ 240 0076 085F      		subi r16,-8
+ 241 0078 1F4F      		sbci r17,-1
+ 242 007a 84E5      		ldi r24,84
+ 243 007c E80E      		add r14,r24
+ 244 007e F11C      		adc r15,__zero_reg__
+  87:glcd/controllers/PCD8544.c **** 		/* Each bank is a single row 8 bits tall */
+ 245               		.loc 1 87 2 view .LVU40
+ 246 0080 C630      		cpi r28,lo8(6)
+ 247 0082 01F4      		brne .L11
+ 248               	.L12:
+  92:glcd/controllers/PCD8544.c **** 			continue; /* Skip the entire bank */
+  93:glcd/controllers/PCD8544.c **** 		}
+  94:glcd/controllers/PCD8544.c **** 
+  95:glcd/controllers/PCD8544.c **** 		if (glcd_bbox_selected->y_max < bank*8) {
+  96:glcd/controllers/PCD8544.c **** 			break;    /* No more banks need updating */
+  97:glcd/controllers/PCD8544.c **** 		}
+  98:glcd/controllers/PCD8544.c **** 
+  99:glcd/controllers/PCD8544.c **** 		glcd_command(PCD8544_SET_Y_ADDRESS | bank);
+ 100:glcd/controllers/PCD8544.c **** 		glcd_command(PCD8544_SET_X_ADDRESS | glcd_bbox_selected->x_min);
+ 101:glcd/controllers/PCD8544.c **** 
+ 102:glcd/controllers/PCD8544.c **** 		for (column = glcd_bbox_selected->x_min; column <= glcd_bbox_selected->x_max; column++)
+ 103:glcd/controllers/PCD8544.c **** 		{
+ 104:glcd/controllers/PCD8544.c **** 			glcd_data( glcd_buffer_selected[PCD8544_MAX_COLS * bank + column] );
+ 105:glcd/controllers/PCD8544.c **** 		}
+ 106:glcd/controllers/PCD8544.c **** 	}
+ 107:glcd/controllers/PCD8544.c **** 
+ 108:glcd/controllers/PCD8544.c **** 	glcd_reset_bbox();
+ 249               		.loc 1 108 2 is_stmt 1 view .LVU41
+ 250               	/* epilogue start */
+ 109:glcd/controllers/PCD8544.c **** 
+ 110:glcd/controllers/PCD8544.c **** }
+ 251               		.loc 1 110 1 is_stmt 0 view .LVU42
+ 252 0084 DF91      		pop r29
+ 253 0086 CF91      		pop r28
+ 254               	.LVL23:
+ 255               		.loc 1 110 1 view .LVU43
+ 256 0088 1F91      		pop r17
+ 257 008a 0F91      		pop r16
+ 258 008c FF90      		pop r15
+ 259 008e EF90      		pop r14
+ 108:glcd/controllers/PCD8544.c **** 
+ 260               		.loc 1 108 2 view .LVU44
+ 261 0090 0C94 0000 		jmp glcd_reset_bbox
+ 262               	.LVL24:
+ 263               	.L10:
+ 264               	.LBB3:
+  95:glcd/controllers/PCD8544.c **** 			break;    /* No more banks need updating */
+ 265               		.loc 1 95 3 is_stmt 1 view .LVU45
+  95:glcd/controllers/PCD8544.c **** 			break;    /* No more banks need updating */
+ 266               		.loc 1 95 25 is_stmt 0 view .LVU46
+ 267 0094 2381      		ldd r18,Z+3
+  95:glcd/controllers/PCD8544.c **** 			break;    /* No more banks need updating */
+ 268               		.loc 1 95 6 view .LVU47
+ 269 0096 C801      		movw r24,r16
+ 270 0098 0897      		sbiw r24,8
+ 271 009a 2817      		cp r18,r24
+ 272 009c 1906      		cpc __zero_reg__,r25
+ 273 009e 04F0      		brlt .L12
+  99:glcd/controllers/PCD8544.c **** 		glcd_command(PCD8544_SET_X_ADDRESS | glcd_bbox_selected->x_min);
+ 274               		.loc 1 99 3 is_stmt 1 view .LVU48
+ 275 00a0 8C2F      		mov r24,r28
+ 276 00a2 8064      		ori r24,lo8(64)
+ 277 00a4 0E94 0000 		call glcd_command
+ 278               	.LVL25:
+ 100:glcd/controllers/PCD8544.c **** 
+ 279               		.loc 1 100 3 view .LVU49
+ 100:glcd/controllers/PCD8544.c **** 
+ 280               		.loc 1 100 58 is_stmt 0 view .LVU50
+ 281 00a8 E091 0000 		lds r30,glcd_bbox_selected
+ 282 00ac F091 0000 		lds r31,glcd_bbox_selected+1
+ 100:glcd/controllers/PCD8544.c **** 
+ 283               		.loc 1 100 3 view .LVU51
+ 284 00b0 8081      		ld r24,Z
+ 285 00b2 8068      		ori r24,lo8(-128)
+ 286 00b4 0E94 0000 		call glcd_command
+ 287               	.LVL26:
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 288               		.loc 1 102 3 is_stmt 1 view .LVU52
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 289               		.loc 1 102 15 is_stmt 0 view .LVU53
+ 290 00b8 E091 0000 		lds r30,glcd_bbox_selected
+ 291 00bc F091 0000 		lds r31,glcd_bbox_selected+1
+ 292 00c0 D081      		ld r29,Z
+ 293               	.LVL27:
+ 294               	.L13:
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 295               		.loc 1 102 72 discriminator 1 view .LVU54
+ 296 00c2 E091 0000 		lds r30,glcd_bbox_selected
+ 297 00c6 F091 0000 		lds r31,glcd_bbox_selected+1
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 298               		.loc 1 102 3 discriminator 1 view .LVU55
+ 299 00ca 8281      		ldd r24,Z+2
+ 300 00cc 8D17      		cp r24,r29
+ 301 00ce 00F0      		brlo .L15
+ 104:glcd/controllers/PCD8544.c **** 		}
+ 302               		.loc 1 104 4 is_stmt 1 discriminator 3 view .LVU56
+ 303 00d0 E091 0000 		lds r30,glcd_buffer_selected
+ 304 00d4 F091 0000 		lds r31,glcd_buffer_selected+1
+ 305 00d8 EE0D      		add r30,r14
+ 306 00da FF1D      		adc r31,r15
+ 307 00dc ED0F      		add r30,r29
+ 308 00de F11D      		adc r31,__zero_reg__
+ 309 00e0 8081      		ld r24,Z
+ 310 00e2 0E94 0000 		call glcd_data
+ 311               	.LVL28:
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 312               		.loc 1 102 87 is_stmt 0 discriminator 3 view .LVU57
+ 313 00e6 DF5F      		subi r29,lo8(-(1))
+ 314               	.LVL29:
+ 102:glcd/controllers/PCD8544.c **** 		{
+ 315               		.loc 1 102 87 discriminator 3 view .LVU58
+ 316 00e8 00C0      		rjmp .L13
+ 317               	.LBE3:
+ 318               		.cfi_endproc
+ 319               	.LFE14:
+ 321               	.global	glcd_PCD8544_init
+ 323               	glcd_PCD8544_init:
+ 324               	.LFB15:
+ 111:glcd/controllers/PCD8544.c **** 
+ 112:glcd/controllers/PCD8544.c **** void glcd_PCD8544_init(void) {
+ 325               		.loc 1 112 30 is_stmt 1 view -0
+ 326               		.cfi_startproc
+ 327               	/* prologue: function */
+ 328               	/* frame size = 0 */
+ 329               	/* stack size = 0 */
+ 330               	.L__stack_usage = 0
+ 113:glcd/controllers/PCD8544.c **** 
+ 114:glcd/controllers/PCD8544.c **** 	glcd_reset();
+ 331               		.loc 1 114 2 view .LVU60
+ 332 00ea 0E94 0000 		call glcd_reset
+ 333               	.LVL30:
+ 115:glcd/controllers/PCD8544.c **** 	
+ 116:glcd/controllers/PCD8544.c **** 	/* Get into the EXTENDED mode! */
+ 117:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET | PCD8544_EXTENDED_INSTRUCTION);
+ 334               		.loc 1 117 2 view .LVU61
+ 335 00ee 81E2      		ldi r24,lo8(33)
+ 336 00f0 0E94 0000 		call glcd_command
+ 337               	.LVL31:
+ 118:glcd/controllers/PCD8544.c **** 
+ 119:glcd/controllers/PCD8544.c **** 	/* LCD bias select (4 is optimal?) */
+ 120:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_SET_BIAS | 0x2);
+ 338               		.loc 1 120 2 view .LVU62
+ 339 00f4 82E1      		ldi r24,lo8(18)
+ 340 00f6 0E94 0000 		call glcd_command
+ 341               	.LVL32:
+ 121:glcd/controllers/PCD8544.c **** 
+ 122:glcd/controllers/PCD8544.c **** 	/* Set VOP (affects contrast) */
+ 123:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_SET_VOP | 60); /* Experimentally determined, play with this figure until cont
+ 342               		.loc 1 123 2 view .LVU63
+ 343 00fa 8CEB      		ldi r24,lo8(-68)
+ 344 00fc 0E94 0000 		call glcd_command
+ 345               	.LVL33:
+ 124:glcd/controllers/PCD8544.c **** 
+ 125:glcd/controllers/PCD8544.c **** 	/* Back to standard instructions */
+ 126:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_FUNCTION_SET);
+ 346               		.loc 1 126 2 view .LVU64
+ 347 0100 80E2      		ldi r24,lo8(32)
+ 348 0102 0E94 0000 		call glcd_command
+ 349               	.LVL34:
+ 127:glcd/controllers/PCD8544.c **** 
+ 128:glcd/controllers/PCD8544.c **** 	/* Normal mode */
+ 129:glcd/controllers/PCD8544.c **** 	glcd_command(PCD8544_DISPLAY_CONTROL | PCD8544_DISPLAY_NORMAL);
+ 350               		.loc 1 129 2 view .LVU65
+ 351 0106 8CE0      		ldi r24,lo8(12)
+ 352 0108 0C94 0000 		jmp glcd_command
+ 353               	.LVL35:
+ 354               		.cfi_endproc
+ 355               	.LFE15:
+ 357               	.Letext0:
+ 358               		.file 2 "/usr/avr/include/stdint.h"
+ 359               		.file 3 "glcd/controllers/../glcd.h"
+ 360               		.file 4 "glcd/controllers/../unit_tests.h"
+ 361               		.file 5 "glcd/controllers/../glcd_devices.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 PCD8544.c
+     /tmp/ccnYBjsP.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccnYBjsP.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccnYBjsP.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccnYBjsP.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccnYBjsP.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccnYBjsP.s:12     .text:0000000000000000 glcd_command
+     /tmp/ccnYBjsP.s:33     .text:0000000000000006 glcd_data
+     /tmp/ccnYBjsP.s:53     .text:000000000000000c glcd_set_contrast
+     /tmp/ccnYBjsP.s:97     .text:000000000000002c glcd_power_down
+     /tmp/ccnYBjsP.s:117    .text:0000000000000036 glcd_power_up
+     /tmp/ccnYBjsP.s:134    .text:000000000000003c glcd_set_y_address
+     /tmp/ccnYBjsP.s:159    .text:0000000000000048 glcd_set_x_address
+     /tmp/ccnYBjsP.s:179    .text:000000000000004e glcd_write
+     /tmp/ccnYBjsP.s:323    .text:00000000000000ea glcd_PCD8544_init
+
+UNDEFINED SYMBOLS
+glcd_spi_write
+glcd_clear
+glcd_bbox_selected
+glcd_reset_bbox
+glcd_buffer_selected
+glcd_reset

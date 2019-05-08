@@ -1,0 +1,2857 @@
+   1               		.file	"bme280_i2c.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  11               	BME280_read:
+  12               	.LVL0:
+  13               	.LFB1:
+  14               		.file 1 "bme280_i2c.c"
+   1:bme280_i2c.c  **** #include <bme280_i2c.h>
+   2:bme280_i2c.c  **** #include <i2cmaster.h>
+   3:bme280_i2c.c  **** 
+   4:bme280_i2c.c  **** static uint16_t dig_T1;
+   5:bme280_i2c.c  **** static int16_t dig_T2;
+   6:bme280_i2c.c  **** static int16_t dig_T3;
+   7:bme280_i2c.c  **** 
+   8:bme280_i2c.c  **** static uint16_t dig_P1;
+   9:bme280_i2c.c  **** static int16_t dig_P2;
+  10:bme280_i2c.c  **** static int16_t dig_P3;
+  11:bme280_i2c.c  **** static int16_t dig_P4;
+  12:bme280_i2c.c  **** static int16_t dig_P5;
+  13:bme280_i2c.c  **** static int16_t dig_P6;
+  14:bme280_i2c.c  **** static int16_t dig_P7;
+  15:bme280_i2c.c  **** static int16_t dig_P8;
+  16:bme280_i2c.c  **** static int16_t dig_P9;
+  17:bme280_i2c.c  **** 
+  18:bme280_i2c.c  **** static uint8_t dig_H1;
+  19:bme280_i2c.c  **** static int16_t dig_H2;
+  20:bme280_i2c.c  **** static uint8_t dig_H3;
+  21:bme280_i2c.c  **** static int16_t dig_H4;
+  22:bme280_i2c.c  **** static int16_t dig_H5;
+  23:bme280_i2c.c  **** static int8_t dig_H6;
+  24:bme280_i2c.c  **** 
+  25:bme280_i2c.c  **** // t_fine carries fine temperature as global value
+  26:bme280_i2c.c  **** static int32_t t_fine;
+  27:bme280_i2c.c  **** 
+  28:bme280_i2c.c  **** static int32_t BME280_compensate_T_int32(int32_t adc_T);
+  29:bme280_i2c.c  **** static uint32_t BME280_compensate_P_int32(int32_t adc_P);
+  30:bme280_i2c.c  **** static uint32_t bme280_compensate_H_int32(int32_t adc_H);
+  31:bme280_i2c.c  **** 
+  32:bme280_i2c.c  **** 
+  33:bme280_i2c.c  **** static uint8_t BME280_write(const uint8_t* data, uint8_t bytes, uint8_t startaddress){
+  34:bme280_i2c.c  **** 	uint8_t failed, i;
+  35:bme280_i2c.c  **** 	failed = i2c_start(BME280_SLAVE_ADDRESS+I2C_WRITE);
+  36:bme280_i2c.c  **** 	if (failed){
+  37:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+  38:bme280_i2c.c  **** 	}
+  39:bme280_i2c.c  **** 	
+  40:bme280_i2c.c  **** 	for (i = 0; i < bytes; i++){
+  41:bme280_i2c.c  **** 		failed |= i2c_write(startaddress++); //Registeradresse
+  42:bme280_i2c.c  **** 		failed |= i2c_write(data[i]);
+  43:bme280_i2c.c  **** 		if (failed){
+  44:bme280_i2c.c  **** 			i2c_stop();
+  45:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+  46:bme280_i2c.c  **** 		}
+  47:bme280_i2c.c  **** 	}
+  48:bme280_i2c.c  **** 	
+  49:bme280_i2c.c  **** 	i2c_stop();
+  50:bme280_i2c.c  **** 	
+  51:bme280_i2c.c  **** 	return 0;
+  52:bme280_i2c.c  **** }
+  53:bme280_i2c.c  **** 
+  54:bme280_i2c.c  **** static uint8_t BME280_read(uint8_t* data, uint8_t bytes, uint8_t startaddress){
+  15               		.loc 1 54 79 view -0
+  16               		.cfi_startproc
+  17               		.loc 1 54 79 is_stmt 0 view .LVU1
+  18 0000 CF92      		push r12
+  19               	.LCFI0:
+  20               		.cfi_def_cfa_offset 3
+  21               		.cfi_offset 12, -2
+  22 0002 DF92      		push r13
+  23               	.LCFI1:
+  24               		.cfi_def_cfa_offset 4
+  25               		.cfi_offset 13, -3
+  26 0004 EF92      		push r14
+  27               	.LCFI2:
+  28               		.cfi_def_cfa_offset 5
+  29               		.cfi_offset 14, -4
+  30 0006 FF92      		push r15
+  31               	.LCFI3:
+  32               		.cfi_def_cfa_offset 6
+  33               		.cfi_offset 15, -5
+  34 0008 0F93      		push r16
+  35               	.LCFI4:
+  36               		.cfi_def_cfa_offset 7
+  37               		.cfi_offset 16, -6
+  38 000a 1F93      		push r17
+  39               	.LCFI5:
+  40               		.cfi_def_cfa_offset 8
+  41               		.cfi_offset 17, -7
+  42 000c CF93      		push r28
+  43               	.LCFI6:
+  44               		.cfi_def_cfa_offset 9
+  45               		.cfi_offset 28, -8
+  46 000e DF93      		push r29
+  47               	.LCFI7:
+  48               		.cfi_def_cfa_offset 10
+  49               		.cfi_offset 29, -9
+  50               	/* prologue: function */
+  51               	/* frame size = 0 */
+  52               	/* stack size = 8 */
+  53               	.L__stack_usage = 8
+  54 0010 6C01      		movw r12,r24
+  55 0012 062F      		mov r16,r22
+  56 0014 C42F      		mov r28,r20
+  55:bme280_i2c.c  **** 	uint8_t failed, i;
+  57               		.loc 1 55 2 is_stmt 1 view .LVU2
+  56:bme280_i2c.c  **** 	failed = i2c_start(BME280_SLAVE_ADDRESS+I2C_WRITE);
+  58               		.loc 1 56 2 view .LVU3
+  59               		.loc 1 56 11 is_stmt 0 view .LVU4
+  60 0016 8EEE      		ldi r24,lo8(-18)
+  61               	.LVL1:
+  62               		.loc 1 56 11 view .LVU5
+  63 0018 0E94 0000 		call i2c_start
+  64               	.LVL2:
+  57:bme280_i2c.c  **** 	if (failed){
+  65               		.loc 1 57 2 is_stmt 1 view .LVU6
+  66               		.loc 1 57 5 is_stmt 0 view .LVU7
+  67 001c 8111      		cpse r24,__zero_reg__
+  68 001e 00C0      		rjmp .L5
+  58:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+  59:bme280_i2c.c  **** 	}
+  60:bme280_i2c.c  **** 	
+  61:bme280_i2c.c  **** 	failed |= i2c_write(startaddress); //Registeradresse
+  69               		.loc 1 61 2 is_stmt 1 view .LVU8
+  70               		.loc 1 61 12 is_stmt 0 view .LVU9
+  71 0020 8C2F      		mov r24,r28
+  72               	.LVL3:
+  73               		.loc 1 61 12 view .LVU10
+  74 0022 0E94 0000 		call i2c_write
+  75               	.LVL4:
+  76 0026 C82F      		mov r28,r24
+  77               	.LVL5:
+  62:bme280_i2c.c  **** 	failed |= i2c_rep_start(BME280_SLAVE_ADDRESS+I2C_READ);
+  78               		.loc 1 62 2 is_stmt 1 view .LVU11
+  79               		.loc 1 62 12 is_stmt 0 view .LVU12
+  80 0028 8FEE      		ldi r24,lo8(-17)
+  81               	.LVL6:
+  82               		.loc 1 62 12 view .LVU13
+  83 002a 0E94 0000 		call i2c_rep_start
+  84               	.LVL7:
+  85               		.loc 1 62 9 view .LVU14
+  86 002e C82B      		or r28,r24
+  87               	.LVL8:
+  63:bme280_i2c.c  **** 	if (failed){
+  88               		.loc 1 63 2 is_stmt 1 view .LVU15
+  89               	.LBB4:
+  90               	.LBB5:
+  64:bme280_i2c.c  **** 		i2c_stop();
+  65:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+  66:bme280_i2c.c  **** 	}
+  67:bme280_i2c.c  **** 	
+  68:bme280_i2c.c  **** 	for (i = 0; i < bytes-1; i++){
+  91               		.loc 1 68 9 is_stmt 0 view .LVU16
+  92 0030 D0E0      		ldi r29,0
+  93               		.loc 1 68 23 view .LVU17
+  94 0032 0150      		subi r16,1
+  95 0034 110B      		sbc r17,r17
+  96               	.LVL9:
+  97               		.loc 1 68 23 view .LVU18
+  98               	.LBE5:
+  99               	.LBE4:
+  63:bme280_i2c.c  **** 	if (failed){
+ 100               		.loc 1 63 5 view .LVU19
+ 101 0036 CC23      		tst r28
+ 102 0038 01F0      		breq .L3
+  64:bme280_i2c.c  **** 		i2c_stop();
+ 103               		.loc 1 64 3 is_stmt 1 view .LVU20
+ 104 003a 0E94 0000 		call i2c_stop
+ 105               	.LVL10:
+  65:bme280_i2c.c  **** 	}
+ 106               		.loc 1 65 3 view .LVU21
+ 107               	.L5:
+  58:bme280_i2c.c  **** 	}
+ 108               		.loc 1 58 10 is_stmt 0 view .LVU22
+ 109 003e C1E0      		ldi r28,lo8(1)
+ 110 0040 00C0      		rjmp .L1
+ 111               	.LVL11:
+ 112               	.L4:
+ 113               	.LBB7:
+ 114               	.LBB6:
+  69:bme280_i2c.c  **** 		data[i] = i2c_readAck();
+ 115               		.loc 1 69 3 is_stmt 1 view .LVU23
+ 116               		.loc 1 69 13 is_stmt 0 view .LVU24
+ 117 0042 0E94 0000 		call i2c_readAck
+ 118               	.LVL12:
+ 119               		.loc 1 69 11 view .LVU25
+ 120 0046 F701      		movw r30,r14
+ 121 0048 8083      		st Z,r24
+  68:bme280_i2c.c  **** 		data[i] = i2c_readAck();
+ 122               		.loc 1 68 28 view .LVU26
+ 123 004a DF5F      		subi r29,lo8(-(1))
+ 124               	.LVL13:
+ 125               	.L3:
+  68:bme280_i2c.c  **** 		data[i] = i2c_readAck();
+ 126               		.loc 1 68 28 view .LVU27
+ 127 004c 8D2F      		mov r24,r29
+ 128 004e 90E0      		ldi r25,0
+ 129 0050 7601      		movw r14,r12
+ 130 0052 E80E      		add r14,r24
+ 131 0054 F91E      		adc r15,r25
+  68:bme280_i2c.c  **** 		data[i] = i2c_readAck();
+ 132               		.loc 1 68 2 view .LVU28
+ 133 0056 8017      		cp r24,r16
+ 134 0058 9107      		cpc r25,r17
+ 135 005a 04F0      		brlt .L4
+  70:bme280_i2c.c  **** 	}
+  71:bme280_i2c.c  **** 	data[i] = i2c_readNak();
+ 136               		.loc 1 71 2 is_stmt 1 view .LVU29
+ 137               		.loc 1 71 12 is_stmt 0 view .LVU30
+ 138 005c 0E94 0000 		call i2c_readNak
+ 139               	.LVL14:
+ 140               		.loc 1 71 10 view .LVU31
+ 141 0060 F701      		movw r30,r14
+ 142 0062 8083      		st Z,r24
+  72:bme280_i2c.c  **** 	
+  73:bme280_i2c.c  **** 	i2c_stop();
+ 143               		.loc 1 73 2 is_stmt 1 view .LVU32
+ 144 0064 0E94 0000 		call i2c_stop
+ 145               	.LVL15:
+  74:bme280_i2c.c  **** 	
+  75:bme280_i2c.c  **** 	return 0;
+ 146               		.loc 1 75 2 view .LVU33
+ 147               	.L1:
+ 148               		.loc 1 75 2 is_stmt 0 view .LVU34
+ 149               	.LBE6:
+ 150               	.LBE7:
+  76:bme280_i2c.c  **** }
+ 151               		.loc 1 76 1 view .LVU35
+ 152 0068 8C2F      		mov r24,r28
+ 153               	/* epilogue start */
+ 154 006a DF91      		pop r29
+ 155 006c CF91      		pop r28
+ 156 006e 1F91      		pop r17
+ 157 0070 0F91      		pop r16
+ 158 0072 FF90      		pop r15
+ 159 0074 EF90      		pop r14
+ 160 0076 DF90      		pop r13
+ 161 0078 CF90      		pop r12
+ 162               	.LVL16:
+ 163               		.loc 1 76 1 view .LVU36
+ 164 007a 0895      		ret
+ 165               		.cfi_endproc
+ 166               	.LFE1:
+ 169               	BME280_waitfor_status:
+ 170               	.LVL17:
+ 171               	.LFB2:
+  77:bme280_i2c.c  **** 
+  78:bme280_i2c.c  **** //wartet maximal 100 I2C Buszugriffe auf das Statusbit
+  79:bme280_i2c.c  **** static uint8_t BME280_waitfor_status(uint8_t statusbit){
+ 172               		.loc 1 79 56 is_stmt 1 view -0
+ 173               		.cfi_startproc
+ 174               		.loc 1 79 56 is_stmt 0 view .LVU38
+ 175 007c 0F93      		push r16
+ 176               	.LCFI8:
+ 177               		.cfi_def_cfa_offset 3
+ 178               		.cfi_offset 16, -2
+ 179 007e 1F93      		push r17
+ 180               	.LCFI9:
+ 181               		.cfi_def_cfa_offset 4
+ 182               		.cfi_offset 17, -3
+ 183 0080 CF93      		push r28
+ 184               	.LCFI10:
+ 185               		.cfi_def_cfa_offset 5
+ 186               		.cfi_offset 28, -4
+ 187 0082 DF93      		push r29
+ 188               	.LCFI11:
+ 189               		.cfi_def_cfa_offset 6
+ 190               		.cfi_offset 29, -5
+ 191 0084 0F92      		push __tmp_reg__
+ 192               	.LCFI12:
+ 193               		.cfi_def_cfa_offset 7
+ 194 0086 CDB7      		in r28,__SP_L__
+ 195 0088 DEB7      		in r29,__SP_H__
+ 196               	.LCFI13:
+ 197               		.cfi_def_cfa_register 28
+ 198               	/* prologue: function */
+ 199               	/* frame size = 1 */
+ 200               	/* stack size = 5 */
+ 201               	.L__stack_usage = 5
+ 202 008a 082F      		mov r16,r24
+  80:bme280_i2c.c  **** 	uint8_t i, statusregister;
+ 203               		.loc 1 80 2 is_stmt 1 view .LVU39
+  81:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 204               		.loc 1 81 2 view .LVU40
+ 205               	.LVL18:
+  82:bme280_i2c.c  **** 	for (i = 0; i < 100; i++){
+ 206               		.loc 1 82 2 view .LVU41
+  79:bme280_i2c.c  **** 	uint8_t i, statusregister;
+ 207               		.loc 1 79 56 is_stmt 0 view .LVU42
+ 208 008c 14E6      		ldi r17,lo8(100)
+ 209               	.LVL19:
+ 210               	.L9:
+  83:bme280_i2c.c  **** 		failed |= BME280_read(&statusregister, 1, 0xF3);
+ 211               		.loc 1 83 3 is_stmt 1 view .LVU43
+ 212               		.loc 1 83 13 is_stmt 0 view .LVU44
+ 213 008e 43EF      		ldi r20,lo8(-13)
+ 214 0090 61E0      		ldi r22,lo8(1)
+ 215 0092 CE01      		movw r24,r28
+ 216 0094 0196      		adiw r24,1
+ 217 0096 0E94 0000 		call BME280_read
+ 218               	.LVL20:
+  84:bme280_i2c.c  **** 		if (failed){
+ 219               		.loc 1 84 3 is_stmt 1 view .LVU45
+ 220               		.loc 1 84 6 is_stmt 0 view .LVU46
+ 221 009a 8111      		cpse r24,__zero_reg__
+ 222 009c 00C0      		rjmp .L10
+  85:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+  86:bme280_i2c.c  **** 		}
+  87:bme280_i2c.c  **** 		if ( 0 == (statusregister & statusbit)){
+ 223               		.loc 1 87 3 is_stmt 1 view .LVU47
+ 224               		.loc 1 87 10 is_stmt 0 view .LVU48
+ 225 009e 8981      		ldd r24,Y+1
+ 226               	.LVL21:
+ 227               		.loc 1 87 10 view .LVU49
+ 228 00a0 8023      		and r24,r16
+ 229               		.loc 1 87 6 view .LVU50
+ 230 00a2 01F0      		breq .L7
+ 231               	.LVL22:
+ 232               		.loc 1 87 6 view .LVU51
+ 233 00a4 1150      		subi r17,lo8(-(-1))
+ 234               	.LVL23:
+  82:bme280_i2c.c  **** 		failed |= BME280_read(&statusregister, 1, 0xF3);
+ 235               		.loc 1 82 2 discriminator 2 view .LVU52
+ 236 00a6 01F4      		brne .L9
+  88:bme280_i2c.c  **** 			return 0;
+  89:bme280_i2c.c  **** 		}
+  90:bme280_i2c.c  **** 	}
+  91:bme280_i2c.c  **** 	return BME280_STAT_TIMEOUT;
+ 237               		.loc 1 91 9 view .LVU53
+ 238 00a8 82E0      		ldi r24,lo8(2)
+ 239               	.LVL24:
+ 240               	.L7:
+ 241               	/* epilogue start */
+  92:bme280_i2c.c  **** }
+ 242               		.loc 1 92 1 view .LVU54
+ 243 00aa 0F90      		pop __tmp_reg__
+ 244 00ac DF91      		pop r29
+ 245 00ae CF91      		pop r28
+ 246 00b0 1F91      		pop r17
+ 247 00b2 0F91      		pop r16
+ 248               	.LVL25:
+ 249               		.loc 1 92 1 view .LVU55
+ 250 00b4 0895      		ret
+ 251               	.LVL26:
+ 252               	.L10:
+  85:bme280_i2c.c  **** 		}
+ 253               		.loc 1 85 11 view .LVU56
+ 254 00b6 81E0      		ldi r24,lo8(1)
+ 255               	.LVL27:
+  85:bme280_i2c.c  **** 		}
+ 256               		.loc 1 85 11 view .LVU57
+ 257 00b8 00C0      		rjmp .L7
+ 258               		.cfi_endproc
+ 259               	.LFE2:
+ 262               	BME280_write.constprop.2:
+ 263               	.LVL28:
+ 264               	.LFB15:
+  33:bme280_i2c.c  **** 	uint8_t failed, i;
+ 265               		.loc 1 33 16 is_stmt 1 view -0
+ 266               		.cfi_startproc
+  33:bme280_i2c.c  **** 	uint8_t failed, i;
+ 267               		.loc 1 33 16 is_stmt 0 view .LVU59
+ 268 00ba 0F93      		push r16
+ 269               	.LCFI14:
+ 270               		.cfi_def_cfa_offset 3
+ 271               		.cfi_offset 16, -2
+ 272 00bc 1F93      		push r17
+ 273               	.LCFI15:
+ 274               		.cfi_def_cfa_offset 4
+ 275               		.cfi_offset 17, -3
+ 276 00be CF93      		push r28
+ 277               	.LCFI16:
+ 278               		.cfi_def_cfa_offset 5
+ 279               		.cfi_offset 28, -4
+ 280               	/* prologue: function */
+ 281               	/* frame size = 0 */
+ 282               	/* stack size = 3 */
+ 283               	.L__stack_usage = 3
+ 284 00c0 8C01      		movw r16,r24
+ 285 00c2 C62F      		mov r28,r22
+ 286               	.LVL29:
+  34:bme280_i2c.c  **** 	failed = i2c_start(BME280_SLAVE_ADDRESS+I2C_WRITE);
+ 287               		.loc 1 34 2 is_stmt 1 view .LVU60
+  35:bme280_i2c.c  **** 	if (failed){
+ 288               		.loc 1 35 2 view .LVU61
+  35:bme280_i2c.c  **** 	if (failed){
+ 289               		.loc 1 35 11 is_stmt 0 view .LVU62
+ 290 00c4 8EEE      		ldi r24,lo8(-18)
+ 291               	.LVL30:
+  35:bme280_i2c.c  **** 	if (failed){
+ 292               		.loc 1 35 11 view .LVU63
+ 293 00c6 0E94 0000 		call i2c_start
+ 294               	.LVL31:
+  36:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 295               		.loc 1 36 2 is_stmt 1 view .LVU64
+  36:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 296               		.loc 1 36 5 is_stmt 0 view .LVU65
+ 297 00ca 8111      		cpse r24,__zero_reg__
+ 298 00cc 00C0      		rjmp .L18
+ 299               	.LVL32:
+ 300               	.LBB10:
+ 301               	.LBB11:
+  41:bme280_i2c.c  **** 		failed |= i2c_write(data[i]);
+ 302               		.loc 1 41 3 is_stmt 1 view .LVU66
+  41:bme280_i2c.c  **** 		failed |= i2c_write(data[i]);
+ 303               		.loc 1 41 13 is_stmt 0 view .LVU67
+ 304 00ce 8C2F      		mov r24,r28
+ 305               	.LVL33:
+  41:bme280_i2c.c  **** 		failed |= i2c_write(data[i]);
+ 306               		.loc 1 41 13 view .LVU68
+ 307 00d0 0E94 0000 		call i2c_write
+ 308               	.LVL34:
+ 309 00d4 C82F      		mov r28,r24
+ 310               	.LVL35:
+  42:bme280_i2c.c  **** 		if (failed){
+ 311               		.loc 1 42 3 is_stmt 1 view .LVU69
+  42:bme280_i2c.c  **** 		if (failed){
+ 312               		.loc 1 42 13 is_stmt 0 view .LVU70
+ 313 00d6 F801      		movw r30,r16
+ 314 00d8 8081      		ld r24,Z
+ 315               	.LVL36:
+  42:bme280_i2c.c  **** 		if (failed){
+ 316               		.loc 1 42 13 view .LVU71
+ 317 00da 0E94 0000 		call i2c_write
+ 318               	.LVL37:
+  42:bme280_i2c.c  **** 		if (failed){
+ 319               		.loc 1 42 10 view .LVU72
+ 320 00de C82B      		or r28,r24
+ 321               	.LVL38:
+  43:bme280_i2c.c  **** 			i2c_stop();
+ 322               		.loc 1 43 3 is_stmt 1 view .LVU73
+  43:bme280_i2c.c  **** 			i2c_stop();
+ 323               		.loc 1 43 6 is_stmt 0 view .LVU74
+ 324 00e0 01F0      		breq .L17
+  44:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 325               		.loc 1 44 4 is_stmt 1 view .LVU75
+ 326 00e2 0E94 0000 		call i2c_stop
+ 327               	.LVL39:
+  45:bme280_i2c.c  **** 		}
+ 328               		.loc 1 45 4 view .LVU76
+ 329               	.L18:
+  45:bme280_i2c.c  **** 		}
+ 330               		.loc 1 45 4 is_stmt 0 view .LVU77
+ 331               	.LBE11:
+ 332               	.LBE10:
+  37:bme280_i2c.c  **** 	}
+ 333               		.loc 1 37 10 view .LVU78
+ 334 00e6 C1E0      		ldi r28,lo8(1)
+ 335 00e8 00C0      		rjmp .L15
+ 336               	.LVL40:
+ 337               	.L17:
+ 338               	.LBB13:
+ 339               	.LBB12:
+  49:bme280_i2c.c  **** 	
+ 340               		.loc 1 49 2 is_stmt 1 view .LVU79
+ 341 00ea 0E94 0000 		call i2c_stop
+ 342               	.LVL41:
+  51:bme280_i2c.c  **** }
+ 343               		.loc 1 51 2 view .LVU80
+ 344               	.L15:
+  51:bme280_i2c.c  **** }
+ 345               		.loc 1 51 2 is_stmt 0 view .LVU81
+ 346               	.LBE12:
+ 347               	.LBE13:
+  52:bme280_i2c.c  **** 
+ 348               		.loc 1 52 1 view .LVU82
+ 349 00ee 8C2F      		mov r24,r28
+ 350               	/* epilogue start */
+ 351 00f0 CF91      		pop r28
+ 352 00f2 1F91      		pop r17
+ 353 00f4 0F91      		pop r16
+ 354               	.LVL42:
+  52:bme280_i2c.c  **** 
+ 355               		.loc 1 52 1 view .LVU83
+ 356 00f6 0895      		ret
+ 357               		.cfi_endproc
+ 358               	.LFE15:
+ 360               	.global	BME280_init
+ 362               	BME280_init:
+ 363               	.LFB3:
+  93:bme280_i2c.c  **** 
+  94:bme280_i2c.c  **** uint8_t BME280_init(void){
+ 364               		.loc 1 94 26 is_stmt 1 view -0
+ 365               		.cfi_startproc
+ 366 00f8 1F93      		push r17
+ 367               	.LCFI17:
+ 368               		.cfi_def_cfa_offset 3
+ 369               		.cfi_offset 17, -2
+ 370 00fa CF93      		push r28
+ 371               	.LCFI18:
+ 372               		.cfi_def_cfa_offset 4
+ 373               		.cfi_offset 28, -3
+ 374 00fc DF93      		push r29
+ 375               	.LCFI19:
+ 376               		.cfi_def_cfa_offset 5
+ 377               		.cfi_offset 29, -4
+ 378 00fe CDB7      		in r28,__SP_L__
+ 379 0100 DEB7      		in r29,__SP_H__
+ 380               	.LCFI20:
+ 381               		.cfi_def_cfa_register 28
+ 382 0102 A297      		sbiw r28,34
+ 383               	.LCFI21:
+ 384               		.cfi_def_cfa_offset 39
+ 385 0104 0FB6      		in __tmp_reg__,__SREG__
+ 386 0106 F894      		cli
+ 387 0108 DEBF      		out __SP_H__,r29
+ 388 010a 0FBE      		out __SREG__,__tmp_reg__
+ 389 010c CDBF      		out __SP_L__,r28
+ 390               	/* prologue: function */
+ 391               	/* frame size = 34 */
+ 392               	/* stack size = 37 */
+ 393               	.L__stack_usage = 37
+  95:bme280_i2c.c  **** 	
+  96:bme280_i2c.c  **** 	uint8_t calbytes_low[26];
+ 394               		.loc 1 96 2 view .LVU85
+  97:bme280_i2c.c  **** 	uint8_t calbytes_high[7];
+ 395               		.loc 1 97 2 view .LVU86
+  98:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 396               		.loc 1 98 2 view .LVU87
+ 397               	.LVL43:
+  99:bme280_i2c.c  **** 	uint8_t reset = 0xB6;
+ 398               		.loc 1 99 2 view .LVU88
+ 399               		.loc 1 99 10 is_stmt 0 view .LVU89
+ 400 010e 86EB      		ldi r24,lo8(-74)
+ 401 0110 8AA3      		std Y+34,r24
+ 100:bme280_i2c.c  **** 	
+ 101:bme280_i2c.c  **** 	failed |= BME280_write(&reset, 1, 0xE0);
+ 402               		.loc 1 101 2 is_stmt 1 view .LVU90
+ 403               		.loc 1 101 12 is_stmt 0 view .LVU91
+ 404 0112 60EE      		ldi r22,lo8(-32)
+ 405 0114 CE01      		movw r24,r28
+ 406 0116 8296      		adiw r24,34
+ 407 0118 0E94 0000 		call BME280_write.constprop.2
+ 408               	.LVL44:
+ 102:bme280_i2c.c  **** 	if (failed){
+ 409               		.loc 1 102 2 is_stmt 1 view .LVU92
+ 410               		.loc 1 102 5 is_stmt 0 view .LVU93
+ 411 011c 8823      		tst r24
+ 412 011e 01F0      		breq .L20
+ 413               	.L22:
+ 103:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 414               		.loc 1 103 10 view .LVU94
+ 415 0120 81E0      		ldi r24,lo8(1)
+ 416               	.LVL45:
+ 417               	.L19:
+ 418               	/* epilogue start */
+ 104:bme280_i2c.c  **** 	}
+ 105:bme280_i2c.c  **** 	
+ 106:bme280_i2c.c  **** 	//Kalibierungsregister lesen
+ 107:bme280_i2c.c  **** 	failed |= BME280_waitfor_status(BME_280_STAT_IM_UPDATE);
+ 108:bme280_i2c.c  **** 	if (failed){
+ 109:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 110:bme280_i2c.c  **** 	}
+ 111:bme280_i2c.c  **** 	failed |= BME280_read(calbytes_low, 26, 0x88);
+ 112:bme280_i2c.c  **** 	failed |= BME280_read(calbytes_high, 7, 0xE1);
+ 113:bme280_i2c.c  **** 	if (failed){
+ 114:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 115:bme280_i2c.c  **** 	}
+ 116:bme280_i2c.c  **** 	
+ 117:bme280_i2c.c  **** 	dig_T1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[1])) <<8) | calbytes_low[0]);	
+ 118:bme280_i2c.c  **** 	dig_T2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[3])) <<8) | calbytes_low[2]);	
+ 119:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 120:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 121:bme280_i2c.c  **** 	dig_P2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[9])) <<8) | calbytes_low[8]);	
+ 122:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 123:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 124:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 125:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 126:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 127:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 128:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 129:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 130:bme280_i2c.c  **** 	
+ 131:bme280_i2c.c  **** 	dig_H2 = (int16_t)((((int16_t)((int8_t)calbytes_high[1])) <<8)| calbytes_high[0]);	
+ 132:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 133:bme280_i2c.c  **** 	dig_H4 = (int16_t)((((int16_t)((int8_t)calbytes_high[3])) <<4) |(((uint8_t)0x0F) & calbytes_high[4
+ 134:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 135:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 136:bme280_i2c.c  **** 	
+ 137:bme280_i2c.c  **** 	return 0;
+ 138:bme280_i2c.c  **** }
+ 419               		.loc 1 138 1 view .LVU95
+ 420 0122 A296      		adiw r28,34
+ 421 0124 0FB6      		in __tmp_reg__,__SREG__
+ 422 0126 F894      		cli
+ 423 0128 DEBF      		out __SP_H__,r29
+ 424 012a 0FBE      		out __SREG__,__tmp_reg__
+ 425 012c CDBF      		out __SP_L__,r28
+ 426 012e DF91      		pop r29
+ 427 0130 CF91      		pop r28
+ 428 0132 1F91      		pop r17
+ 429 0134 0895      		ret
+ 430               	.LVL46:
+ 431               	.L20:
+ 107:bme280_i2c.c  **** 	if (failed){
+ 432               		.loc 1 107 2 is_stmt 1 view .LVU96
+ 107:bme280_i2c.c  **** 	if (failed){
+ 433               		.loc 1 107 12 is_stmt 0 view .LVU97
+ 434 0136 81E0      		ldi r24,lo8(1)
+ 435               	.LVL47:
+ 107:bme280_i2c.c  **** 	if (failed){
+ 436               		.loc 1 107 12 view .LVU98
+ 437 0138 0E94 0000 		call BME280_waitfor_status
+ 438               	.LVL48:
+ 108:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 439               		.loc 1 108 2 is_stmt 1 view .LVU99
+ 108:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 440               		.loc 1 108 5 is_stmt 0 view .LVU100
+ 441 013c 8111      		cpse r24,__zero_reg__
+ 442 013e 00C0      		rjmp .L22
+ 111:bme280_i2c.c  **** 	failed |= BME280_read(calbytes_high, 7, 0xE1);
+ 443               		.loc 1 111 2 is_stmt 1 view .LVU101
+ 111:bme280_i2c.c  **** 	failed |= BME280_read(calbytes_high, 7, 0xE1);
+ 444               		.loc 1 111 12 is_stmt 0 view .LVU102
+ 445 0140 48E8      		ldi r20,lo8(-120)
+ 446 0142 6AE1      		ldi r22,lo8(26)
+ 447 0144 CE01      		movw r24,r28
+ 448               	.LVL49:
+ 111:bme280_i2c.c  **** 	failed |= BME280_read(calbytes_high, 7, 0xE1);
+ 449               		.loc 1 111 12 view .LVU103
+ 450 0146 0196      		adiw r24,1
+ 451 0148 0E94 0000 		call BME280_read
+ 452               	.LVL50:
+ 453 014c 182F      		mov r17,r24
+ 454               	.LVL51:
+ 112:bme280_i2c.c  **** 	if (failed){
+ 455               		.loc 1 112 2 is_stmt 1 view .LVU104
+ 112:bme280_i2c.c  **** 	if (failed){
+ 456               		.loc 1 112 12 is_stmt 0 view .LVU105
+ 457 014e 41EE      		ldi r20,lo8(-31)
+ 458 0150 67E0      		ldi r22,lo8(7)
+ 459 0152 CE01      		movw r24,r28
+ 460 0154 4B96      		adiw r24,27
+ 461 0156 0E94 0000 		call BME280_read
+ 462               	.LVL52:
+ 112:bme280_i2c.c  **** 	if (failed){
+ 463               		.loc 1 112 9 view .LVU106
+ 464 015a 812B      		or r24,r17
+ 465               	.LVL53:
+ 113:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 466               		.loc 1 113 2 is_stmt 1 view .LVU107
+ 113:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 467               		.loc 1 113 5 is_stmt 0 view .LVU108
+ 468 015c 01F4      		brne .L22
+ 117:bme280_i2c.c  **** 	dig_T2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[3])) <<8) | calbytes_low[2]);	
+ 469               		.loc 1 117 2 is_stmt 1 view .LVU109
+ 117:bme280_i2c.c  **** 	dig_T2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[3])) <<8) | calbytes_low[2]);	
+ 470               		.loc 1 117 9 is_stmt 0 view .LVU110
+ 471 015e 2981      		ldd r18,Y+1
+ 472 0160 3A81      		ldd r19,Y+2
+ 473 0162 3093 0000 		sts dig_T1+1,r19
+ 474 0166 2093 0000 		sts dig_T1,r18
+ 118:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 475               		.loc 1 118 2 is_stmt 1 view .LVU111
+ 118:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 476               		.loc 1 118 24 is_stmt 0 view .LVU112
+ 477 016a 9C81      		ldd r25,Y+4
+ 118:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 478               		.loc 1 118 81 view .LVU113
+ 479 016c 2B81      		ldd r18,Y+3
+ 118:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 480               		.loc 1 118 11 view .LVU114
+ 481 016e 392F      		mov r19,r25
+ 118:bme280_i2c.c  **** 	dig_T3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[5])) <<8) | calbytes_low[4]);	
+ 482               		.loc 1 118 9 view .LVU115
+ 483 0170 3093 0000 		sts dig_T2+1,r19
+ 484 0174 2093 0000 		sts dig_T2,r18
+ 119:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 485               		.loc 1 119 2 is_stmt 1 view .LVU116
+ 119:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 486               		.loc 1 119 24 is_stmt 0 view .LVU117
+ 487 0178 9E81      		ldd r25,Y+6
+ 119:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 488               		.loc 1 119 81 view .LVU118
+ 489 017a 2D81      		ldd r18,Y+5
+ 119:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 490               		.loc 1 119 11 view .LVU119
+ 491 017c 392F      		mov r19,r25
+ 119:bme280_i2c.c  **** 	dig_P1 = (uint16_t)((((uint16_t)((uint8_t)calbytes_low[7])) <<8) | calbytes_low[6]);	
+ 492               		.loc 1 119 9 view .LVU120
+ 493 017e 3093 0000 		sts dig_T3+1,r19
+ 494 0182 2093 0000 		sts dig_T3,r18
+ 120:bme280_i2c.c  **** 	dig_P2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[9])) <<8) | calbytes_low[8]);	
+ 495               		.loc 1 120 2 is_stmt 1 view .LVU121
+ 120:bme280_i2c.c  **** 	dig_P2 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[9])) <<8) | calbytes_low[8]);	
+ 496               		.loc 1 120 9 is_stmt 0 view .LVU122
+ 497 0186 2F81      		ldd r18,Y+7
+ 498 0188 3885      		ldd r19,Y+8
+ 499 018a 3093 0000 		sts dig_P1+1,r19
+ 500 018e 2093 0000 		sts dig_P1,r18
+ 121:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 501               		.loc 1 121 2 is_stmt 1 view .LVU123
+ 121:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 502               		.loc 1 121 24 is_stmt 0 view .LVU124
+ 503 0192 9A85      		ldd r25,Y+10
+ 121:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 504               		.loc 1 121 81 view .LVU125
+ 505 0194 2985      		ldd r18,Y+9
+ 121:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 506               		.loc 1 121 11 view .LVU126
+ 507 0196 392F      		mov r19,r25
+ 121:bme280_i2c.c  **** 	dig_P3 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[11])) <<8)| calbytes_low[10]);	
+ 508               		.loc 1 121 9 view .LVU127
+ 509 0198 3093 0000 		sts dig_P2+1,r19
+ 510 019c 2093 0000 		sts dig_P2,r18
+ 122:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 511               		.loc 1 122 2 is_stmt 1 view .LVU128
+ 122:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 512               		.loc 1 122 24 is_stmt 0 view .LVU129
+ 513 01a0 9C85      		ldd r25,Y+12
+ 122:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 514               		.loc 1 122 81 view .LVU130
+ 515 01a2 2B85      		ldd r18,Y+11
+ 122:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 516               		.loc 1 122 11 view .LVU131
+ 517 01a4 392F      		mov r19,r25
+ 122:bme280_i2c.c  **** 	dig_P4 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[13])) <<8)| calbytes_low[12]);	
+ 518               		.loc 1 122 9 view .LVU132
+ 519 01a6 3093 0000 		sts dig_P3+1,r19
+ 520 01aa 2093 0000 		sts dig_P3,r18
+ 123:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 521               		.loc 1 123 2 is_stmt 1 view .LVU133
+ 123:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 522               		.loc 1 123 24 is_stmt 0 view .LVU134
+ 523 01ae 9E85      		ldd r25,Y+14
+ 123:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 524               		.loc 1 123 81 view .LVU135
+ 525 01b0 2D85      		ldd r18,Y+13
+ 123:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 526               		.loc 1 123 11 view .LVU136
+ 527 01b2 392F      		mov r19,r25
+ 123:bme280_i2c.c  **** 	dig_P5 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[15])) <<8)| calbytes_low[14]);	
+ 528               		.loc 1 123 9 view .LVU137
+ 529 01b4 3093 0000 		sts dig_P4+1,r19
+ 530 01b8 2093 0000 		sts dig_P4,r18
+ 124:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 531               		.loc 1 124 2 is_stmt 1 view .LVU138
+ 124:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 532               		.loc 1 124 24 is_stmt 0 view .LVU139
+ 533 01bc 9889      		ldd r25,Y+16
+ 124:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 534               		.loc 1 124 81 view .LVU140
+ 535 01be 2F85      		ldd r18,Y+15
+ 124:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 536               		.loc 1 124 11 view .LVU141
+ 537 01c0 392F      		mov r19,r25
+ 124:bme280_i2c.c  **** 	dig_P6 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[17])) <<8)| calbytes_low[16]);	
+ 538               		.loc 1 124 9 view .LVU142
+ 539 01c2 3093 0000 		sts dig_P5+1,r19
+ 540 01c6 2093 0000 		sts dig_P5,r18
+ 125:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 541               		.loc 1 125 2 is_stmt 1 view .LVU143
+ 125:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 542               		.loc 1 125 24 is_stmt 0 view .LVU144
+ 543 01ca 9A89      		ldd r25,Y+18
+ 125:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 544               		.loc 1 125 81 view .LVU145
+ 545 01cc 2989      		ldd r18,Y+17
+ 125:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 546               		.loc 1 125 11 view .LVU146
+ 547 01ce 392F      		mov r19,r25
+ 125:bme280_i2c.c  **** 	dig_P7 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[19])) <<8)| calbytes_low[18]);	
+ 548               		.loc 1 125 9 view .LVU147
+ 549 01d0 3093 0000 		sts dig_P6+1,r19
+ 550 01d4 2093 0000 		sts dig_P6,r18
+ 126:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 551               		.loc 1 126 2 is_stmt 1 view .LVU148
+ 126:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 552               		.loc 1 126 24 is_stmt 0 view .LVU149
+ 553 01d8 9C89      		ldd r25,Y+20
+ 126:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 554               		.loc 1 126 81 view .LVU150
+ 555 01da 2B89      		ldd r18,Y+19
+ 126:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 556               		.loc 1 126 11 view .LVU151
+ 557 01dc 392F      		mov r19,r25
+ 126:bme280_i2c.c  **** 	dig_P8 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[21])) <<8)| calbytes_low[20]);	
+ 558               		.loc 1 126 9 view .LVU152
+ 559 01de 3093 0000 		sts dig_P7+1,r19
+ 560 01e2 2093 0000 		sts dig_P7,r18
+ 127:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 561               		.loc 1 127 2 is_stmt 1 view .LVU153
+ 127:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 562               		.loc 1 127 24 is_stmt 0 view .LVU154
+ 563 01e6 9E89      		ldd r25,Y+22
+ 127:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 564               		.loc 1 127 81 view .LVU155
+ 565 01e8 2D89      		ldd r18,Y+21
+ 127:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 566               		.loc 1 127 11 view .LVU156
+ 567 01ea 392F      		mov r19,r25
+ 127:bme280_i2c.c  **** 	dig_P9 = (int16_t) ((((int16_t) ((int8_t) calbytes_low[23])) <<8)| calbytes_low[22]);	
+ 568               		.loc 1 127 9 view .LVU157
+ 569 01ec 3093 0000 		sts dig_P8+1,r19
+ 570 01f0 2093 0000 		sts dig_P8,r18
+ 128:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 571               		.loc 1 128 2 is_stmt 1 view .LVU158
+ 128:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 572               		.loc 1 128 24 is_stmt 0 view .LVU159
+ 573 01f4 988D      		ldd r25,Y+24
+ 128:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 574               		.loc 1 128 81 view .LVU160
+ 575 01f6 2F89      		ldd r18,Y+23
+ 128:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 576               		.loc 1 128 11 view .LVU161
+ 577 01f8 392F      		mov r19,r25
+ 128:bme280_i2c.c  **** 	dig_H1 = calbytes_low[25];
+ 578               		.loc 1 128 9 view .LVU162
+ 579 01fa 3093 0000 		sts dig_P9+1,r19
+ 580 01fe 2093 0000 		sts dig_P9,r18
+ 129:bme280_i2c.c  **** 	
+ 581               		.loc 1 129 2 is_stmt 1 view .LVU163
+ 129:bme280_i2c.c  **** 	
+ 582               		.loc 1 129 9 is_stmt 0 view .LVU164
+ 583 0202 9A8D      		ldd r25,Y+26
+ 584 0204 9093 0000 		sts dig_H1,r25
+ 131:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 585               		.loc 1 131 2 is_stmt 1 view .LVU165
+ 131:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 586               		.loc 1 131 23 is_stmt 0 view .LVU166
+ 587 0208 9C8D      		ldd r25,Y+28
+ 131:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 588               		.loc 1 131 79 view .LVU167
+ 589 020a 2B8D      		ldd r18,Y+27
+ 131:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 590               		.loc 1 131 11 view .LVU168
+ 591 020c 392F      		mov r19,r25
+ 131:bme280_i2c.c  **** 	dig_H3 = calbytes_high[2];	
+ 592               		.loc 1 131 9 view .LVU169
+ 593 020e 3093 0000 		sts dig_H2+1,r19
+ 594 0212 2093 0000 		sts dig_H2,r18
+ 132:bme280_i2c.c  **** 	dig_H4 = (int16_t)((((int16_t)((int8_t)calbytes_high[3])) <<4) |(((uint8_t)0x0F) & calbytes_high[4
+ 595               		.loc 1 132 2 is_stmt 1 view .LVU170
+ 132:bme280_i2c.c  **** 	dig_H4 = (int16_t)((((int16_t)((int8_t)calbytes_high[3])) <<4) |(((uint8_t)0x0F) & calbytes_high[4
+ 596               		.loc 1 132 9 is_stmt 0 view .LVU171
+ 597 0216 9D8D      		ldd r25,Y+29
+ 598 0218 9093 0000 		sts dig_H3,r25
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 599               		.loc 1 133 2 is_stmt 1 view .LVU172
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 600               		.loc 1 133 98 is_stmt 0 view .LVU173
+ 601 021c 9F8D      		ldd r25,Y+31
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 602               		.loc 1 133 23 view .LVU174
+ 603 021e 2E8D      		ldd r18,Y+30
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 604               		.loc 1 133 60 view .LVU175
+ 605 0220 40E1      		ldi r20,lo8(16)
+ 606 0222 2402      		muls r18,r20
+ 607 0224 9001      		movw r18,r0
+ 608 0226 1124      		clr __zero_reg__
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 609               		.loc 1 133 83 view .LVU176
+ 610 0228 492F      		mov r20,r25
+ 611 022a 4F70      		andi r20,lo8(15)
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 612               		.loc 1 133 11 view .LVU177
+ 613 022c 242B      		or r18,r20
+ 133:bme280_i2c.c  **** 	dig_H5 = (int16_t)((((int16_t)((int8_t)calbytes_high[5])) <<4) |(calbytes_high[4] >>4));	
+ 614               		.loc 1 133 9 view .LVU178
+ 615 022e 3093 0000 		sts dig_H4+1,r19
+ 616 0232 2093 0000 		sts dig_H4,r18
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 617               		.loc 1 134 2 is_stmt 1 view .LVU179
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 618               		.loc 1 134 23 is_stmt 0 view .LVU180
+ 619 0236 28A1      		ldd r18,Y+32
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 620               		.loc 1 134 60 view .LVU181
+ 621 0238 40E1      		ldi r20,lo8(16)
+ 622 023a 2402      		muls r18,r20
+ 623 023c 9001      		movw r18,r0
+ 624 023e 1124      		clr __zero_reg__
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 625               		.loc 1 134 84 view .LVU182
+ 626 0240 9295      		swap r25
+ 627 0242 9F70      		andi r25,lo8(15)
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 628               		.loc 1 134 11 view .LVU183
+ 629 0244 292B      		or r18,r25
+ 134:bme280_i2c.c  **** 	dig_H6 = (int8_t)calbytes_high[6];
+ 630               		.loc 1 134 9 view .LVU184
+ 631 0246 3093 0000 		sts dig_H5+1,r19
+ 632 024a 2093 0000 		sts dig_H5,r18
+ 135:bme280_i2c.c  **** 	
+ 633               		.loc 1 135 2 is_stmt 1 view .LVU185
+ 135:bme280_i2c.c  **** 	
+ 634               		.loc 1 135 9 is_stmt 0 view .LVU186
+ 635 024e 99A1      		ldd r25,Y+33
+ 636 0250 9093 0000 		sts dig_H6,r25
+ 137:bme280_i2c.c  **** }
+ 637               		.loc 1 137 2 is_stmt 1 view .LVU187
+ 137:bme280_i2c.c  **** }
+ 638               		.loc 1 137 9 is_stmt 0 view .LVU188
+ 639 0254 00C0      		rjmp .L19
+ 640               		.cfi_endproc
+ 641               	.LFE3:
+ 643               	.global	BME280_set_filter
+ 645               	BME280_set_filter:
+ 646               	.LVL54:
+ 647               	.LFB4:
+ 139:bme280_i2c.c  **** 
+ 140:bme280_i2c.c  **** uint8_t BME280_set_filter(uint8_t filter_coeff){
+ 648               		.loc 1 140 48 is_stmt 1 view -0
+ 649               		.cfi_startproc
+ 650               		.loc 1 140 48 is_stmt 0 view .LVU190
+ 651 0256 1F93      		push r17
+ 652               	.LCFI22:
+ 653               		.cfi_def_cfa_offset 3
+ 654               		.cfi_offset 17, -2
+ 655 0258 CF93      		push r28
+ 656               	.LCFI23:
+ 657               		.cfi_def_cfa_offset 4
+ 658               		.cfi_offset 28, -3
+ 659 025a DF93      		push r29
+ 660               	.LCFI24:
+ 661               		.cfi_def_cfa_offset 5
+ 662               		.cfi_offset 29, -4
+ 663 025c 0F92      		push __tmp_reg__
+ 664               	.LCFI25:
+ 665               		.cfi_def_cfa_offset 6
+ 666 025e CDB7      		in r28,__SP_L__
+ 667 0260 DEB7      		in r29,__SP_H__
+ 668               	.LCFI26:
+ 669               		.cfi_def_cfa_register 28
+ 670               	/* prologue: function */
+ 671               	/* frame size = 1 */
+ 672               	/* stack size = 4 */
+ 673               	.L__stack_usage = 4
+ 674 0262 182F      		mov r17,r24
+ 141:bme280_i2c.c  **** 	uint8_t config_register;
+ 675               		.loc 1 141 2 is_stmt 1 view .LVU191
+ 142:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 676               		.loc 1 142 2 view .LVU192
+ 677               	.LVL55:
+ 143:bme280_i2c.c  **** 	
+ 144:bme280_i2c.c  **** 	failed |= BME280_read(&config_register, 1, 0xF5);
+ 678               		.loc 1 144 2 view .LVU193
+ 679               		.loc 1 144 12 is_stmt 0 view .LVU194
+ 680 0264 45EF      		ldi r20,lo8(-11)
+ 681 0266 61E0      		ldi r22,lo8(1)
+ 682 0268 CE01      		movw r24,r28
+ 683               	.LVL56:
+ 684               		.loc 1 144 12 view .LVU195
+ 685 026a 0196      		adiw r24,1
+ 686 026c 0E94 0000 		call BME280_read
+ 687               	.LVL57:
+ 145:bme280_i2c.c  **** 	if (failed){
+ 688               		.loc 1 145 2 is_stmt 1 view .LVU196
+ 146:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 689               		.loc 1 146 10 is_stmt 0 view .LVU197
+ 690 0270 91E0      		ldi r25,lo8(1)
+ 145:bme280_i2c.c  **** 	if (failed){
+ 691               		.loc 1 145 5 view .LVU198
+ 692 0272 8111      		cpse r24,__zero_reg__
+ 693 0274 00C0      		rjmp .L23
+ 147:bme280_i2c.c  **** 	}
+ 148:bme280_i2c.c  **** 	
+ 149:bme280_i2c.c  **** 	config_register &= 0xE3;
+ 694               		.loc 1 149 2 is_stmt 1 view .LVU199
+ 150:bme280_i2c.c  **** 	config_register |= (filter_coeff << 2);
+ 695               		.loc 1 150 2 view .LVU200
+ 149:bme280_i2c.c  **** 	config_register |= (filter_coeff << 2);
+ 696               		.loc 1 149 18 is_stmt 0 view .LVU201
+ 697 0276 8981      		ldd r24,Y+1
+ 698               	.LVL58:
+ 149:bme280_i2c.c  **** 	config_register |= (filter_coeff << 2);
+ 699               		.loc 1 149 18 view .LVU202
+ 700 0278 837E      		andi r24,lo8(-29)
+ 701               		.loc 1 150 35 view .LVU203
+ 702 027a 94E0      		ldi r25,lo8(4)
+ 703 027c 199F      		mul r17,r25
+ 704 027e 9001      		movw r18,r0
+ 705 0280 1124      		clr __zero_reg__
+ 706               		.loc 1 150 18 view .LVU204
+ 707 0282 822B      		or r24,r18
+ 708 0284 8983      		std Y+1,r24
+ 151:bme280_i2c.c  **** 	
+ 152:bme280_i2c.c  **** 	failed |= BME280_write(&config_register, 1, 0xF5);
+ 709               		.loc 1 152 2 is_stmt 1 view .LVU205
+ 710               		.loc 1 152 12 is_stmt 0 view .LVU206
+ 711 0286 65EF      		ldi r22,lo8(-11)
+ 712 0288 CE01      		movw r24,r28
+ 713 028a 0196      		adiw r24,1
+ 714 028c 0E94 0000 		call BME280_write.constprop.2
+ 715               	.LVL59:
+ 153:bme280_i2c.c  **** 	if (failed){
+ 716               		.loc 1 153 2 is_stmt 1 view .LVU207
+ 717               		.loc 1 153 5 is_stmt 0 view .LVU208
+ 718 0290 91E0      		ldi r25,lo8(1)
+ 719 0292 8111      		cpse r24,__zero_reg__
+ 720 0294 00C0      		rjmp .L23
+ 721 0296 90E0      		ldi r25,0
+ 722               	.L23:
+ 154:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 155:bme280_i2c.c  **** 	}
+ 156:bme280_i2c.c  **** 	
+ 157:bme280_i2c.c  **** 	return 0;
+ 158:bme280_i2c.c  **** }
+ 723               		.loc 1 158 1 view .LVU209
+ 724 0298 892F      		mov r24,r25
+ 725               	.LVL60:
+ 726               	/* epilogue start */
+ 727               		.loc 1 158 1 view .LVU210
+ 728 029a 0F90      		pop __tmp_reg__
+ 729 029c DF91      		pop r29
+ 730 029e CF91      		pop r28
+ 731 02a0 1F91      		pop r17
+ 732               	.LVL61:
+ 733               		.loc 1 158 1 view .LVU211
+ 734 02a2 0895      		ret
+ 735               		.cfi_endproc
+ 736               	.LFE4:
+ 738               	.global	BME280_set_standby
+ 740               	BME280_set_standby:
+ 741               	.LVL62:
+ 742               	.LFB5:
+ 159:bme280_i2c.c  **** 
+ 160:bme280_i2c.c  **** uint8_t BME280_set_standby(uint8_t t_standby){
+ 743               		.loc 1 160 46 is_stmt 1 view -0
+ 744               		.cfi_startproc
+ 745               		.loc 1 160 46 is_stmt 0 view .LVU213
+ 746 02a4 1F93      		push r17
+ 747               	.LCFI27:
+ 748               		.cfi_def_cfa_offset 3
+ 749               		.cfi_offset 17, -2
+ 750 02a6 CF93      		push r28
+ 751               	.LCFI28:
+ 752               		.cfi_def_cfa_offset 4
+ 753               		.cfi_offset 28, -3
+ 754 02a8 DF93      		push r29
+ 755               	.LCFI29:
+ 756               		.cfi_def_cfa_offset 5
+ 757               		.cfi_offset 29, -4
+ 758 02aa 0F92      		push __tmp_reg__
+ 759               	.LCFI30:
+ 760               		.cfi_def_cfa_offset 6
+ 761 02ac CDB7      		in r28,__SP_L__
+ 762 02ae DEB7      		in r29,__SP_H__
+ 763               	.LCFI31:
+ 764               		.cfi_def_cfa_register 28
+ 765               	/* prologue: function */
+ 766               	/* frame size = 1 */
+ 767               	/* stack size = 4 */
+ 768               	.L__stack_usage = 4
+ 769 02b0 182F      		mov r17,r24
+ 161:bme280_i2c.c  **** 	uint8_t config_register;
+ 770               		.loc 1 161 2 is_stmt 1 view .LVU214
+ 162:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 771               		.loc 1 162 2 view .LVU215
+ 772               	.LVL63:
+ 163:bme280_i2c.c  **** 	
+ 164:bme280_i2c.c  **** 	failed |= BME280_read(&config_register, 1, 0xF5);
+ 773               		.loc 1 164 2 view .LVU216
+ 774               		.loc 1 164 12 is_stmt 0 view .LVU217
+ 775 02b2 45EF      		ldi r20,lo8(-11)
+ 776 02b4 61E0      		ldi r22,lo8(1)
+ 777 02b6 CE01      		movw r24,r28
+ 778               	.LVL64:
+ 779               		.loc 1 164 12 view .LVU218
+ 780 02b8 0196      		adiw r24,1
+ 781 02ba 0E94 0000 		call BME280_read
+ 782               	.LVL65:
+ 165:bme280_i2c.c  **** 	if (failed){
+ 783               		.loc 1 165 2 is_stmt 1 view .LVU219
+ 166:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 784               		.loc 1 166 10 is_stmt 0 view .LVU220
+ 785 02be 91E0      		ldi r25,lo8(1)
+ 165:bme280_i2c.c  **** 	if (failed){
+ 786               		.loc 1 165 5 view .LVU221
+ 787 02c0 8111      		cpse r24,__zero_reg__
+ 788 02c2 00C0      		rjmp .L27
+ 167:bme280_i2c.c  **** 	}
+ 168:bme280_i2c.c  **** 	
+ 169:bme280_i2c.c  **** 	config_register &= 0x1F;
+ 789               		.loc 1 169 2 is_stmt 1 view .LVU222
+ 170:bme280_i2c.c  **** 	config_register |= (t_standby << 5);
+ 790               		.loc 1 170 2 view .LVU223
+ 169:bme280_i2c.c  **** 	config_register |= (t_standby << 5);
+ 791               		.loc 1 169 18 is_stmt 0 view .LVU224
+ 792 02c4 8981      		ldd r24,Y+1
+ 793               	.LVL66:
+ 169:bme280_i2c.c  **** 	config_register |= (t_standby << 5);
+ 794               		.loc 1 169 18 view .LVU225
+ 795 02c6 8F71      		andi r24,lo8(31)
+ 796               		.loc 1 170 32 view .LVU226
+ 797 02c8 90E2      		ldi r25,lo8(32)
+ 798 02ca 199F      		mul r17,r25
+ 799 02cc 9001      		movw r18,r0
+ 800 02ce 1124      		clr __zero_reg__
+ 801               		.loc 1 170 18 view .LVU227
+ 802 02d0 822B      		or r24,r18
+ 803 02d2 8983      		std Y+1,r24
+ 171:bme280_i2c.c  **** 	
+ 172:bme280_i2c.c  **** 	failed |= BME280_write(&config_register, 1, 0xF5);
+ 804               		.loc 1 172 2 is_stmt 1 view .LVU228
+ 805               		.loc 1 172 12 is_stmt 0 view .LVU229
+ 806 02d4 65EF      		ldi r22,lo8(-11)
+ 807 02d6 CE01      		movw r24,r28
+ 808 02d8 0196      		adiw r24,1
+ 809 02da 0E94 0000 		call BME280_write.constprop.2
+ 810               	.LVL67:
+ 173:bme280_i2c.c  **** 	if (failed){
+ 811               		.loc 1 173 2 is_stmt 1 view .LVU230
+ 812               		.loc 1 173 5 is_stmt 0 view .LVU231
+ 813 02de 91E0      		ldi r25,lo8(1)
+ 814 02e0 8111      		cpse r24,__zero_reg__
+ 815 02e2 00C0      		rjmp .L27
+ 816 02e4 90E0      		ldi r25,0
+ 817               	.L27:
+ 174:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 175:bme280_i2c.c  **** 	}
+ 176:bme280_i2c.c  **** 	
+ 177:bme280_i2c.c  **** 	return 0;
+ 178:bme280_i2c.c  **** }
+ 818               		.loc 1 178 1 view .LVU232
+ 819 02e6 892F      		mov r24,r25
+ 820               	.LVL68:
+ 821               	/* epilogue start */
+ 822               		.loc 1 178 1 view .LVU233
+ 823 02e8 0F90      		pop __tmp_reg__
+ 824 02ea DF91      		pop r29
+ 825 02ec CF91      		pop r28
+ 826 02ee 1F91      		pop r17
+ 827               	.LVL69:
+ 828               		.loc 1 178 1 view .LVU234
+ 829 02f0 0895      		ret
+ 830               		.cfi_endproc
+ 831               	.LFE5:
+ 833               	.global	BME280_set_measure
+ 835               	BME280_set_measure:
+ 836               	.LVL70:
+ 837               	.LFB6:
+ 179:bme280_i2c.c  **** 
+ 180:bme280_i2c.c  **** uint8_t BME280_set_measure(uint8_t oversampling, uint8_t measuretype){
+ 838               		.loc 1 180 70 is_stmt 1 view -0
+ 839               		.cfi_startproc
+ 840               		.loc 1 180 70 is_stmt 0 view .LVU236
+ 841 02f2 0F93      		push r16
+ 842               	.LCFI32:
+ 843               		.cfi_def_cfa_offset 3
+ 844               		.cfi_offset 16, -2
+ 845 02f4 1F93      		push r17
+ 846               	.LCFI33:
+ 847               		.cfi_def_cfa_offset 4
+ 848               		.cfi_offset 17, -3
+ 849 02f6 CF93      		push r28
+ 850               	.LCFI34:
+ 851               		.cfi_def_cfa_offset 5
+ 852               		.cfi_offset 28, -4
+ 853 02f8 DF93      		push r29
+ 854               	.LCFI35:
+ 855               		.cfi_def_cfa_offset 6
+ 856               		.cfi_offset 29, -5
+ 857 02fa 00D0      		rcall .
+ 858               	.LCFI36:
+ 859               		.cfi_def_cfa_offset 8
+ 860 02fc CDB7      		in r28,__SP_L__
+ 861 02fe DEB7      		in r29,__SP_H__
+ 862               	.LCFI37:
+ 863               		.cfi_def_cfa_register 28
+ 864               	/* prologue: function */
+ 865               	/* frame size = 2 */
+ 866               	/* stack size = 6 */
+ 867               	.L__stack_usage = 6
+ 868 0300 182F      		mov r17,r24
+ 869 0302 062F      		mov r16,r22
+ 181:bme280_i2c.c  **** 	uint8_t ctrl_hum, ctrl_meas;
+ 870               		.loc 1 181 2 is_stmt 1 view .LVU237
+ 182:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 871               		.loc 1 182 2 view .LVU238
+ 872               	.LVL71:
+ 183:bme280_i2c.c  **** 	
+ 184:bme280_i2c.c  **** 	failed |= BME280_read(&ctrl_meas, 1, 0xF4);
+ 873               		.loc 1 184 2 view .LVU239
+ 874               		.loc 1 184 12 is_stmt 0 view .LVU240
+ 875 0304 44EF      		ldi r20,lo8(-12)
+ 876 0306 61E0      		ldi r22,lo8(1)
+ 877               	.LVL72:
+ 878               		.loc 1 184 12 view .LVU241
+ 879 0308 CE01      		movw r24,r28
+ 880               	.LVL73:
+ 881               		.loc 1 184 12 view .LVU242
+ 882 030a 0196      		adiw r24,1
+ 883 030c 0E94 0000 		call BME280_read
+ 884               	.LVL74:
+ 185:bme280_i2c.c  **** 	if (failed){
+ 885               		.loc 1 185 2 is_stmt 1 view .LVU243
+ 886               		.loc 1 185 5 is_stmt 0 view .LVU244
+ 887 0310 8823      		tst r24
+ 888 0312 01F0      		breq .L32
+ 889               	.L38:
+ 186:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 890               		.loc 1 186 10 view .LVU245
+ 891 0314 91E0      		ldi r25,lo8(1)
+ 892               	.L31:
+ 187:bme280_i2c.c  **** 	}
+ 188:bme280_i2c.c  **** 	
+ 189:bme280_i2c.c  **** 	switch (measuretype){
+ 190:bme280_i2c.c  **** 		case BME280_HUM:
+ 191:bme280_i2c.c  **** 			ctrl_hum = oversampling;
+ 192:bme280_i2c.c  **** 			failed |= BME280_write(&ctrl_hum, 1, 0xF2);
+ 193:bme280_i2c.c  **** 			if (failed){
+ 194:bme280_i2c.c  **** 				return BME280_I2C_FAIL;
+ 195:bme280_i2c.c  **** 			}
+ 196:bme280_i2c.c  **** 			break;
+ 197:bme280_i2c.c  **** 		case BME280_PRESS:
+ 198:bme280_i2c.c  **** 			ctrl_meas &= 0xE3;
+ 199:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 2);
+ 200:bme280_i2c.c  **** 			break;
+ 201:bme280_i2c.c  **** 		case BME280_TEMP:
+ 202:bme280_i2c.c  **** 			ctrl_meas &= 0x1F;
+ 203:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 5);
+ 204:bme280_i2c.c  **** 			break;
+ 205:bme280_i2c.c  **** 		default:
+ 206:bme280_i2c.c  **** 			break;
+ 207:bme280_i2c.c  **** 	}
+ 208:bme280_i2c.c  **** 	
+ 209:bme280_i2c.c  **** 	failed |= BME280_write(&ctrl_meas, 1, 0xF4);
+ 210:bme280_i2c.c  **** 	if (failed){
+ 211:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 212:bme280_i2c.c  **** 	}
+ 213:bme280_i2c.c  **** 	
+ 214:bme280_i2c.c  **** 	return 0;
+ 215:bme280_i2c.c  **** }
+ 893               		.loc 1 215 1 view .LVU246
+ 894 0316 892F      		mov r24,r25
+ 895               	.LVL75:
+ 896               	/* epilogue start */
+ 897               		.loc 1 215 1 view .LVU247
+ 898 0318 0F90      		pop __tmp_reg__
+ 899 031a 0F90      		pop __tmp_reg__
+ 900 031c DF91      		pop r29
+ 901 031e CF91      		pop r28
+ 902 0320 1F91      		pop r17
+ 903               	.LVL76:
+ 904               		.loc 1 215 1 view .LVU248
+ 905 0322 0F91      		pop r16
+ 906               	.LVL77:
+ 907               		.loc 1 215 1 view .LVU249
+ 908 0324 0895      		ret
+ 909               	.LVL78:
+ 910               	.L32:
+ 189:bme280_i2c.c  **** 		case BME280_HUM:
+ 911               		.loc 1 189 2 is_stmt 1 view .LVU250
+ 912 0326 0130      		cpi r16,lo8(1)
+ 913 0328 01F0      		breq .L34
+ 914 032a 0023      		tst r16
+ 915 032c 01F0      		breq .L35
+ 916 032e 0230      		cpi r16,lo8(2)
+ 917 0330 01F0      		breq .L36
+ 918               	.LVL79:
+ 919               	.L37:
+ 209:bme280_i2c.c  **** 	if (failed){
+ 920               		.loc 1 209 2 view .LVU251
+ 209:bme280_i2c.c  **** 	if (failed){
+ 921               		.loc 1 209 12 is_stmt 0 view .LVU252
+ 922 0332 64EF      		ldi r22,lo8(-12)
+ 923 0334 CE01      		movw r24,r28
+ 924 0336 0196      		adiw r24,1
+ 925 0338 0E94 0000 		call BME280_write.constprop.2
+ 926               	.LVL80:
+ 210:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 927               		.loc 1 210 2 is_stmt 1 view .LVU253
+ 210:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 928               		.loc 1 210 5 is_stmt 0 view .LVU254
+ 929 033c 91E0      		ldi r25,lo8(1)
+ 930 033e 8111      		cpse r24,__zero_reg__
+ 931 0340 00C0      		rjmp .L31
+ 932 0342 90E0      		ldi r25,0
+ 933 0344 00C0      		rjmp .L31
+ 934               	.L35:
+ 191:bme280_i2c.c  **** 			failed |= BME280_write(&ctrl_hum, 1, 0xF2);
+ 935               		.loc 1 191 4 is_stmt 1 view .LVU255
+ 191:bme280_i2c.c  **** 			failed |= BME280_write(&ctrl_hum, 1, 0xF2);
+ 936               		.loc 1 191 13 is_stmt 0 view .LVU256
+ 937 0346 1A83      		std Y+2,r17
+ 192:bme280_i2c.c  **** 			if (failed){
+ 938               		.loc 1 192 4 is_stmt 1 view .LVU257
+ 192:bme280_i2c.c  **** 			if (failed){
+ 939               		.loc 1 192 14 is_stmt 0 view .LVU258
+ 940 0348 62EF      		ldi r22,lo8(-14)
+ 941 034a CE01      		movw r24,r28
+ 942               	.LVL81:
+ 192:bme280_i2c.c  **** 			if (failed){
+ 943               		.loc 1 192 14 view .LVU259
+ 944 034c 0296      		adiw r24,2
+ 945 034e 0E94 0000 		call BME280_write.constprop.2
+ 946               	.LVL82:
+ 193:bme280_i2c.c  **** 				return BME280_I2C_FAIL;
+ 947               		.loc 1 193 4 is_stmt 1 view .LVU260
+ 193:bme280_i2c.c  **** 				return BME280_I2C_FAIL;
+ 948               		.loc 1 193 7 is_stmt 0 view .LVU261
+ 949 0352 8823      		tst r24
+ 950 0354 01F0      		breq .L37
+ 951 0356 00C0      		rjmp .L38
+ 952               	.L34:
+ 198:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 2);
+ 953               		.loc 1 198 4 is_stmt 1 view .LVU262
+ 199:bme280_i2c.c  **** 			break;
+ 954               		.loc 1 199 4 view .LVU263
+ 198:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 2);
+ 955               		.loc 1 198 14 is_stmt 0 view .LVU264
+ 956 0358 2981      		ldd r18,Y+1
+ 957 035a 237E      		andi r18,lo8(-29)
+ 199:bme280_i2c.c  **** 			break;
+ 958               		.loc 1 199 31 view .LVU265
+ 959 035c 34E0      		ldi r19,lo8(4)
+ 960               	.L40:
+ 203:bme280_i2c.c  **** 			break;
+ 961               		.loc 1 203 31 view .LVU266
+ 962 035e 139F      		mul r17,r19
+ 963 0360 C001      		movw r24,r0
+ 964 0362 1124      		clr __zero_reg__
+ 965               	.LVL83:
+ 203:bme280_i2c.c  **** 			break;
+ 966               		.loc 1 203 14 view .LVU267
+ 967 0364 822B      		or r24,r18
+ 968 0366 8983      		std Y+1,r24
+ 204:bme280_i2c.c  **** 		default:
+ 969               		.loc 1 204 4 is_stmt 1 view .LVU268
+ 970 0368 00C0      		rjmp .L37
+ 971               	.LVL84:
+ 972               	.L36:
+ 202:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 5);
+ 973               		.loc 1 202 4 view .LVU269
+ 203:bme280_i2c.c  **** 			break;
+ 974               		.loc 1 203 4 view .LVU270
+ 202:bme280_i2c.c  **** 			ctrl_meas |= (oversampling << 5);
+ 975               		.loc 1 202 14 is_stmt 0 view .LVU271
+ 976 036a 2981      		ldd r18,Y+1
+ 977 036c 2F71      		andi r18,lo8(31)
+ 203:bme280_i2c.c  **** 			break;
+ 978               		.loc 1 203 31 view .LVU272
+ 979 036e 30E2      		ldi r19,lo8(32)
+ 980 0370 00C0      		rjmp .L40
+ 981               		.cfi_endproc
+ 982               	.LFE6:
+ 984               	.global	BME280_set_measuremode
+ 986               	BME280_set_measuremode:
+ 987               	.LVL85:
+ 988               	.LFB7:
+ 216:bme280_i2c.c  **** 
+ 217:bme280_i2c.c  **** uint8_t BME280_set_measuremode(uint8_t measuremode){
+ 989               		.loc 1 217 52 is_stmt 1 view -0
+ 990               		.cfi_startproc
+ 991               		.loc 1 217 52 is_stmt 0 view .LVU274
+ 992 0372 1F93      		push r17
+ 993               	.LCFI38:
+ 994               		.cfi_def_cfa_offset 3
+ 995               		.cfi_offset 17, -2
+ 996 0374 CF93      		push r28
+ 997               	.LCFI39:
+ 998               		.cfi_def_cfa_offset 4
+ 999               		.cfi_offset 28, -3
+ 1000 0376 DF93      		push r29
+ 1001               	.LCFI40:
+ 1002               		.cfi_def_cfa_offset 5
+ 1003               		.cfi_offset 29, -4
+ 1004 0378 0F92      		push __tmp_reg__
+ 1005               	.LCFI41:
+ 1006               		.cfi_def_cfa_offset 6
+ 1007 037a CDB7      		in r28,__SP_L__
+ 1008 037c DEB7      		in r29,__SP_H__
+ 1009               	.LCFI42:
+ 1010               		.cfi_def_cfa_register 28
+ 1011               	/* prologue: function */
+ 1012               	/* frame size = 1 */
+ 1013               	/* stack size = 4 */
+ 1014               	.L__stack_usage = 4
+ 1015 037e 182F      		mov r17,r24
+ 218:bme280_i2c.c  **** 	uint8_t ctrl_meas;
+ 1016               		.loc 1 218 2 is_stmt 1 view .LVU275
+ 219:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 1017               		.loc 1 219 2 view .LVU276
+ 1018               	.LVL86:
+ 220:bme280_i2c.c  **** 	
+ 221:bme280_i2c.c  **** 	failed |= BME280_read(&ctrl_meas, 1, 0xF4);
+ 1019               		.loc 1 221 2 view .LVU277
+ 1020               		.loc 1 221 12 is_stmt 0 view .LVU278
+ 1021 0380 44EF      		ldi r20,lo8(-12)
+ 1022 0382 61E0      		ldi r22,lo8(1)
+ 1023 0384 CE01      		movw r24,r28
+ 1024               	.LVL87:
+ 1025               		.loc 1 221 12 view .LVU279
+ 1026 0386 0196      		adiw r24,1
+ 1027 0388 0E94 0000 		call BME280_read
+ 1028               	.LVL88:
+ 222:bme280_i2c.c  **** 	if (failed){
+ 1029               		.loc 1 222 2 is_stmt 1 view .LVU280
+ 223:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 1030               		.loc 1 223 10 is_stmt 0 view .LVU281
+ 1031 038c 91E0      		ldi r25,lo8(1)
+ 222:bme280_i2c.c  **** 	if (failed){
+ 1032               		.loc 1 222 5 view .LVU282
+ 1033 038e 8111      		cpse r24,__zero_reg__
+ 1034 0390 00C0      		rjmp .L41
+ 224:bme280_i2c.c  **** 	}
+ 225:bme280_i2c.c  **** 	
+ 226:bme280_i2c.c  **** 	ctrl_meas &= 0xFC;
+ 1035               		.loc 1 226 2 is_stmt 1 view .LVU283
+ 227:bme280_i2c.c  **** 	ctrl_meas |= measuremode;
+ 1036               		.loc 1 227 2 view .LVU284
+ 226:bme280_i2c.c  **** 	ctrl_meas |= measuremode;
+ 1037               		.loc 1 226 12 is_stmt 0 view .LVU285
+ 1038 0392 8981      		ldd r24,Y+1
+ 1039               	.LVL89:
+ 226:bme280_i2c.c  **** 	ctrl_meas |= measuremode;
+ 1040               		.loc 1 226 12 view .LVU286
+ 1041 0394 8C7F      		andi r24,lo8(-4)
+ 1042               		.loc 1 227 12 view .LVU287
+ 1043 0396 812B      		or r24,r17
+ 1044 0398 8983      		std Y+1,r24
+ 228:bme280_i2c.c  **** 	
+ 229:bme280_i2c.c  **** 	failed |= BME280_write(&ctrl_meas, 1, 0xF4);
+ 1045               		.loc 1 229 2 is_stmt 1 view .LVU288
+ 1046               		.loc 1 229 12 is_stmt 0 view .LVU289
+ 1047 039a 64EF      		ldi r22,lo8(-12)
+ 1048 039c CE01      		movw r24,r28
+ 1049 039e 0196      		adiw r24,1
+ 1050 03a0 0E94 0000 		call BME280_write.constprop.2
+ 1051               	.LVL90:
+ 230:bme280_i2c.c  **** 	if (failed){
+ 1052               		.loc 1 230 2 is_stmt 1 view .LVU290
+ 1053               		.loc 1 230 5 is_stmt 0 view .LVU291
+ 1054 03a4 91E0      		ldi r25,lo8(1)
+ 1055 03a6 8111      		cpse r24,__zero_reg__
+ 1056 03a8 00C0      		rjmp .L41
+ 1057 03aa 90E0      		ldi r25,0
+ 1058               	.L41:
+ 231:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 232:bme280_i2c.c  **** 	}
+ 233:bme280_i2c.c  **** 	
+ 234:bme280_i2c.c  **** 	return 0;
+ 235:bme280_i2c.c  **** }
+ 1059               		.loc 1 235 1 view .LVU292
+ 1060 03ac 892F      		mov r24,r25
+ 1061               	.LVL91:
+ 1062               	/* epilogue start */
+ 1063               		.loc 1 235 1 view .LVU293
+ 1064 03ae 0F90      		pop __tmp_reg__
+ 1065 03b0 DF91      		pop r29
+ 1066 03b2 CF91      		pop r28
+ 1067 03b4 1F91      		pop r17
+ 1068               	.LVL92:
+ 1069               		.loc 1 235 1 view .LVU294
+ 1070 03b6 0895      		ret
+ 1071               		.cfi_endproc
+ 1072               	.LFE7:
+ 1074               	.global	BME280_readout
+ 1076               	BME280_readout:
+ 1077               	.LVL93:
+ 1078               	.LFB8:
+ 236:bme280_i2c.c  **** 
+ 237:bme280_i2c.c  **** uint8_t BME280_readout(int32_t* temp_p, uint32_t* press_p, uint32_t* hum_p){
+ 1079               		.loc 1 237 76 is_stmt 1 view -0
+ 1080               		.cfi_startproc
+ 1081               		.loc 1 237 76 is_stmt 0 view .LVU296
+ 1082 03b8 2F92      		push r2
+ 1083               	.LCFI43:
+ 1084               		.cfi_def_cfa_offset 3
+ 1085               		.cfi_offset 2, -2
+ 1086 03ba 3F92      		push r3
+ 1087               	.LCFI44:
+ 1088               		.cfi_def_cfa_offset 4
+ 1089               		.cfi_offset 3, -3
+ 1090 03bc 4F92      		push r4
+ 1091               	.LCFI45:
+ 1092               		.cfi_def_cfa_offset 5
+ 1093               		.cfi_offset 4, -4
+ 1094 03be 5F92      		push r5
+ 1095               	.LCFI46:
+ 1096               		.cfi_def_cfa_offset 6
+ 1097               		.cfi_offset 5, -5
+ 1098 03c0 6F92      		push r6
+ 1099               	.LCFI47:
+ 1100               		.cfi_def_cfa_offset 7
+ 1101               		.cfi_offset 6, -6
+ 1102 03c2 7F92      		push r7
+ 1103               	.LCFI48:
+ 1104               		.cfi_def_cfa_offset 8
+ 1105               		.cfi_offset 7, -7
+ 1106 03c4 8F92      		push r8
+ 1107               	.LCFI49:
+ 1108               		.cfi_def_cfa_offset 9
+ 1109               		.cfi_offset 8, -8
+ 1110 03c6 9F92      		push r9
+ 1111               	.LCFI50:
+ 1112               		.cfi_def_cfa_offset 10
+ 1113               		.cfi_offset 9, -9
+ 1114 03c8 AF92      		push r10
+ 1115               	.LCFI51:
+ 1116               		.cfi_def_cfa_offset 11
+ 1117               		.cfi_offset 10, -10
+ 1118 03ca BF92      		push r11
+ 1119               	.LCFI52:
+ 1120               		.cfi_def_cfa_offset 12
+ 1121               		.cfi_offset 11, -11
+ 1122 03cc CF92      		push r12
+ 1123               	.LCFI53:
+ 1124               		.cfi_def_cfa_offset 13
+ 1125               		.cfi_offset 12, -12
+ 1126 03ce DF92      		push r13
+ 1127               	.LCFI54:
+ 1128               		.cfi_def_cfa_offset 14
+ 1129               		.cfi_offset 13, -13
+ 1130 03d0 EF92      		push r14
+ 1131               	.LCFI55:
+ 1132               		.cfi_def_cfa_offset 15
+ 1133               		.cfi_offset 14, -14
+ 1134 03d2 FF92      		push r15
+ 1135               	.LCFI56:
+ 1136               		.cfi_def_cfa_offset 16
+ 1137               		.cfi_offset 15, -15
+ 1138 03d4 0F93      		push r16
+ 1139               	.LCFI57:
+ 1140               		.cfi_def_cfa_offset 17
+ 1141               		.cfi_offset 16, -16
+ 1142 03d6 1F93      		push r17
+ 1143               	.LCFI58:
+ 1144               		.cfi_def_cfa_offset 18
+ 1145               		.cfi_offset 17, -17
+ 1146 03d8 CF93      		push r28
+ 1147               	.LCFI59:
+ 1148               		.cfi_def_cfa_offset 19
+ 1149               		.cfi_offset 28, -18
+ 1150 03da DF93      		push r29
+ 1151               	.LCFI60:
+ 1152               		.cfi_def_cfa_offset 20
+ 1153               		.cfi_offset 29, -19
+ 1154 03dc CDB7      		in r28,__SP_L__
+ 1155 03de DEB7      		in r29,__SP_H__
+ 1156               	.LCFI61:
+ 1157               		.cfi_def_cfa_register 28
+ 1158 03e0 6397      		sbiw r28,19
+ 1159               	.LCFI62:
+ 1160               		.cfi_def_cfa_offset 39
+ 1161 03e2 0FB6      		in __tmp_reg__,__SREG__
+ 1162 03e4 F894      		cli
+ 1163 03e6 DEBF      		out __SP_H__,r29
+ 1164 03e8 0FBE      		out __SREG__,__tmp_reg__
+ 1165 03ea CDBF      		out __SP_L__,r28
+ 1166               	/* prologue: function */
+ 1167               	/* frame size = 19 */
+ 1168               	/* stack size = 37 */
+ 1169               	.L__stack_usage = 37
+ 1170 03ec 5C01      		movw r10,r24
+ 1171 03ee 1B01      		movw r2,r22
+ 1172 03f0 5B8B      		std Y+19,r21
+ 1173 03f2 4A8B      		std Y+18,r20
+ 238:bme280_i2c.c  **** 
+ 239:bme280_i2c.c  **** 	uint8_t failed = 0;
+ 1174               		.loc 1 239 2 is_stmt 1 view .LVU297
+ 1175               	.LVL94:
+ 240:bme280_i2c.c  **** 	
+ 241:bme280_i2c.c  **** 	//Messung triggern wenn sleep mode statt normal mode
+ 242:bme280_i2c.c  **** 	uint8_t ctrl_meas;
+ 1176               		.loc 1 242 2 view .LVU298
+ 243:bme280_i2c.c  **** 	failed |= BME280_read(&ctrl_meas, 1, 0xF4);
+ 1177               		.loc 1 243 2 view .LVU299
+ 1178               		.loc 1 243 12 is_stmt 0 view .LVU300
+ 1179 03f4 44EF      		ldi r20,lo8(-12)
+ 1180               	.LVL95:
+ 1181               		.loc 1 243 12 view .LVU301
+ 1182 03f6 61E0      		ldi r22,lo8(1)
+ 1183               	.LVL96:
+ 1184               		.loc 1 243 12 view .LVU302
+ 1185 03f8 CE01      		movw r24,r28
+ 1186               	.LVL97:
+ 1187               		.loc 1 243 12 view .LVU303
+ 1188 03fa 0996      		adiw r24,9
+ 1189 03fc 0E94 0000 		call BME280_read
+ 1190               	.LVL98:
+ 244:bme280_i2c.c  **** 	if (failed){
+ 1191               		.loc 1 244 2 is_stmt 1 view .LVU304
+ 1192               		.loc 1 244 5 is_stmt 0 view .LVU305
+ 1193 0400 8823      		tst r24
+ 1194 0402 01F0      		breq .L46
+ 1195               	.L49:
+ 245:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 1196               		.loc 1 245 10 view .LVU306
+ 1197 0404 11E0      		ldi r17,lo8(1)
+ 1198               	.LVL99:
+ 1199               	.L45:
+ 246:bme280_i2c.c  **** 	}
+ 247:bme280_i2c.c  **** 	if ((ctrl_meas & 0x03) == BME280_MODE_SLEEP){
+ 248:bme280_i2c.c  **** 		ctrl_meas |= BME280_MODE_FORCE;
+ 249:bme280_i2c.c  **** 		failed |= BME280_write(&ctrl_meas, 1, 0xF4);
+ 250:bme280_i2c.c  **** 		if (failed){
+ 251:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 252:bme280_i2c.c  **** 		}
+ 253:bme280_i2c.c  **** 		//warten nach anstoßen der Messung
+ 254:bme280_i2c.c  **** 		failed |= BME280_waitfor_status(BME_280_STAT_MEASURING);
+ 255:bme280_i2c.c  **** 		if (failed){
+ 256:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 257:bme280_i2c.c  **** 		}
+ 258:bme280_i2c.c  **** 	}
+ 259:bme280_i2c.c  **** 	
+ 260:bme280_i2c.c  **** 	
+ 261:bme280_i2c.c  **** 	uint8_t measurebytes[8];
+ 262:bme280_i2c.c  **** 	failed |= BME280_read(measurebytes, 8, 0xF7);
+ 263:bme280_i2c.c  **** 	if (failed){
+ 264:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 265:bme280_i2c.c  **** 	}
+ 266:bme280_i2c.c  **** 	
+ 267:bme280_i2c.c  **** 	int32_t press = (int32_t)(((uint32_t)measurebytes[0]<<12) | ((uint32_t)measurebytes[1]<<4) | (uint
+ 268:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 269:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 270:bme280_i2c.c  **** 	
+ 271:bme280_i2c.c  **** 	*temp_p  = BME280_compensate_T_int32(temp);
+ 272:bme280_i2c.c  **** 	*press_p = BME280_compensate_P_int32(press);
+ 273:bme280_i2c.c  **** 	*hum_p   = bme280_compensate_H_int32(hum);
+ 274:bme280_i2c.c  **** 	
+ 275:bme280_i2c.c  **** 	return 0;
+ 276:bme280_i2c.c  **** }
+ 1200               		.loc 1 276 1 view .LVU307
+ 1201 0406 812F      		mov r24,r17
+ 1202               	/* epilogue start */
+ 1203 0408 6396      		adiw r28,19
+ 1204 040a 0FB6      		in __tmp_reg__,__SREG__
+ 1205 040c F894      		cli
+ 1206 040e DEBF      		out __SP_H__,r29
+ 1207 0410 0FBE      		out __SREG__,__tmp_reg__
+ 1208 0412 CDBF      		out __SP_L__,r28
+ 1209 0414 DF91      		pop r29
+ 1210 0416 CF91      		pop r28
+ 1211 0418 1F91      		pop r17
+ 1212 041a 0F91      		pop r16
+ 1213 041c FF90      		pop r15
+ 1214 041e EF90      		pop r14
+ 1215 0420 DF90      		pop r13
+ 1216 0422 CF90      		pop r12
+ 1217 0424 BF90      		pop r11
+ 1218 0426 AF90      		pop r10
+ 1219 0428 9F90      		pop r9
+ 1220 042a 8F90      		pop r8
+ 1221 042c 7F90      		pop r7
+ 1222 042e 6F90      		pop r6
+ 1223 0430 5F90      		pop r5
+ 1224 0432 4F90      		pop r4
+ 1225 0434 3F90      		pop r3
+ 1226 0436 2F90      		pop r2
+ 1227               	.LVL100:
+ 1228               		.loc 1 276 1 view .LVU308
+ 1229 0438 0895      		ret
+ 1230               	.LVL101:
+ 1231               	.L46:
+ 247:bme280_i2c.c  **** 		ctrl_meas |= BME280_MODE_FORCE;
+ 1232               		.loc 1 247 2 is_stmt 1 view .LVU309
+ 247:bme280_i2c.c  **** 		ctrl_meas |= BME280_MODE_FORCE;
+ 1233               		.loc 1 247 17 is_stmt 0 view .LVU310
+ 1234 043a 8985      		ldd r24,Y+9
+ 1235               	.LVL102:
+ 247:bme280_i2c.c  **** 		ctrl_meas |= BME280_MODE_FORCE;
+ 1236               		.loc 1 247 5 view .LVU311
+ 1237 043c 982F      		mov r25,r24
+ 1238 043e 9370      		andi r25,lo8(3)
+ 1239 0440 01F4      		brne .+2
+ 1240 0442 00C0      		rjmp .L48
+ 1241               	.L51:
+ 1242               	.LVL103:
+ 261:bme280_i2c.c  **** 	failed |= BME280_read(measurebytes, 8, 0xF7);
+ 1243               		.loc 1 261 2 is_stmt 1 view .LVU312
+ 262:bme280_i2c.c  **** 	if (failed){
+ 1244               		.loc 1 262 2 view .LVU313
+ 262:bme280_i2c.c  **** 	if (failed){
+ 1245               		.loc 1 262 12 is_stmt 0 view .LVU314
+ 1246 0444 47EF      		ldi r20,lo8(-9)
+ 1247 0446 68E0      		ldi r22,lo8(8)
+ 1248 0448 CE01      		movw r24,r28
+ 1249 044a 0196      		adiw r24,1
+ 1250 044c 0E94 0000 		call BME280_read
+ 1251               	.LVL104:
+ 1252 0450 182F      		mov r17,r24
+ 1253               	.LVL105:
+ 263:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 1254               		.loc 1 263 2 is_stmt 1 view .LVU315
+ 263:bme280_i2c.c  **** 		return BME280_I2C_FAIL;
+ 1255               		.loc 1 263 5 is_stmt 0 view .LVU316
+ 1256 0452 8111      		cpse r24,__zero_reg__
+ 1257 0454 00C0      		rjmp .L49
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1258               		.loc 1 267 2 is_stmt 1 view .LVU317
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1259               		.loc 1 267 51 is_stmt 0 view .LVU318
+ 1260 0456 0981      		ldd r16,Y+1
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1261               		.loc 1 267 85 view .LVU319
+ 1262 0458 EA81      		ldd r30,Y+2
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1263               		.loc 1 267 117 view .LVU320
+ 1264 045a FB81      		ldd r31,Y+3
+ 1265               	.LVL106:
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1266               		.loc 1 268 2 is_stmt 1 view .LVU321
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1267               		.loc 1 268 29 is_stmt 0 view .LVU322
+ 1268 045c 2C81      		ldd r18,Y+4
+ 1269 045e 30E0      		ldi r19,0
+ 1270 0460 50E0      		ldi r21,0
+ 1271 0462 40E0      		ldi r20,0
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1272               		.loc 1 268 54 view .LVU323
+ 1273 0464 ACE0      		ldi r26,12
+ 1274               		1:
+ 1275 0466 220F      		lsl r18
+ 1276 0468 331F      		rol r19
+ 1277 046a 441F      		rol r20
+ 1278 046c 551F      		rol r21
+ 1279 046e AA95      		dec r26
+ 1280 0470 01F4      		brne 1b
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1281               		.loc 1 268 63 view .LVU324
+ 1282 0472 8D81      		ldd r24,Y+5
+ 1283 0474 90E0      		ldi r25,0
+ 1284 0476 B0E0      		ldi r27,0
+ 1285 0478 A0E0      		ldi r26,0
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1286               		.loc 1 268 88 view .LVU325
+ 1287 047a 64E0      		ldi r22,4
+ 1288               		1:
+ 1289 047c 880F      		lsl r24
+ 1290 047e 991F      		rol r25
+ 1291 0480 AA1F      		rol r26
+ 1292 0482 BB1F      		rol r27
+ 1293 0484 6A95      		dec r22
+ 1294 0486 01F4      		brne 1b
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1295               		.loc 1 268 60 view .LVU326
+ 1296 0488 822B      		or r24,r18
+ 1297 048a 932B      		or r25,r19
+ 1298 048c A42B      		or r26,r20
+ 1299 048e B52B      		or r27,r21
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1300               		.loc 1 268 121 view .LVU327
+ 1301 0490 2E81      		ldd r18,Y+6
+ 1302 0492 2295      		swap r18
+ 1303 0494 2F70      		andi r18,lo8(15)
+ 268:bme280_i2c.c  **** 	int32_t hum   = (int32_t)(((uint32_t)measurebytes[6]<<8)  | ((uint32_t)measurebytes[7]));
+ 1304               		.loc 1 268 93 view .LVU328
+ 1305 0496 6C01      		movw r12,r24
+ 1306 0498 7D01      		movw r14,r26
+ 1307 049a C22A      		or r12,r18
+ 1308 049c A701      		movw r20,r14
+ 1309 049e 9601      		movw r18,r12
+ 1310               	.LVL107:
+ 269:bme280_i2c.c  **** 	
+ 1311               		.loc 1 269 2 is_stmt 1 view .LVU329
+ 269:bme280_i2c.c  **** 	
+ 1312               		.loc 1 269 10 is_stmt 0 view .LVU330
+ 1313 04a0 8F81      		ldd r24,Y+7
+ 1314 04a2 9885      		ldd r25,Y+8
+ 1315 04a4 9827      		eor r25,r24
+ 1316 04a6 8927      		eor r24,r25
+ 1317 04a8 9827      		eor r25,r24
+ 1318 04aa 6C01      		movw r12,r24
+ 1319 04ac F12C      		mov r15,__zero_reg__
+ 1320 04ae E12C      		mov r14,__zero_reg__
+ 1321 04b0 CE86      		std Y+14,r12
+ 1322 04b2 DF86      		std Y+15,r13
+ 1323 04b4 E88A      		std Y+16,r14
+ 1324 04b6 F98A      		std Y+17,r15
+ 1325               	.LVL108:
+ 271:bme280_i2c.c  **** 	*press_p = BME280_compensate_P_int32(press);
+ 1326               		.loc 1 271 2 is_stmt 1 view .LVU331
+ 1327               	.LBB20:
+ 1328               	.LBI20:
+ 277:bme280_i2c.c  **** 
+ 278:bme280_i2c.c  **** // Returns temperature in DegC, resolution is 0.01 DegC. Output value of “5123” equals 51.23 DegC.
+ 279:bme280_i2c.c  **** static int32_t BME280_compensate_T_int32(int32_t adc_T){
+ 1329               		.loc 1 279 16 view .LVU332
+ 1330               	.LBB21:
+ 280:bme280_i2c.c  **** 	int32_t var1, var2, T;
+ 1331               		.loc 1 280 2 view .LVU333
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1332               		.loc 1 281 2 view .LVU334
+ 1333               		.loc 1 281 26 is_stmt 0 view .LVU335
+ 1334 04b8 8091 0000 		lds r24,dig_T1
+ 1335 04bc 9091 0000 		lds r25,dig_T1+1
+ 1336 04c0 B0E0      		ldi r27,0
+ 1337 04c2 A0E0      		ldi r26,0
+ 1338               	.LVL109:
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1339               		.loc 1 282 2 is_stmt 1 view .LVU336
+ 1340               		.loc 1 282 19 is_stmt 0 view .LVU337
+ 1341 04c4 2901      		movw r4,r18
+ 1342 04c6 3A01      		movw r6,r20
+ 1343 04c8 74E0      		ldi r23,4
+ 1344               		1:
+ 1345 04ca 7594      		asr r7
+ 1346 04cc 6794      		ror r6
+ 1347 04ce 5794      		ror r5
+ 1348 04d0 4794      		ror r4
+ 1349 04d2 7A95      		dec r23
+ 1350 04d4 01F4      		brne 1b
+ 1351               		.loc 1 282 24 view .LVU338
+ 1352 04d6 481A      		sub r4,r24
+ 1353 04d8 590A      		sbc r5,r25
+ 1354 04da 6A0A      		sbc r6,r26
+ 1355 04dc 7B0A      		sbc r7,r27
+ 1356               	.LVL110:
+ 283:bme280_i2c.c  **** 	t_fine = var1 + var2;
+ 1357               		.loc 1 283 2 is_stmt 1 view .LVU339
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1358               		.loc 1 281 18 is_stmt 0 view .LVU340
+ 1359 04de 63E0      		ldi r22,3
+ 1360               		1:
+ 1361 04e0 5595      		asr r21
+ 1362 04e2 4795      		ror r20
+ 1363 04e4 3795      		ror r19
+ 1364 04e6 2795      		ror r18
+ 1365 04e8 6A95      		dec r22
+ 1366 04ea 01F4      		brne 1b
+ 1367               	.LVL111:
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1368               		.loc 1 281 41 view .LVU341
+ 1369 04ec 880F      		lsl r24
+ 1370 04ee 991F      		rol r25
+ 1371 04f0 AA1F      		rol r26
+ 1372 04f2 BB1F      		rol r27
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1373               		.loc 1 281 23 view .LVU342
+ 1374 04f4 281B      		sub r18,r24
+ 1375 04f6 390B      		sbc r19,r25
+ 1376 04f8 4A0B      		sbc r20,r26
+ 1377 04fa 5B0B      		sbc r21,r27
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1378               		.loc 1 281 51 view .LVU343
+ 1379 04fc A091 0000 		lds r26,dig_T2
+ 1380 0500 B091 0000 		lds r27,dig_T2+1
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1381               		.loc 1 281 48 view .LVU344
+ 1382 0504 0E94 0000 		call __mulshisi3
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1383               		.loc 1 281 7 view .LVU345
+ 1384 0508 6B01      		movw r12,r22
+ 1385               	.LVL112:
+ 281:bme280_i2c.c  **** 	var1 = ((((adc_T>>3) - ((int32_t)dig_T1<<1))) * ((int32_t)dig_T2)) >> 11;
+ 1386               		.loc 1 281 7 view .LVU346
+ 1387 050a 7C01      		movw r14,r24
+ 1388 050c ABE0      		ldi r26,11
+ 1389               		1:
+ 1390 050e F594      		asr r15
+ 1391 0510 E794      		ror r14
+ 1392 0512 D794      		ror r13
+ 1393 0514 C794      		ror r12
+ 1394 0516 AA95      		dec r26
+ 1395 0518 01F4      		brne 1b
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1396               		.loc 1 282 45 view .LVU347
+ 1397 051a A301      		movw r20,r6
+ 1398 051c 9201      		movw r18,r4
+ 1399 051e C301      		movw r24,r6
+ 1400 0520 B201      		movw r22,r4
+ 1401 0522 0E94 0000 		call __mulsi3
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1402               		.loc 1 282 81 view .LVU348
+ 1403 0526 9B01      		movw r18,r22
+ 1404 0528 AC01      		movw r20,r24
+ 1405 052a BCE0      		ldi r27,12
+ 1406               		1:
+ 1407 052c 5595      		asr r21
+ 1408 052e 4795      		ror r20
+ 1409 0530 3795      		ror r19
+ 1410 0532 2795      		ror r18
+ 1411 0534 BA95      		dec r27
+ 1412 0536 01F4      		brne 1b
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1413               		.loc 1 282 91 view .LVU349
+ 1414 0538 A091 0000 		lds r26,dig_T3
+ 1415 053c B091 0000 		lds r27,dig_T3+1
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1416               		.loc 1 282 88 view .LVU350
+ 1417 0540 0E94 0000 		call __mulshisi3
+ 282:bme280_i2c.c  **** 	var2 = (((((adc_T>>4) - ((int32_t)dig_T1)) * ((adc_T>>4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)
+ 1418               		.loc 1 282 7 view .LVU351
+ 1419 0544 2EE0      		ldi r18,14
+ 1420               		1:
+ 1421 0546 9595      		asr r25
+ 1422 0548 8795      		ror r24
+ 1423 054a 7795      		ror r23
+ 1424 054c 6795      		ror r22
+ 1425 054e 2A95      		dec r18
+ 1426 0550 01F4      		brne 1b
+ 1427               		.loc 1 283 16 view .LVU352
+ 1428 0552 C60E      		add r12,r22
+ 1429 0554 D71E      		adc r13,r23
+ 1430 0556 E81E      		adc r14,r24
+ 1431 0558 F91E      		adc r15,r25
+ 1432               		.loc 1 283 9 view .LVU353
+ 1433 055a C092 0000 		sts t_fine,r12
+ 1434 055e D092 0000 		sts t_fine+1,r13
+ 1435 0562 E092 0000 		sts t_fine+2,r14
+ 1436 0566 F092 0000 		sts t_fine+3,r15
+ 284:bme280_i2c.c  **** 	T = (t_fine * 5 + 128) >> 8;
+ 1437               		.loc 1 284 2 is_stmt 1 view .LVU354
+ 1438               	.LVL113:
+ 285:bme280_i2c.c  **** 	return T;
+ 1439               		.loc 1 285 2 view .LVU355
+ 284:bme280_i2c.c  **** 	T = (t_fine * 5 + 128) >> 8;
+ 1440               		.loc 1 284 14 is_stmt 0 view .LVU356
+ 1441 056a A5E0      		ldi r26,lo8(5)
+ 1442 056c B0E0      		ldi r27,0
+ 1443 056e A701      		movw r20,r14
+ 1444 0570 9601      		movw r18,r12
+ 1445 0572 0E94 0000 		call __muluhisi3
+ 284:bme280_i2c.c  **** 	T = (t_fine * 5 + 128) >> 8;
+ 1446               		.loc 1 284 18 view .LVU357
+ 1447 0576 6058      		subi r22,-128
+ 1448 0578 7F4F      		sbci r23,-1
+ 1449 057a 8F4F      		sbci r24,-1
+ 1450 057c 9F4F      		sbci r25,-1
+ 284:bme280_i2c.c  **** 	T = (t_fine * 5 + 128) >> 8;
+ 1451               		.loc 1 284 4 view .LVU358
+ 1452 057e 672F      		mov r22,r23
+ 1453 0580 782F      		mov r23,r24
+ 1454 0582 892F      		mov r24,r25
+ 1455 0584 9927      		clr r25
+ 1456 0586 87FD      		sbrc r24,7
+ 1457 0588 9A95      		dec r25
+ 1458               	.LBE21:
+ 1459               	.LBE20:
+ 271:bme280_i2c.c  **** 	*press_p = BME280_compensate_P_int32(press);
+ 1460               		.loc 1 271 11 view .LVU359
+ 1461 058a D501      		movw r26,r10
+ 1462 058c 6D93      		st X+,r22
+ 1463 058e 7D93      		st X+,r23
+ 1464 0590 8D93      		st X+,r24
+ 1465 0592 9C93      		st X,r25
+ 1466 0594 1397      		sbiw r26,3
+ 272:bme280_i2c.c  **** 	*hum_p   = bme280_compensate_H_int32(hum);
+ 1467               		.loc 1 272 2 is_stmt 1 view .LVU360
+ 1468               	.LVL114:
+ 1469               	.LBB22:
+ 1470               	.LBI22:
+ 286:bme280_i2c.c  **** }
+ 287:bme280_i2c.c  **** 	
+ 288:bme280_i2c.c  **** // Returns pressure in Pa as unsigned 32 bit integer. Output value of “96386” equals 96386 Pa = 963
+ 289:bme280_i2c.c  **** static uint32_t BME280_compensate_P_int32(int32_t adc_P){
+ 1471               		.loc 1 289 17 view .LVU361
+ 1472               	.LBB23:
+ 290:bme280_i2c.c  **** 	int32_t var1, var2;
+ 1473               		.loc 1 290 2 view .LVU362
+ 291:bme280_i2c.c  **** 	uint32_t p;
+ 1474               		.loc 1 291 2 view .LVU363
+ 292:bme280_i2c.c  **** 	var1 = (((int32_t)t_fine)>>1) - (int32_t)64000;
+ 1475               		.loc 1 292 2 view .LVU364
+ 1476               		.loc 1 292 27 is_stmt 0 view .LVU365
+ 1477 0596 2601      		movw r4,r12
+ 1478 0598 3701      		movw r6,r14
+ 1479 059a 7594      		asr r7
+ 1480 059c 6794      		ror r6
+ 1481 059e 5794      		ror r5
+ 1482 05a0 4794      		ror r4
+ 1483               		.loc 1 292 7 view .LVU366
+ 1484 05a2 BAEF      		ldi r27,-6
+ 1485 05a4 5B1A      		sub r5,r27
+ 1486 05a6 6108      		sbc r6,__zero_reg__
+ 1487 05a8 7108      		sbc r7,__zero_reg__
+ 1488               	.LVL115:
+ 293:bme280_i2c.c  **** 	var2 = (((var1>>2) * (var1>>2)) >> 11 ) * ((int32_t)dig_P6);
+ 1489               		.loc 1 293 2 is_stmt 1 view .LVU367
+ 1490               		.loc 1 293 16 is_stmt 0 view .LVU368
+ 1491 05aa C301      		movw r24,r6
+ 1492 05ac B201      		movw r22,r4
+ 1493 05ae 52E0      		ldi r21,2
+ 1494               		1:
+ 1495 05b0 9595      		asr r25
+ 1496 05b2 8795      		ror r24
+ 1497 05b4 7795      		ror r23
+ 1498 05b6 6795      		ror r22
+ 1499 05b8 5A95      		dec r21
+ 1500 05ba 01F4      		brne 1b
+ 1501               		.loc 1 293 21 view .LVU369
+ 1502 05bc 9B01      		movw r18,r22
+ 1503 05be AC01      		movw r20,r24
+ 1504 05c0 0E94 0000 		call __mulsi3
+ 1505 05c4 6A87      		std Y+10,r22
+ 1506 05c6 7B87      		std Y+11,r23
+ 1507 05c8 8C87      		std Y+12,r24
+ 1508 05ca 9D87      		std Y+13,r25
+ 1509               	.LVL116:
+ 294:bme280_i2c.c  **** 	var2 = var2 + ((var1*((int32_t)dig_P5))<<1);
+ 1510               		.loc 1 294 2 is_stmt 1 view .LVU370
+ 295:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1511               		.loc 1 295 2 view .LVU371
+ 296:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1512               		.loc 1 296 2 view .LVU372
+ 1513               		.loc 1 296 19 is_stmt 0 view .LVU373
+ 1514 05cc A091 0000 		lds r26,dig_P3
+ 1515 05d0 B091 0000 		lds r27,dig_P3+1
+ 1516               		.loc 1 296 46 view .LVU374
+ 1517 05d4 9B01      		movw r18,r22
+ 1518 05d6 AC01      		movw r20,r24
+ 1519 05d8 6DE0      		ldi r22,13
+ 1520               		1:
+ 1521 05da 5595      		asr r21
+ 1522 05dc 4795      		ror r20
+ 1523 05de 3795      		ror r19
+ 1524 05e0 2795      		ror r18
+ 1525 05e2 6A95      		dec r22
+ 1526 05e4 01F4      		brne 1b
+ 1527               	.LVL117:
+ 1528               		.loc 1 296 19 view .LVU375
+ 1529 05e6 0E94 0000 		call __mulshisi3
+ 1530               		.loc 1 296 55 view .LVU376
+ 1531 05ea 4B01      		movw r8,r22
+ 1532 05ec 5C01      		movw r10,r24
+ 1533               	.LVL118:
+ 1534               		.loc 1 296 55 view .LVU377
+ 1535 05ee 73E0      		ldi r23,3
+ 1536               		1:
+ 1537 05f0 B594      		asr r11
+ 1538 05f2 A794      		ror r10
+ 1539 05f4 9794      		ror r9
+ 1540 05f6 8794      		ror r8
+ 1541 05f8 7A95      		dec r23
+ 1542 05fa 01F4      		brne 1b
+ 1543               		.loc 1 296 66 view .LVU378
+ 1544 05fc A091 0000 		lds r26,dig_P2
+ 1545 0600 B091 0000 		lds r27,dig_P2+1
+ 1546               		.loc 1 296 83 view .LVU379
+ 1547 0604 A301      		movw r20,r6
+ 1548 0606 9201      		movw r18,r4
+ 1549 0608 0E94 0000 		call __mulshisi3
+ 1550               		.loc 1 296 90 view .LVU380
+ 1551 060c 9B01      		movw r18,r22
+ 1552 060e AC01      		movw r20,r24
+ 1553 0610 5595      		asr r21
+ 1554 0612 4795      		ror r20
+ 1555 0614 3795      		ror r19
+ 1556 0616 2795      		ror r18
+ 1557               		.loc 1 296 61 view .LVU381
+ 1558 0618 280D      		add r18,r8
+ 1559 061a 391D      		adc r19,r9
+ 1560 061c 4A1D      		adc r20,r10
+ 1561 061e 5B1D      		adc r21,r11
+ 1562               	.LVL119:
+ 297:bme280_i2c.c  **** 	var1 =((((32768L+var1))*((int32_t)dig_P1))>>15);
+ 1563               		.loc 1 297 2 is_stmt 1 view .LVU382
+ 296:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1564               		.loc 1 296 7 is_stmt 0 view .LVU383
+ 1565 0620 B2E1      		ldi r27,18
+ 1566               		1:
+ 1567 0622 5595      		asr r21
+ 1568 0624 4795      		ror r20
+ 1569 0626 3795      		ror r19
+ 1570 0628 2795      		ror r18
+ 1571 062a BA95      		dec r27
+ 1572 062c 01F4      		brne 1b
+ 1573               	.LVL120:
+ 1574               		.loc 1 297 18 view .LVU384
+ 1575 062e 3058      		subi r19,-128
+ 1576 0630 4F4F      		sbci r20,-1
+ 1577 0632 5F4F      		sbci r21,-1
+ 1578               	.LVL121:
+ 1579               		.loc 1 297 27 view .LVU385
+ 1580 0634 A091 0000 		lds r26,dig_P1
+ 1581 0638 B091 0000 		lds r27,dig_P1+1
+ 1582               		.loc 1 297 25 view .LVU386
+ 1583 063c 0E94 0000 		call __muluhisi3
+ 1584               		.loc 1 297 7 view .LVU387
+ 1585 0640 4B01      		movw r8,r22
+ 1586 0642 5C01      		movw r10,r24
+ 1587 0644 8FE0      		ldi r24,15
+ 1588               		1:
+ 1589 0646 B594      		asr r11
+ 1590 0648 A794      		ror r10
+ 1591 064a 9794      		ror r9
+ 1592 064c 8794      		ror r8
+ 1593 064e 8A95      		dec r24
+ 1594 0650 01F4      		brne 1b
+ 1595               	.LVL122:
+ 298:bme280_i2c.c  **** 	if (var1 == 0){
+ 1596               		.loc 1 298 2 is_stmt 1 view .LVU388
+ 1597               		.loc 1 298 5 is_stmt 0 view .LVU389
+ 1598 0652 8114      		cp r8,__zero_reg__
+ 1599 0654 9104      		cpc r9,__zero_reg__
+ 1600 0656 A104      		cpc r10,__zero_reg__
+ 1601 0658 B104      		cpc r11,__zero_reg__
+ 1602 065a 01F4      		brne .+2
+ 1603 065c 00C0      		rjmp .L57
+ 299:bme280_i2c.c  **** 		return 0; // avoid exception caused by division by zero
+ 300:bme280_i2c.c  **** 	}
+ 301:bme280_i2c.c  **** 	p = (((uint32_t)(((int32_t)1048576)-adc_P)-(var2>>12)))*3125L;
+ 1604               		.loc 1 301 2 is_stmt 1 view .LVU390
+ 293:bme280_i2c.c  **** 	var2 = var2 + ((var1*((int32_t)dig_P5))<<1);
+ 1605               		.loc 1 293 34 is_stmt 0 view .LVU391
+ 1606 065e 2A85      		ldd r18,Y+10
+ 1607 0660 3B85      		ldd r19,Y+11
+ 1608 0662 4C85      		ldd r20,Y+12
+ 1609 0664 5D85      		ldd r21,Y+13
+ 1610 0666 8BE0      		ldi r24,11
+ 1611               		1:
+ 1612 0668 5595      		asr r21
+ 1613 066a 4795      		ror r20
+ 1614 066c 3795      		ror r19
+ 1615 066e 2795      		ror r18
+ 1616 0670 8A95      		dec r24
+ 1617 0672 01F4      		brne 1b
+ 1618               	.LVL123:
+ 293:bme280_i2c.c  **** 	var2 = var2 + ((var1*((int32_t)dig_P5))<<1);
+ 1619               		.loc 1 293 45 view .LVU392
+ 1620 0674 A091 0000 		lds r26,dig_P6
+ 1621 0678 B091 0000 		lds r27,dig_P6+1
+ 293:bme280_i2c.c  **** 	var2 = var2 + ((var1*((int32_t)dig_P5))<<1);
+ 1622               		.loc 1 293 7 view .LVU393
+ 1623 067c 0E94 0000 		call __mulshisi3
+ 1624 0680 6A87      		std Y+10,r22
+ 1625 0682 7B87      		std Y+11,r23
+ 1626 0684 8C87      		std Y+12,r24
+ 1627 0686 9D87      		std Y+13,r25
+ 294:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1628               		.loc 1 294 24 view .LVU394
+ 1629 0688 A091 0000 		lds r26,dig_P5
+ 1630 068c B091 0000 		lds r27,dig_P5+1
+ 294:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1631               		.loc 1 294 22 view .LVU395
+ 1632 0690 A301      		movw r20,r6
+ 1633 0692 9201      		movw r18,r4
+ 1634               	.LVL124:
+ 294:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1635               		.loc 1 294 22 view .LVU396
+ 1636 0694 0E94 0000 		call __mulshisi3
+ 294:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1637               		.loc 1 294 41 view .LVU397
+ 1638 0698 DC01      		movw r26,r24
+ 1639 069a CB01      		movw r24,r22
+ 1640 069c 880F      		lsl r24
+ 1641 069e 991F      		rol r25
+ 1642 06a0 AA1F      		rol r26
+ 1643 06a2 BB1F      		rol r27
+ 294:bme280_i2c.c  **** 	var2 = (var2>>2)+(((int32_t)dig_P4)<<16);
+ 1644               		.loc 1 294 7 view .LVU398
+ 1645 06a4 2A85      		ldd r18,Y+10
+ 1646 06a6 3B85      		ldd r19,Y+11
+ 1647 06a8 4C85      		ldd r20,Y+12
+ 1648 06aa 5D85      		ldd r21,Y+13
+ 1649 06ac 820F      		add r24,r18
+ 1650 06ae 931F      		adc r25,r19
+ 1651 06b0 A41F      		adc r26,r20
+ 1652 06b2 B51F      		adc r27,r21
+ 295:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1653               		.loc 1 295 14 view .LVU399
+ 1654 06b4 32E0      		ldi r19,2
+ 1655               		1:
+ 1656 06b6 B595      		asr r27
+ 1657 06b8 A795      		ror r26
+ 1658 06ba 9795      		ror r25
+ 1659 06bc 8795      		ror r24
+ 1660 06be 3A95      		dec r19
+ 1661 06c0 01F4      		brne 1b
+ 1662               	.LBE23:
+ 1663               	.LBE22:
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1664               		.loc 1 267 63 view .LVU400
+ 1665 06c2 2E2F      		mov r18,r30
+ 1666 06c4 30E0      		ldi r19,0
+ 1667 06c6 50E0      		ldi r21,0
+ 1668 06c8 40E0      		ldi r20,0
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1669               		.loc 1 267 88 view .LVU401
+ 1670 06ca 64E0      		ldi r22,4
+ 1671               		1:
+ 1672 06cc 220F      		lsl r18
+ 1673 06ce 331F      		rol r19
+ 1674 06d0 441F      		rol r20
+ 1675 06d2 551F      		rol r21
+ 1676 06d4 6A95      		dec r22
+ 1677 06d6 01F4      		brne 1b
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1678               		.loc 1 267 121 view .LVU402
+ 1679 06d8 F295      		swap r31
+ 1680               	.LVL125:
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1681               		.loc 1 267 121 view .LVU403
+ 1682 06da FF70      		andi r31,lo8(15)
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1683               		.loc 1 267 93 view .LVU404
+ 1684 06dc 2F2B      		or r18,r31
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1685               		.loc 1 267 29 view .LVU405
+ 1686 06de 402E      		mov r4,r16
+ 1687 06e0 512C      		mov r5,__zero_reg__
+ 1688 06e2 712C      		mov r7,__zero_reg__
+ 1689 06e4 612C      		mov r6,__zero_reg__
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1690               		.loc 1 267 54 view .LVU406
+ 1691 06e6 7CE0      		ldi r23,12
+ 1692               		1:
+ 1693 06e8 440C      		lsl r4
+ 1694 06ea 551C      		rol r5
+ 1695 06ec 661C      		rol r6
+ 1696 06ee 771C      		rol r7
+ 1697 06f0 7A95      		dec r23
+ 1698 06f2 01F4      		brne 1b
+ 267:bme280_i2c.c  **** 	int32_t temp  = (int32_t)(((uint32_t)measurebytes[3]<<12) | ((uint32_t)measurebytes[4]<<4) | (uint
+ 1699               		.loc 1 267 93 view .LVU407
+ 1700 06f4 2429      		or r18,r4
+ 1701 06f6 3529      		or r19,r5
+ 1702 06f8 4629      		or r20,r6
+ 1703 06fa 5729      		or r21,r7
+ 1704               	.LBB26:
+ 1705               	.LBB24:
+ 295:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1706               		.loc 1 295 21 view .LVU408
+ 1707 06fc 4090 0000 		lds r4,dig_P4
+ 1708 0700 5090 0000 		lds r5,dig_P4+1
+ 1709 0704 052C      		mov __tmp_reg__,r5
+ 1710 0706 000C      		lsl r0
+ 1711 0708 6608      		sbc r6,r6
+ 1712 070a 7708      		sbc r7,r7
+ 295:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1713               		.loc 1 295 37 view .LVU409
+ 1714 070c 3201      		movw r6,r4
+ 1715 070e 5524      		clr r5
+ 1716 0710 4424      		clr r4
+ 1717               	.LVL126:
+ 295:bme280_i2c.c  **** 	var1 = (((dig_P3 * (((var1>>2) * (var1>>2)) >> 13 )) >> 3) + ((((int32_t)dig_P2) * var1)>>1))>>18;
+ 1718               		.loc 1 295 7 view .LVU410
+ 1719 0712 840D      		add r24,r4
+ 1720 0714 951D      		adc r25,r5
+ 1721 0716 A61D      		adc r26,r6
+ 1722 0718 B71D      		adc r27,r7
+ 1723               		.loc 1 301 50 view .LVU411
+ 1724 071a FCE0      		ldi r31,12
+ 1725               		1:
+ 1726 071c B595      		asr r27
+ 1727 071e A795      		ror r26
+ 1728 0720 9795      		ror r25
+ 1729 0722 8795      		ror r24
+ 1730 0724 FA95      		dec r31
+ 1731 0726 01F4      		brne 1b
+ 1732               		.loc 1 301 44 view .LVU412
+ 1733 0728 280F      		add r18,r24
+ 1734 072a 391F      		adc r19,r25
+ 1735 072c 4A1F      		adc r20,r26
+ 1736 072e 5B1F      		adc r21,r27
+ 1737               		.loc 1 301 57 view .LVU413
+ 1738 0730 ABEC      		ldi r26,lo8(-53)
+ 1739 0732 B3EF      		ldi r27,lo8(-13)
+ 1740 0734 0E94 0000 		call __mulohisi3
+ 1741               		.loc 1 301 4 view .LVU414
+ 1742 0738 805B      		subi r24,-80
+ 1743 073a 9C43      		sbci r25,60
+ 1744               	.LVL127:
+ 302:bme280_i2c.c  **** 	if (p < 0x80000000L){
+ 1745               		.loc 1 302 2 is_stmt 1 view .LVU415
+ 1746               		.loc 1 302 5 is_stmt 0 view .LVU416
+ 1747 073c 97FD      		sbrc r25,7
+ 1748 073e 00C0      		rjmp .L53
+ 303:bme280_i2c.c  **** 		p = (p << 1) / ((uint32_t)var1);
+ 1749               		.loc 1 303 3 is_stmt 1 view .LVU417
+ 1750               		.loc 1 303 10 is_stmt 0 view .LVU418
+ 1751 0740 660F      		lsl r22
+ 1752 0742 771F      		rol r23
+ 1753 0744 881F      		rol r24
+ 1754 0746 991F      		rol r25
+ 1755               	.LVL128:
+ 1756               		.loc 1 303 5 view .LVU419
+ 1757 0748 A501      		movw r20,r10
+ 1758 074a 9401      		movw r18,r8
+ 1759               	.LVL129:
+ 1760               		.loc 1 303 5 view .LVU420
+ 1761 074c 0E94 0000 		call __udivmodsi4
+ 1762               		.loc 1 303 5 view .LVU421
+ 1763 0750 2901      		movw r4,r18
+ 1764 0752 3A01      		movw r6,r20
+ 1765               	.L54:
+ 1766               	.LVL130:
+ 304:bme280_i2c.c  **** 	}else{
+ 305:bme280_i2c.c  **** 		p = (p / (uint32_t)var1) * 2;
+ 306:bme280_i2c.c  **** 	}
+ 307:bme280_i2c.c  **** 	var1 = (((int32_t)dig_P9) * ((int32_t)(((p>>3) * (p>>3))>>13)))>>12;
+ 1767               		.loc 1 307 2 is_stmt 1 view .LVU422
+ 1768               		.loc 1 307 44 is_stmt 0 view .LVU423
+ 1769 0754 C301      		movw r24,r6
+ 1770 0756 B201      		movw r22,r4
+ 1771 0758 33E0      		ldi r19,3
+ 1772               		1:
+ 1773 075a 9695      		lsr r25
+ 1774 075c 8795      		ror r24
+ 1775 075e 7795      		ror r23
+ 1776 0760 6795      		ror r22
+ 1777 0762 3A95      		dec r19
+ 1778 0764 01F4      		brne 1b
+ 1779               	.LVL131:
+ 308:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1780               		.loc 1 308 2 is_stmt 1 view .LVU424
+ 309:bme280_i2c.c  **** 	p = (uint32_t)((int32_t)p + ((var1 + var2 + dig_P7) >> 4));
+ 1781               		.loc 1 309 2 view .LVU425
+ 307:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1782               		.loc 1 307 49 is_stmt 0 view .LVU426
+ 1783 0766 9B01      		movw r18,r22
+ 1784 0768 AC01      		movw r20,r24
+ 1785 076a 0E94 0000 		call __mulsi3
+ 1786               	.LVL132:
+ 307:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1787               		.loc 1 307 58 view .LVU427
+ 1788 076e 9B01      		movw r18,r22
+ 1789 0770 AC01      		movw r20,r24
+ 1790 0772 6DE0      		ldi r22,13
+ 1791               		1:
+ 1792 0774 5695      		lsr r21
+ 1793 0776 4795      		ror r20
+ 1794 0778 3795      		ror r19
+ 1795 077a 2795      		ror r18
+ 1796 077c 6A95      		dec r22
+ 1797 077e 01F4      		brne 1b
+ 307:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1798               		.loc 1 307 11 view .LVU428
+ 1799 0780 A091 0000 		lds r26,dig_P9
+ 1800 0784 B091 0000 		lds r27,dig_P9+1
+ 307:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1801               		.loc 1 307 28 view .LVU429
+ 1802 0788 0E94 0000 		call __mulshisi3
+ 307:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1803               		.loc 1 307 7 view .LVU430
+ 1804 078c 4B01      		movw r8,r22
+ 1805 078e 5C01      		movw r10,r24
+ 1806 0790 7CE0      		ldi r23,12
+ 1807               		1:
+ 1808 0792 B594      		asr r11
+ 1809 0794 A794      		ror r10
+ 1810 0796 9794      		ror r9
+ 1811 0798 8794      		ror r8
+ 1812 079a 7A95      		dec r23
+ 1813 079c 01F4      		brne 1b
+ 308:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1814               		.loc 1 308 22 view .LVU431
+ 1815 079e A301      		movw r20,r6
+ 1816 07a0 9201      		movw r18,r4
+ 1817 07a2 E2E0      		ldi r30,2
+ 1818               		1:
+ 1819 07a4 5695      		lsr r21
+ 1820 07a6 4795      		ror r20
+ 1821 07a8 3795      		ror r19
+ 1822 07aa 2795      		ror r18
+ 1823 07ac EA95      		dec r30
+ 1824 07ae 01F4      		brne 1b
+ 308:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1825               		.loc 1 308 31 view .LVU432
+ 1826 07b0 A091 0000 		lds r26,dig_P8
+ 1827 07b4 B091 0000 		lds r27,dig_P8+1
+ 308:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1828               		.loc 1 308 28 view .LVU433
+ 1829 07b8 0E94 0000 		call __mulshisi3
+ 308:bme280_i2c.c  **** 	var2 = (((int32_t)(p>>2)) * ((int32_t)dig_P8))>>13;
+ 1830               		.loc 1 308 7 view .LVU434
+ 1831 07bc FDE0      		ldi r31,13
+ 1832               		1:
+ 1833 07be 9595      		asr r25
+ 1834 07c0 8795      		ror r24
+ 1835 07c2 7795      		ror r23
+ 1836 07c4 6795      		ror r22
+ 1837 07c6 FA95      		dec r31
+ 1838 07c8 01F4      		brne 1b
+ 1839               		.loc 1 309 37 view .LVU435
+ 1840 07ca 860E      		add r8,r22
+ 1841 07cc 971E      		adc r9,r23
+ 1842 07ce A81E      		adc r10,r24
+ 1843 07d0 B91E      		adc r11,r25
+ 1844               		.loc 1 309 44 view .LVU436
+ 1845 07d2 8091 0000 		lds r24,dig_P7
+ 1846 07d6 9091 0000 		lds r25,dig_P7+1
+ 1847 07da 092E      		mov __tmp_reg__,r25
+ 1848 07dc 000C      		lsl r0
+ 1849 07de AA0B      		sbc r26,r26
+ 1850 07e0 BB0B      		sbc r27,r27
+ 1851 07e2 880D      		add r24,r8
+ 1852 07e4 991D      		adc r25,r9
+ 1853 07e6 AA1D      		adc r26,r10
+ 1854 07e8 BB1D      		adc r27,r11
+ 1855               		.loc 1 309 54 view .LVU437
+ 1856 07ea 4C01      		movw r8,r24
+ 1857 07ec 5D01      		movw r10,r26
+ 1858 07ee A4E0      		ldi r26,4
+ 1859               		1:
+ 1860 07f0 B594      		asr r11
+ 1861 07f2 A794      		ror r10
+ 1862 07f4 9794      		ror r9
+ 1863 07f6 8794      		ror r8
+ 1864 07f8 AA95      		dec r26
+ 1865 07fa 01F4      		brne 1b
+ 1866               		.loc 1 309 4 view .LVU438
+ 1867 07fc 480C      		add r4,r8
+ 1868 07fe 591C      		adc r5,r9
+ 1869 0800 6A1C      		adc r6,r10
+ 1870 0802 7B1C      		adc r7,r11
+ 1871               	.LVL133:
+ 310:bme280_i2c.c  **** 	return p;
+ 1872               		.loc 1 310 2 is_stmt 1 view .LVU439
+ 1873               	.L52:
+ 1874               		.loc 1 310 2 is_stmt 0 view .LVU440
+ 1875               	.LBE24:
+ 1876               	.LBE26:
+ 272:bme280_i2c.c  **** 	*hum_p   = bme280_compensate_H_int32(hum);
+ 1877               		.loc 1 272 11 view .LVU441
+ 1878 0804 D101      		movw r26,r2
+ 1879 0806 4D92      		st X+,r4
+ 1880 0808 5D92      		st X+,r5
+ 1881 080a 6D92      		st X+,r6
+ 1882 080c 7C92      		st X,r7
+ 1883 080e 1397      		sbiw r26,3
+ 273:bme280_i2c.c  **** 	
+ 1884               		.loc 1 273 2 is_stmt 1 view .LVU442
+ 1885               	.LVL134:
+ 1886               	.LBB27:
+ 1887               	.LBI27:
+ 311:bme280_i2c.c  **** }
+ 312:bme280_i2c.c  **** 
+ 313:bme280_i2c.c  **** // Returns humidity in %RH as unsigned 32 bit integer in Q22.10 format (22 integer and 10 fractiona
+ 314:bme280_i2c.c  **** // Output value of “47445” represents 47445/1024 = 46.333 %RH
+ 315:bme280_i2c.c  **** static uint32_t bme280_compensate_H_int32(int32_t adc_H){
+ 1888               		.loc 1 315 17 view .LVU443
+ 1889               	.LBB28:
+ 316:bme280_i2c.c  **** 	int32_t v_x1_u32r;
+ 1890               		.loc 1 316 2 view .LVU444
+ 317:bme280_i2c.c  **** 	v_x1_u32r = (t_fine - ((int32_t)76800));
+ 1891               		.loc 1 317 2 view .LVU445
+ 1892               		.loc 1 317 12 is_stmt 0 view .LVU446
+ 1893 0810 BCE2      		ldi r27,44
+ 1894 0812 DB1A      		sub r13,r27
+ 1895 0814 B1E0      		ldi r27,1
+ 1896 0816 EB0A      		sbc r14,r27
+ 1897 0818 F108      		sbc r15,__zero_reg__
+ 1898               	.LVL135:
+ 318:bme280_i2c.c  **** 	v_x1_u32r = (((((adc_H << 14) - (((int32_t)dig_H4) << 20) - (((int32_t)dig_H5) * v_x1_u32r)) +
+ 1899               		.loc 1 318 2 is_stmt 1 view .LVU447
+ 1900               		.loc 1 318 25 is_stmt 0 view .LVU448
+ 1901 081a 8E84      		ldd r8,Y+14
+ 1902 081c 9F84      		ldd r9,Y+15
+ 1903 081e A888      		ldd r10,Y+16
+ 1904 0820 B988      		ldd r11,Y+17
+ 1905 0822 3EE0      		ldi r19,14
+ 1906               		1:
+ 1907 0824 880C      		lsl r8
+ 1908 0826 991C      		rol r9
+ 1909 0828 AA1C      		rol r10
+ 1910 082a BB1C      		rol r11
+ 1911 082c 3A95      		dec r19
+ 1912 082e 01F4      		brne 1b
+ 1913               		.loc 1 318 36 view .LVU449
+ 1914 0830 8091 0000 		lds r24,dig_H4
+ 1915 0834 9091 0000 		lds r25,dig_H4+1
+ 1916 0838 092E      		mov __tmp_reg__,r25
+ 1917 083a 000C      		lsl r0
+ 1918 083c AA0B      		sbc r26,r26
+ 1919 083e BB0B      		sbc r27,r27
+ 1920               		.loc 1 318 53 view .LVU450
+ 1921 0840 44E1      		ldi r20,20
+ 1922               		1:
+ 1923 0842 880F      		lsl r24
+ 1924 0844 991F      		rol r25
+ 1925 0846 AA1F      		rol r26
+ 1926 0848 BB1F      		rol r27
+ 1927 084a 4A95      		dec r20
+ 1928 084c 01F4      		brne 1b
+ 1929               		.loc 1 318 32 view .LVU451
+ 1930 084e 881A      		sub r8,r24
+ 1931 0850 990A      		sbc r9,r25
+ 1932 0852 AA0A      		sbc r10,r26
+ 1933 0854 BB0A      		sbc r11,r27
+ 1934               		.loc 1 318 64 view .LVU452
+ 1935 0856 A091 0000 		lds r26,dig_H5
+ 1936 085a B091 0000 		lds r27,dig_H5+1
+ 1937               		.loc 1 318 81 view .LVU453
+ 1938 085e A701      		movw r20,r14
+ 1939 0860 9601      		movw r18,r12
+ 1940 0862 0E94 0000 		call __mulshisi3
+ 1941               		.loc 1 318 60 view .LVU454
+ 1942 0866 861A      		sub r8,r22
+ 1943 0868 970A      		sbc r9,r23
+ 1944 086a A80A      		sbc r10,r24
+ 1945 086c B90A      		sbc r11,r25
+ 1946               		.loc 1 318 95 view .LVU455
+ 1947 086e E0E4      		ldi r30,64
+ 1948 0870 9E0E      		add r9,r30
+ 1949 0872 A11C      		adc r10,__zero_reg__
+ 1950 0874 B11C      		adc r11,__zero_reg__
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1951               		.loc 1 319 21 view .LVU456
+ 1952 0876 6FE0      		ldi r22,15
+ 1953               		1:
+ 1954 0878 B594      		asr r11
+ 1955 087a A794      		ror r10
+ 1956 087c 9794      		ror r9
+ 1957 087e 8794      		ror r8
+ 1958 0880 6A95      		dec r22
+ 1959 0882 01F4      		brne 1b
+ 320:bme280_i2c.c  **** 		((int32_t)dig_H3)) >> 11) + ((int32_t)32768))) >> 10) + ((int32_t)2097152)) *
+ 1960               		.loc 1 320 4 view .LVU457
+ 1961 0884 A091 0000 		lds r26,dig_H3
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1962               		.loc 1 319 90 view .LVU458
+ 1963 0888 B0E0      		ldi r27,0
+ 1964 088a 0E94 0000 		call __muluhisi3
+ 1965               		.loc 1 320 22 view .LVU459
+ 1966 088e 2B01      		movw r4,r22
+ 1967 0890 3C01      		movw r6,r24
+ 1968 0892 7BE0      		ldi r23,11
+ 1969               		1:
+ 1970 0894 7594      		asr r7
+ 1971 0896 6794      		ror r6
+ 1972 0898 5794      		ror r5
+ 1973 089a 4794      		ror r4
+ 1974 089c 7A95      		dec r23
+ 1975 089e 01F4      		brne 1b
+ 1976               		.loc 1 320 29 view .LVU460
+ 1977 08a0 F0E8      		ldi r31,-128
+ 1978 08a2 5F0E      		add r5,r31
+ 1979 08a4 611C      		adc r6,__zero_reg__
+ 1980 08a6 711C      		adc r7,__zero_reg__
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1981               		.loc 1 319 50 view .LVU461
+ 1982 08a8 A091 0000 		lds r26,dig_H6
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1983               		.loc 1 319 47 view .LVU462
+ 1984 08ac 0A2E      		mov __tmp_reg__,r26
+ 1985 08ae 000C      		lsl r0
+ 1986 08b0 BB0B      		sbc r27,r27
+ 1987 08b2 0E94 0000 		call __mulshisi3
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1988               		.loc 1 319 68 view .LVU463
+ 1989 08b6 EAE0      		ldi r30,10
+ 1990               		1:
+ 1991 08b8 9595      		asr r25
+ 1992 08ba 8795      		ror r24
+ 1993 08bc 7795      		ror r23
+ 1994 08be 6795      		ror r22
+ 1995 08c0 EA95      		dec r30
+ 1996 08c2 01F4      		brne 1b
+ 319:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 1997               		.loc 1 319 75 view .LVU464
+ 1998 08c4 A301      		movw r20,r6
+ 1999 08c6 9201      		movw r18,r4
+ 2000 08c8 0E94 0000 		call __mulsi3
+ 2001               		.loc 1 320 50 view .LVU465
+ 2002 08cc 9B01      		movw r18,r22
+ 2003 08ce AC01      		movw r20,r24
+ 2004 08d0 FAE0      		ldi r31,10
+ 2005               		1:
+ 2006 08d2 5595      		asr r21
+ 2007 08d4 4795      		ror r20
+ 2008 08d6 3795      		ror r19
+ 2009 08d8 2795      		ror r18
+ 2010 08da FA95      		dec r31
+ 2011 08dc 01F4      		brne 1b
+ 2012               		.loc 1 320 57 view .LVU466
+ 2013 08de 405E      		subi r20,-32
+ 2014 08e0 5F4F      		sbci r21,-1
+ 321:bme280_i2c.c  **** 		((int32_t)dig_H2) + 8192) >> 14));
+ 2015               		.loc 1 321 4 view .LVU467
+ 2016 08e2 A091 0000 		lds r26,dig_H2
+ 2017 08e6 B091 0000 		lds r27,dig_H2+1
+ 320:bme280_i2c.c  **** 		((int32_t)dig_H3)) >> 11) + ((int32_t)32768))) >> 10) + ((int32_t)2097152)) *
+ 2018               		.loc 1 320 79 view .LVU468
+ 2019 08ea 0E94 0000 		call __mulshisi3
+ 2020               		.loc 1 321 21 view .LVU469
+ 2021 08ee 705E      		subi r23,-32
+ 2022 08f0 8F4F      		sbci r24,-1
+ 2023 08f2 9F4F      		sbci r25,-1
+ 2024               		.loc 1 321 29 view .LVU470
+ 2025 08f4 AEE0      		ldi r26,14
+ 2026               		1:
+ 2027 08f6 9595      		asr r25
+ 2028 08f8 8795      		ror r24
+ 2029 08fa 7795      		ror r23
+ 2030 08fc 6795      		ror r22
+ 2031 08fe AA95      		dec r26
+ 2032 0900 01F4      		brne 1b
+ 318:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 2033               		.loc 1 318 12 view .LVU471
+ 2034 0902 A501      		movw r20,r10
+ 2035 0904 9401      		movw r18,r8
+ 2036 0906 0E94 0000 		call __mulsi3
+ 2037 090a 6B01      		movw r12,r22
+ 2038               	.LVL136:
+ 318:bme280_i2c.c  **** 		((int32_t)16384)) >> 15) * (((((((v_x1_u32r * ((int32_t)dig_H6)) >> 10) * (((v_x1_u32r *	
+ 2039               		.loc 1 318 12 view .LVU472
+ 2040 090c 7C01      		movw r14,r24
+ 2041               	.LVL137:
+ 322:bme280_i2c.c  **** 	v_x1_u32r = (v_x1_u32r - (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7) * ((int32_t)dig_H1)) >> 
+ 2042               		.loc 1 322 2 is_stmt 1 view .LVU473
+ 2043               		.loc 1 322 42 is_stmt 0 view .LVU474
+ 2044 090e BFE0      		ldi r27,15
+ 2045               		1:
+ 2046 0910 9595      		asr r25
+ 2047 0912 8795      		ror r24
+ 2048 0914 7795      		ror r23
+ 2049 0916 6795      		ror r22
+ 2050 0918 BA95      		dec r27
+ 2051 091a 01F4      		brne 1b
+ 2052               		.loc 1 322 49 view .LVU475
+ 2053 091c 9B01      		movw r18,r22
+ 2054 091e AC01      		movw r20,r24
+ 2055 0920 0E94 0000 		call __mulsi3
+ 2056               		.loc 1 322 70 view .LVU476
+ 2057 0924 9B01      		movw r18,r22
+ 2058 0926 AC01      		movw r20,r24
+ 2059 0928 07E0      		ldi r16,7
+ 2060               		1:
+ 2061 092a 5595      		asr r21
+ 2062 092c 4795      		ror r20
+ 2063 092e 3795      		ror r19
+ 2064 0930 2795      		ror r18
+ 2065 0932 0A95      		dec r16
+ 2066 0934 01F4      		brne 1b
+ 2067               		.loc 1 322 79 view .LVU477
+ 2068 0936 A091 0000 		lds r26,dig_H1
+ 2069               		.loc 1 322 76 view .LVU478
+ 2070 093a B0E0      		ldi r27,0
+ 2071 093c 0E94 0000 		call __muluhisi3
+ 2072               		.loc 1 322 97 view .LVU479
+ 2073 0940 24E0      		ldi r18,4
+ 2074               		1:
+ 2075 0942 9595      		asr r25
+ 2076 0944 8795      		ror r24
+ 2077 0946 7795      		ror r23
+ 2078 0948 6795      		ror r22
+ 2079 094a 2A95      		dec r18
+ 2080 094c 01F4      		brne 1b
+ 2081               	.LVL138:
+ 323:bme280_i2c.c  **** 	v_x1_u32r = (v_x1_u32r < 0 ? 0 : v_x1_u32r);
+ 2082               		.loc 1 323 2 is_stmt 1 view .LVU480
+ 2083               		.loc 1 323 12 is_stmt 0 view .LVU481
+ 2084 094e A701      		movw r20,r14
+ 2085 0950 9601      		movw r18,r12
+ 2086 0952 261B      		sub r18,r22
+ 2087 0954 370B      		sbc r19,r23
+ 2088 0956 480B      		sbc r20,r24
+ 2089 0958 590B      		sbc r21,r25
+ 2090 095a DA01      		movw r26,r20
+ 2091 095c C901      		movw r24,r18
+ 2092 095e B7FF      		sbrs r27,7
+ 2093 0960 00C0      		rjmp .L55
+ 2094 0962 80E0      		ldi r24,0
+ 2095 0964 90E0      		ldi r25,0
+ 2096 0966 DC01      		movw r26,r24
+ 2097               	.L55:
+ 2098               	.LVL139:
+ 324:bme280_i2c.c  **** 	v_x1_u32r = (v_x1_u32r > 419430400L ? 419430400L : v_x1_u32r);
+ 2099               		.loc 1 324 2 is_stmt 1 view .LVU482
+ 325:bme280_i2c.c  **** 	return (uint32_t)(v_x1_u32r>>12);
+ 2100               		.loc 1 325 2 view .LVU483
+ 324:bme280_i2c.c  **** 	v_x1_u32r = (v_x1_u32r > 419430400L ? 419430400L : v_x1_u32r);
+ 2101               		.loc 1 324 12 is_stmt 0 view .LVU484
+ 2102 0968 8130      		cpi r24,1
+ 2103 096a 9105      		cpc r25,__zero_reg__
+ 2104 096c A105      		cpc r26,__zero_reg__
+ 2105 096e 39E1      		ldi r19,25
+ 2106 0970 B307      		cpc r27,r19
+ 2107 0972 04F0      		brlt .L56
+ 2108 0974 80E0      		ldi r24,0
+ 2109 0976 90E0      		ldi r25,0
+ 2110 0978 A0E0      		ldi r26,0
+ 2111 097a B9E1      		ldi r27,lo8(25)
+ 2112               	.L56:
+ 2113               		.loc 1 325 29 view .LVU485
+ 2114 097c 2CE0      		ldi r18,12
+ 2115               		1:
+ 2116 097e B595      		asr r27
+ 2117 0980 A795      		ror r26
+ 2118 0982 9795      		ror r25
+ 2119 0984 8795      		ror r24
+ 2120 0986 2A95      		dec r18
+ 2121 0988 01F4      		brne 1b
+ 2122               	.LBE28:
+ 2123               	.LBE27:
+ 273:bme280_i2c.c  **** 	
+ 2124               		.loc 1 273 11 view .LVU486
+ 2125 098a EA89      		ldd r30,Y+18
+ 2126 098c FB89      		ldd r31,Y+19
+ 2127 098e 8083      		st Z,r24
+ 2128 0990 9183      		std Z+1,r25
+ 2129 0992 A283      		std Z+2,r26
+ 2130 0994 B383      		std Z+3,r27
+ 275:bme280_i2c.c  **** }
+ 2131               		.loc 1 275 2 is_stmt 1 view .LVU487
+ 275:bme280_i2c.c  **** }
+ 2132               		.loc 1 275 9 is_stmt 0 view .LVU488
+ 2133 0996 00C0      		rjmp .L45
+ 2134               	.LVL140:
+ 2135               	.L48:
+ 248:bme280_i2c.c  **** 		failed |= BME280_write(&ctrl_meas, 1, 0xF4);
+ 2136               		.loc 1 248 3 is_stmt 1 view .LVU489
+ 248:bme280_i2c.c  **** 		failed |= BME280_write(&ctrl_meas, 1, 0xF4);
+ 2137               		.loc 1 248 13 is_stmt 0 view .LVU490
+ 2138 0998 8160      		ori r24,lo8(1)
+ 2139 099a 8987      		std Y+9,r24
+ 249:bme280_i2c.c  **** 		if (failed){
+ 2140               		.loc 1 249 3 is_stmt 1 view .LVU491
+ 249:bme280_i2c.c  **** 		if (failed){
+ 2141               		.loc 1 249 13 is_stmt 0 view .LVU492
+ 2142 099c 64EF      		ldi r22,lo8(-12)
+ 2143 099e CE01      		movw r24,r28
+ 2144 09a0 0996      		adiw r24,9
+ 2145 09a2 0E94 0000 		call BME280_write.constprop.2
+ 2146               	.LVL141:
+ 250:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 2147               		.loc 1 250 3 is_stmt 1 view .LVU493
+ 250:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 2148               		.loc 1 250 6 is_stmt 0 view .LVU494
+ 2149 09a6 8111      		cpse r24,__zero_reg__
+ 2150 09a8 00C0      		rjmp .L49
+ 254:bme280_i2c.c  **** 		if (failed){
+ 2151               		.loc 1 254 3 is_stmt 1 view .LVU495
+ 254:bme280_i2c.c  **** 		if (failed){
+ 2152               		.loc 1 254 13 is_stmt 0 view .LVU496
+ 2153 09aa 88E0      		ldi r24,lo8(8)
+ 2154               	.LVL142:
+ 254:bme280_i2c.c  **** 		if (failed){
+ 2155               		.loc 1 254 13 view .LVU497
+ 2156 09ac 0E94 0000 		call BME280_waitfor_status
+ 2157               	.LVL143:
+ 255:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 2158               		.loc 1 255 3 is_stmt 1 view .LVU498
+ 255:bme280_i2c.c  **** 			return BME280_I2C_FAIL;
+ 2159               		.loc 1 255 6 is_stmt 0 view .LVU499
+ 2160 09b0 8823      		tst r24
+ 2161 09b2 01F4      		brne .+2
+ 2162 09b4 00C0      		rjmp .L51
+ 2163 09b6 00C0      		rjmp .L49
+ 2164               	.LVL144:
+ 2165               	.L53:
+ 2166               	.LBB29:
+ 2167               	.LBB25:
+ 305:bme280_i2c.c  **** 	}
+ 2168               		.loc 1 305 3 is_stmt 1 view .LVU500
+ 305:bme280_i2c.c  **** 	}
+ 2169               		.loc 1 305 10 is_stmt 0 view .LVU501
+ 2170 09b8 A501      		movw r20,r10
+ 2171 09ba 9401      		movw r18,r8
+ 2172 09bc 0E94 0000 		call __udivmodsi4
+ 2173               	.LVL145:
+ 305:bme280_i2c.c  **** 	}
+ 2174               		.loc 1 305 5 view .LVU502
+ 2175 09c0 2901      		movw r4,r18
+ 2176 09c2 3A01      		movw r6,r20
+ 2177 09c4 440C      		lsl r4
+ 2178 09c6 551C      		rol r5
+ 2179 09c8 661C      		rol r6
+ 2180 09ca 771C      		rol r7
+ 2181               	.LVL146:
+ 305:bme280_i2c.c  **** 	}
+ 2182               		.loc 1 305 5 view .LVU503
+ 2183 09cc 00C0      		rjmp .L54
+ 2184               	.LVL147:
+ 2185               	.L57:
+ 299:bme280_i2c.c  **** 	}
+ 2186               		.loc 1 299 10 view .LVU504
+ 2187 09ce 412C      		mov r4,__zero_reg__
+ 2188 09d0 512C      		mov r5,__zero_reg__
+ 2189 09d2 3201      		movw r6,r4
+ 2190               	.LVL148:
+ 299:bme280_i2c.c  **** 	}
+ 2191               		.loc 1 299 10 view .LVU505
+ 2192 09d4 00C0      		rjmp .L52
+ 2193               	.LBE25:
+ 2194               	.LBE29:
+ 2195               		.cfi_endproc
+ 2196               	.LFE8:
+ 2198               		.local	t_fine
+ 2199               		.comm	t_fine,4,1
+ 2200               		.local	dig_H6
+ 2201               		.comm	dig_H6,1,1
+ 2202               		.local	dig_H5
+ 2203               		.comm	dig_H5,2,1
+ 2204               		.local	dig_H4
+ 2205               		.comm	dig_H4,2,1
+ 2206               		.local	dig_H3
+ 2207               		.comm	dig_H3,1,1
+ 2208               		.local	dig_H2
+ 2209               		.comm	dig_H2,2,1
+ 2210               		.local	dig_H1
+ 2211               		.comm	dig_H1,1,1
+ 2212               		.local	dig_P9
+ 2213               		.comm	dig_P9,2,1
+ 2214               		.local	dig_P8
+ 2215               		.comm	dig_P8,2,1
+ 2216               		.local	dig_P7
+ 2217               		.comm	dig_P7,2,1
+ 2218               		.local	dig_P6
+ 2219               		.comm	dig_P6,2,1
+ 2220               		.local	dig_P5
+ 2221               		.comm	dig_P5,2,1
+ 2222               		.local	dig_P4
+ 2223               		.comm	dig_P4,2,1
+ 2224               		.local	dig_P3
+ 2225               		.comm	dig_P3,2,1
+ 2226               		.local	dig_P2
+ 2227               		.comm	dig_P2,2,1
+ 2228               		.local	dig_P1
+ 2229               		.comm	dig_P1,2,1
+ 2230               		.local	dig_T3
+ 2231               		.comm	dig_T3,2,1
+ 2232               		.local	dig_T2
+ 2233               		.comm	dig_T2,2,1
+ 2234               		.local	dig_T1
+ 2235               		.comm	dig_T1,2,1
+ 2236               	.Letext0:
+ 2237               		.file 2 "/usr/avr/include/stdint.h"
+ 2238               		.file 3 "./i2cmaster.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 bme280_i2c.c
+     /tmp/ccJqoUap.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccJqoUap.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccJqoUap.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccJqoUap.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccJqoUap.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccJqoUap.s:11     .text:0000000000000000 BME280_read
+     /tmp/ccJqoUap.s:169    .text:000000000000007c BME280_waitfor_status
+     /tmp/ccJqoUap.s:262    .text:00000000000000ba BME280_write.constprop.2
+     /tmp/ccJqoUap.s:362    .text:00000000000000f8 BME280_init
+     /tmp/ccJqoUap.s:2233   .bss:0000000000000023 dig_T1
+     /tmp/ccJqoUap.s:2231   .bss:0000000000000021 dig_T2
+     /tmp/ccJqoUap.s:2229   .bss:000000000000001f dig_T3
+     /tmp/ccJqoUap.s:2227   .bss:000000000000001d dig_P1
+     /tmp/ccJqoUap.s:2225   .bss:000000000000001b dig_P2
+     /tmp/ccJqoUap.s:2223   .bss:0000000000000019 dig_P3
+     /tmp/ccJqoUap.s:2221   .bss:0000000000000017 dig_P4
+     /tmp/ccJqoUap.s:2219   .bss:0000000000000015 dig_P5
+     /tmp/ccJqoUap.s:2217   .bss:0000000000000013 dig_P6
+     /tmp/ccJqoUap.s:2215   .bss:0000000000000011 dig_P7
+     /tmp/ccJqoUap.s:2213   .bss:000000000000000f dig_P8
+     /tmp/ccJqoUap.s:2211   .bss:000000000000000d dig_P9
+     /tmp/ccJqoUap.s:2209   .bss:000000000000000c dig_H1
+     /tmp/ccJqoUap.s:2207   .bss:000000000000000a dig_H2
+     /tmp/ccJqoUap.s:2205   .bss:0000000000000009 dig_H3
+     /tmp/ccJqoUap.s:2203   .bss:0000000000000007 dig_H4
+     /tmp/ccJqoUap.s:2201   .bss:0000000000000005 dig_H5
+     /tmp/ccJqoUap.s:2199   .bss:0000000000000004 dig_H6
+     /tmp/ccJqoUap.s:645    .text:0000000000000256 BME280_set_filter
+     /tmp/ccJqoUap.s:740    .text:00000000000002a4 BME280_set_standby
+     /tmp/ccJqoUap.s:835    .text:00000000000002f2 BME280_set_measure
+     /tmp/ccJqoUap.s:986    .text:0000000000000372 BME280_set_measuremode
+     /tmp/ccJqoUap.s:1076   .text:00000000000003b8 BME280_readout
+                             .bss:0000000000000000 t_fine
+
+UNDEFINED SYMBOLS
+i2c_start
+i2c_write
+i2c_rep_start
+i2c_stop
+i2c_readAck
+i2c_readNak
+__mulshisi3
+__mulsi3
+__muluhisi3
+__mulohisi3
+__udivmodsi4
+__do_clear_bss
