@@ -1,0 +1,82 @@
+   1               		.file	"main.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               		.section	.text.startup,"ax",@progbits
+  11               	.global	main
+  13               	main:
+  14               	.LFB2:
+  15               		.file 1 "main.c"
+   1:main.c        **** /*
+   2:main.c        **** 
+   3:main.c        **** 	Demo of glcd library with AVR8 microcontroller
+   4:main.c        **** 	
+   5:main.c        **** 	Tested on a custom made PCB (intended for another project)
+   6:main.c        **** 
+   7:main.c        **** 	See ../README.md for connection details
+   8:main.c        **** 
+   9:main.c        **** */
+  10:main.c        **** 
+  11:main.c        **** #include <avr/io.h>
+  12:main.c        **** #include "glcd.h"
+  13:main.c        **** /* Function prototypes */
+  14:main.c        **** static void setup(void);
+  15:main.c        **** 
+  16:main.c        **** static void setup(void)
+  17:main.c        **** {
+  18:main.c        **** 	/* Set up glcd, also sets up SPI and relevent GPIO pins */
+  19:main.c        **** 	glcd_init();
+  20:main.c        **** 	
+  21:main.c        **** 	/* Backlight pin PL3, set as output, set high for 100% output */
+  22:main.c        **** 	DDRB |= (1<<PB2);
+  23:main.c        **** 	PORTB |= (1<<PB2);
+  24:main.c        **** }
+  25:main.c        **** 
+  26:main.c        **** int main(void)
+  27:main.c        **** {
+  16               		.loc 1 27 0
+  17               		.cfi_startproc
+  18               	/* prologue: function */
+  19               	/* frame size = 0 */
+  20               	/* stack size = 0 */
+  21               	.L__stack_usage = 0
+  22               	.LBB4:
+  23               	.LBB5:
+  19:main.c        **** 	
+  24               		.loc 1 19 0
+  25 0000 0E94 0000 		call glcd_init
+  26               	.LVL0:
+  22:main.c        **** 	PORTB |= (1<<PB2);
+  27               		.loc 1 22 0
+  28 0004 229A      		sbi 0x4,2
+  23:main.c        **** }
+  29               		.loc 1 23 0
+  30 0006 2A9A      		sbi 0x5,2
+  31               	.L2:
+  32 0008 00C0      		rjmp .L2
+  33               	.LBE5:
+  34               	.LBE4:
+  35               		.cfi_endproc
+  36               	.LFE2:
+  38               		.text
+  39               	.Letext0:
+  40               		.file 2 "/usr/avr/include/stdint.h"
+  41               		.file 3 "glcd.h"
+  42               		.file 4 "unit_tests.h"
+  43               		.file 5 "glcd_devices.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 main.c
+     /tmp/ccM4iWhT.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccM4iWhT.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccM4iWhT.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccM4iWhT.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccM4iWhT.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccM4iWhT.s:13     .text.startup:0000000000000000 main
+
+UNDEFINED SYMBOLS
+glcd_init

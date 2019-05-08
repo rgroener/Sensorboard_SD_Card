@@ -1,0 +1,801 @@
+   1               		.file	"grn_UART.c"
+   2               	__SP_H__ = 0x3e
+   3               	__SP_L__ = 0x3d
+   4               	__SREG__ = 0x3f
+   5               	__tmp_reg__ = 0
+   6               	__zero_reg__ = 1
+   7               		.text
+   8               	.Ltext0:
+   9               		.cfi_sections	.debug_frame
+  10               	.global	uart_send_char
+  12               	uart_send_char:
+  13               	.LFB5:
+  14               		.file 1 "grn_UART.c"
+   1:grn_UART.c    **** #include <stdio.h>
+   2:grn_UART.c    **** #include <avr/io.h>
+   3:grn_UART.c    **** #include <stdlib.h>
+   4:grn_UART.c    **** 
+   5:grn_UART.c    **** 
+   6:grn_UART.c    **** void uart_send_char(char c)
+   7:grn_UART.c    **** {
+  15               		.loc 1 7 1 view -0
+  16               		.cfi_startproc
+  17               	/* prologue: function */
+  18               	/* frame size = 0 */
+  19               	/* stack size = 0 */
+  20               	.L__stack_usage = 0
+  21               	.LVL0:
+  22               	.L2:
+   8:grn_UART.c    **** 	while((UCSR0A & (1<<UDRE0)) == 0){};
+  23               		.loc 1 8 36 discriminator 1 view .LVU1
+  24               		.loc 1 8 9 is_stmt 0 discriminator 1 view .LVU2
+  25 0000 9091 C000 		lds r25,192
+  26               		.loc 1 8 7 discriminator 1 view .LVU3
+  27 0004 95FF      		sbrs r25,5
+  28 0006 00C0      		rjmp .L2
+  29               		.loc 1 8 37 is_stmt 1 discriminator 2 view .LVU4
+   9:grn_UART.c    ****     UDR0 = c;
+  30               		.loc 1 9 5 discriminator 2 view .LVU5
+  31               		.loc 1 9 10 is_stmt 0 discriminator 2 view .LVU6
+  32 0008 8093 C600 		sts 198,r24
+  33               	/* epilogue start */
+  10:grn_UART.c    **** }
+  34               		.loc 1 10 1 discriminator 2 view .LVU7
+  35 000c 0895      		ret
+  36               		.cfi_endproc
+  37               	.LFE5:
+  39               	.global	uart_send_string
+  41               	uart_send_string:
+  42               	.LVL1:
+  43               	.LFB6:
+  11:grn_UART.c    **** void uart_send_string(char *s)
+  12:grn_UART.c    **** {
+  44               		.loc 1 12 1 is_stmt 1 view -0
+  45               		.cfi_startproc
+  46               		.loc 1 12 1 is_stmt 0 view .LVU9
+  47 000e CF93      		push r28
+  48               	.LCFI0:
+  49               		.cfi_def_cfa_offset 3
+  50               		.cfi_offset 28, -2
+  51 0010 DF93      		push r29
+  52               	.LCFI1:
+  53               		.cfi_def_cfa_offset 4
+  54               		.cfi_offset 29, -3
+  55               	/* prologue: function */
+  56               	/* frame size = 0 */
+  57               	/* stack size = 2 */
+  58               	.L__stack_usage = 2
+  59 0012 EC01      		movw r28,r24
+  13:grn_UART.c    **** 	while(*s != 0x00)
+  60               		.loc 1 13 2 is_stmt 1 view .LVU10
+  61               	.LVL2:
+  62               	.L6:
+  63               		.loc 1 13 8 is_stmt 0 view .LVU11
+  64 0014 8991      		ld r24,Y+
+  65               	.LVL3:
+  66               		.loc 1 13 7 view .LVU12
+  67 0016 8111      		cpse r24,__zero_reg__
+  68 0018 00C0      		rjmp .L7
+  69               	/* epilogue start */
+  14:grn_UART.c    **** 	{
+  15:grn_UART.c    **** 		uart_send_char(*s);
+  16:grn_UART.c    **** 		s++;
+  17:grn_UART.c    **** 	}
+  18:grn_UART.c    **** }//end of send_string
+  70               		.loc 1 18 1 view .LVU13
+  71 001a DF91      		pop r29
+  72 001c CF91      		pop r28
+  73               	.LVL4:
+  74               		.loc 1 18 1 view .LVU14
+  75 001e 0895      		ret
+  76               	.LVL5:
+  77               	.L7:
+  15:grn_UART.c    **** 		s++;
+  78               		.loc 1 15 3 is_stmt 1 view .LVU15
+  79 0020 0E94 0000 		call uart_send_char
+  80               	.LVL6:
+  16:grn_UART.c    **** 	}
+  81               		.loc 1 16 3 view .LVU16
+  16:grn_UART.c    **** 	}
+  82               		.loc 1 16 3 is_stmt 0 view .LVU17
+  83 0024 00C0      		rjmp .L6
+  84               		.cfi_endproc
+  85               	.LFE6:
+  87               	.global	uart_send_u8data
+  89               	uart_send_u8data:
+  90               	.LVL7:
+  91               	.LFB7:
+  19:grn_UART.c    **** 
+  20:grn_UART.c    **** void uart_send_u8data(uint8_t d)
+  21:grn_UART.c    **** {
+  92               		.loc 1 21 1 is_stmt 1 view -0
+  93               		.cfi_startproc
+  94               		.loc 1 21 1 is_stmt 0 view .LVU19
+  95 0026 CF93      		push r28
+  96               	.LCFI2:
+  97               		.cfi_def_cfa_offset 3
+  98               		.cfi_offset 28, -2
+  99 0028 DF93      		push r29
+ 100               	.LCFI3:
+ 101               		.cfi_def_cfa_offset 4
+ 102               		.cfi_offset 29, -3
+ 103 002a CDB7      		in r28,__SP_L__
+ 104 002c DEB7      		in r29,__SP_H__
+ 105               	.LCFI4:
+ 106               		.cfi_def_cfa_register 28
+ 107 002e 2A97      		sbiw r28,10
+ 108               	.LCFI5:
+ 109               		.cfi_def_cfa_offset 14
+ 110 0030 0FB6      		in __tmp_reg__,__SREG__
+ 111 0032 F894      		cli
+ 112 0034 DEBF      		out __SP_H__,r29
+ 113 0036 0FBE      		out __SREG__,__tmp_reg__
+ 114 0038 CDBF      		out __SP_L__,r28
+ 115               	/* prologue: function */
+ 116               	/* frame size = 10 */
+ 117               	/* stack size = 12 */
+ 118               	.L__stack_usage = 12
+  22:grn_UART.c    **** 	char buffer[10];
+ 119               		.loc 1 22 2 is_stmt 1 view .LVU20
+  23:grn_UART.c    **** 	
+  24:grn_UART.c    **** 	itoa(d,buffer,10);
+ 120               		.loc 1 24 2 view .LVU21
+ 121               	.LVL8:
+ 122               	.LBB10:
+ 123               	.LBI10:
+ 124               		.file 2 "/usr/avr/include/stdlib.h"
+   1:/usr/avr/include/stdlib.h **** /* Copyright (c) 2002, Marek Michalkiewicz
+   2:/usr/avr/include/stdlib.h ****    Copyright (c) 2004,2007 Joerg Wunsch
+   3:/usr/avr/include/stdlib.h **** 
+   4:/usr/avr/include/stdlib.h ****    Portions of documentation Copyright (c) 1990, 1991, 1993, 1994
+   5:/usr/avr/include/stdlib.h ****    The Regents of the University of California.
+   6:/usr/avr/include/stdlib.h **** 
+   7:/usr/avr/include/stdlib.h ****    All rights reserved.
+   8:/usr/avr/include/stdlib.h **** 
+   9:/usr/avr/include/stdlib.h ****    Redistribution and use in source and binary forms, with or without
+  10:/usr/avr/include/stdlib.h ****    modification, are permitted provided that the following conditions are met:
+  11:/usr/avr/include/stdlib.h **** 
+  12:/usr/avr/include/stdlib.h ****    * Redistributions of source code must retain the above copyright
+  13:/usr/avr/include/stdlib.h ****      notice, this list of conditions and the following disclaimer.
+  14:/usr/avr/include/stdlib.h **** 
+  15:/usr/avr/include/stdlib.h ****    * Redistributions in binary form must reproduce the above copyright
+  16:/usr/avr/include/stdlib.h ****      notice, this list of conditions and the following disclaimer in
+  17:/usr/avr/include/stdlib.h ****      the documentation and/or other materials provided with the
+  18:/usr/avr/include/stdlib.h ****      distribution.
+  19:/usr/avr/include/stdlib.h **** 
+  20:/usr/avr/include/stdlib.h ****    * Neither the name of the copyright holders nor the names of
+  21:/usr/avr/include/stdlib.h ****      contributors may be used to endorse or promote products derived
+  22:/usr/avr/include/stdlib.h ****      from this software without specific prior written permission.
+  23:/usr/avr/include/stdlib.h **** 
+  24:/usr/avr/include/stdlib.h ****   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  25:/usr/avr/include/stdlib.h ****   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  26:/usr/avr/include/stdlib.h ****   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  27:/usr/avr/include/stdlib.h ****   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+  28:/usr/avr/include/stdlib.h ****   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  29:/usr/avr/include/stdlib.h ****   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  30:/usr/avr/include/stdlib.h ****   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  31:/usr/avr/include/stdlib.h ****   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  32:/usr/avr/include/stdlib.h ****   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  33:/usr/avr/include/stdlib.h ****   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  34:/usr/avr/include/stdlib.h ****   POSSIBILITY OF SUCH DAMAGE.
+  35:/usr/avr/include/stdlib.h **** 
+  36:/usr/avr/include/stdlib.h ****   $Id: stdlib.h 2503 2016-02-07 22:59:47Z joerg_wunsch $
+  37:/usr/avr/include/stdlib.h **** */
+  38:/usr/avr/include/stdlib.h **** 
+  39:/usr/avr/include/stdlib.h **** #ifndef _STDLIB_H_
+  40:/usr/avr/include/stdlib.h **** #define	_STDLIB_H_ 1
+  41:/usr/avr/include/stdlib.h **** 
+  42:/usr/avr/include/stdlib.h **** #ifndef __ASSEMBLER__
+  43:/usr/avr/include/stdlib.h **** 
+  44:/usr/avr/include/stdlib.h **** #ifndef __DOXYGEN__
+  45:/usr/avr/include/stdlib.h **** #define __need_NULL
+  46:/usr/avr/include/stdlib.h **** #define __need_size_t
+  47:/usr/avr/include/stdlib.h **** #define __need_wchar_t
+  48:/usr/avr/include/stdlib.h **** #include <stddef.h>
+  49:/usr/avr/include/stdlib.h **** 
+  50:/usr/avr/include/stdlib.h **** #ifndef __ptr_t
+  51:/usr/avr/include/stdlib.h **** #define __ptr_t void *
+  52:/usr/avr/include/stdlib.h **** #endif
+  53:/usr/avr/include/stdlib.h **** #endif	/* !__DOXYGEN__ */
+  54:/usr/avr/include/stdlib.h **** 
+  55:/usr/avr/include/stdlib.h **** #ifdef __cplusplus
+  56:/usr/avr/include/stdlib.h **** extern "C" {
+  57:/usr/avr/include/stdlib.h **** #endif
+  58:/usr/avr/include/stdlib.h **** 
+  59:/usr/avr/include/stdlib.h **** /** \file */
+  60:/usr/avr/include/stdlib.h **** 
+  61:/usr/avr/include/stdlib.h **** /** \defgroup avr_stdlib <stdlib.h>: General utilities
+  62:/usr/avr/include/stdlib.h ****     \code #include <stdlib.h> \endcode
+  63:/usr/avr/include/stdlib.h **** 
+  64:/usr/avr/include/stdlib.h ****     This file declares some basic C macros and functions as
+  65:/usr/avr/include/stdlib.h ****     defined by the ISO standard, plus some AVR-specific extensions.
+  66:/usr/avr/include/stdlib.h **** */
+  67:/usr/avr/include/stdlib.h **** 
+  68:/usr/avr/include/stdlib.h **** /*@{*/
+  69:/usr/avr/include/stdlib.h **** /** Result type for function div(). */
+  70:/usr/avr/include/stdlib.h **** typedef struct {
+  71:/usr/avr/include/stdlib.h **** 	int quot;                   /**< The Quotient. */
+  72:/usr/avr/include/stdlib.h **** 	int rem;                    /**< The Remainder. */
+  73:/usr/avr/include/stdlib.h **** } div_t;
+  74:/usr/avr/include/stdlib.h **** 
+  75:/usr/avr/include/stdlib.h **** /** Result type for function ldiv(). */
+  76:/usr/avr/include/stdlib.h **** typedef struct {
+  77:/usr/avr/include/stdlib.h **** 	long quot;                  /**< The Quotient. */
+  78:/usr/avr/include/stdlib.h **** 	long rem;                   /**< The Remainder. */
+  79:/usr/avr/include/stdlib.h **** } ldiv_t;
+  80:/usr/avr/include/stdlib.h **** 
+  81:/usr/avr/include/stdlib.h **** /** Comparision function type for qsort(), just for convenience. */
+  82:/usr/avr/include/stdlib.h **** typedef int (*__compar_fn_t)(const void *, const void *);
+  83:/usr/avr/include/stdlib.h **** 
+  84:/usr/avr/include/stdlib.h **** #ifndef __DOXYGEN__
+  85:/usr/avr/include/stdlib.h **** 
+  86:/usr/avr/include/stdlib.h **** #ifndef __ATTR_CONST__
+  87:/usr/avr/include/stdlib.h **** # define __ATTR_CONST__ __attribute__((__const__))
+  88:/usr/avr/include/stdlib.h **** #endif
+  89:/usr/avr/include/stdlib.h **** 
+  90:/usr/avr/include/stdlib.h **** #ifndef __ATTR_MALLOC__
+  91:/usr/avr/include/stdlib.h **** # define __ATTR_MALLOC__ __attribute__((__malloc__))
+  92:/usr/avr/include/stdlib.h **** #endif
+  93:/usr/avr/include/stdlib.h **** 
+  94:/usr/avr/include/stdlib.h **** #ifndef __ATTR_NORETURN__
+  95:/usr/avr/include/stdlib.h **** # define __ATTR_NORETURN__ __attribute__((__noreturn__))
+  96:/usr/avr/include/stdlib.h **** #endif
+  97:/usr/avr/include/stdlib.h **** 
+  98:/usr/avr/include/stdlib.h **** #ifndef __ATTR_PURE__
+  99:/usr/avr/include/stdlib.h **** # define __ATTR_PURE__ __attribute__((__pure__))
+ 100:/usr/avr/include/stdlib.h **** #endif
+ 101:/usr/avr/include/stdlib.h **** 
+ 102:/usr/avr/include/stdlib.h **** #ifndef	__ATTR_GNU_INLINE__
+ 103:/usr/avr/include/stdlib.h **** # ifdef  __GNUC_STDC_INLINE__
+ 104:/usr/avr/include/stdlib.h **** #  define __ATTR_GNU_INLINE__   __attribute__((__gnu_inline__))
+ 105:/usr/avr/include/stdlib.h **** # else
+ 106:/usr/avr/include/stdlib.h **** #  define __ATTR_GNU_INLINE__
+ 107:/usr/avr/include/stdlib.h **** # endif
+ 108:/usr/avr/include/stdlib.h **** #endif
+ 109:/usr/avr/include/stdlib.h **** 
+ 110:/usr/avr/include/stdlib.h **** #endif
+ 111:/usr/avr/include/stdlib.h **** 
+ 112:/usr/avr/include/stdlib.h **** /** The abort() function causes abnormal program termination to occur.
+ 113:/usr/avr/include/stdlib.h ****     This realization disables interrupts and jumps to _exit() function
+ 114:/usr/avr/include/stdlib.h ****     with argument equal to 1. In the limited AVR environment, execution is
+ 115:/usr/avr/include/stdlib.h ****     effectively halted by entering an infinite loop. */
+ 116:/usr/avr/include/stdlib.h **** extern void abort(void) __ATTR_NORETURN__;
+ 117:/usr/avr/include/stdlib.h **** 
+ 118:/usr/avr/include/stdlib.h **** /** The abs() function computes the absolute value of the integer \c i.
+ 119:/usr/avr/include/stdlib.h ****    \note The abs() and labs() functions are builtins of gcc.
+ 120:/usr/avr/include/stdlib.h **** */
+ 121:/usr/avr/include/stdlib.h **** extern int abs(int __i) __ATTR_CONST__;
+ 122:/usr/avr/include/stdlib.h **** #ifndef __DOXYGEN__
+ 123:/usr/avr/include/stdlib.h **** #define	abs(__i) __builtin_abs(__i)
+ 124:/usr/avr/include/stdlib.h **** #endif
+ 125:/usr/avr/include/stdlib.h **** 
+ 126:/usr/avr/include/stdlib.h **** /** The labs() function computes the absolute value of the long integer
+ 127:/usr/avr/include/stdlib.h ****     \c i.
+ 128:/usr/avr/include/stdlib.h ****    \note The abs() and labs() functions are builtins of gcc.
+ 129:/usr/avr/include/stdlib.h **** */
+ 130:/usr/avr/include/stdlib.h **** extern long labs(long __i) __ATTR_CONST__;
+ 131:/usr/avr/include/stdlib.h **** #ifndef __DOXYGEN__
+ 132:/usr/avr/include/stdlib.h **** #define labs(__i) __builtin_labs(__i)
+ 133:/usr/avr/include/stdlib.h **** #endif
+ 134:/usr/avr/include/stdlib.h **** 
+ 135:/usr/avr/include/stdlib.h **** /**
+ 136:/usr/avr/include/stdlib.h ****      The bsearch() function searches an array of \c nmemb objects, the
+ 137:/usr/avr/include/stdlib.h ****      initial member of which is pointed to by \c base, for a member
+ 138:/usr/avr/include/stdlib.h ****      that matches the object pointed to by \c key.  The size of each
+ 139:/usr/avr/include/stdlib.h ****      member of the array is specified by \c size.
+ 140:/usr/avr/include/stdlib.h **** 
+ 141:/usr/avr/include/stdlib.h ****      The contents of the array should be in ascending sorted order
+ 142:/usr/avr/include/stdlib.h ****      according to the comparison function referenced by \c compar.
+ 143:/usr/avr/include/stdlib.h ****      The \c compar routine is expected to have two arguments which
+ 144:/usr/avr/include/stdlib.h ****      point to the key object and to an array member, in that order,
+ 145:/usr/avr/include/stdlib.h ****      and should return an integer less than, equal to, or greater than
+ 146:/usr/avr/include/stdlib.h ****      zero if the key object is found, respectively, to be less than,
+ 147:/usr/avr/include/stdlib.h ****      to match, or be greater than the array member.
+ 148:/usr/avr/include/stdlib.h **** 
+ 149:/usr/avr/include/stdlib.h ****      The bsearch() function returns a pointer to a matching member of
+ 150:/usr/avr/include/stdlib.h ****      the array, or a null pointer if no match is found.  If two
+ 151:/usr/avr/include/stdlib.h ****      members compare as equal, which member is matched is unspecified.
+ 152:/usr/avr/include/stdlib.h **** */
+ 153:/usr/avr/include/stdlib.h **** extern void *bsearch(const void *__key, const void *__base, size_t __nmemb,
+ 154:/usr/avr/include/stdlib.h **** 		     size_t __size, int (*__compar)(const void *, const void *));
+ 155:/usr/avr/include/stdlib.h **** 
+ 156:/usr/avr/include/stdlib.h **** /* __divmodhi4 and __divmodsi4 from libgcc.a */
+ 157:/usr/avr/include/stdlib.h **** /**
+ 158:/usr/avr/include/stdlib.h ****      The div() function computes the value \c num/denom and returns
+ 159:/usr/avr/include/stdlib.h ****      the quotient and remainder in a structure named \c div_t that
+ 160:/usr/avr/include/stdlib.h ****      contains two int members named \c quot and \c rem.
+ 161:/usr/avr/include/stdlib.h **** */
+ 162:/usr/avr/include/stdlib.h **** extern div_t div(int __num, int __denom) __asm__("__divmodhi4") __ATTR_CONST__;
+ 163:/usr/avr/include/stdlib.h **** /**
+ 164:/usr/avr/include/stdlib.h ****      The ldiv() function computes the value \c num/denom and returns
+ 165:/usr/avr/include/stdlib.h ****      the quotient and remainder in a structure named \c ldiv_t that
+ 166:/usr/avr/include/stdlib.h ****      contains two long integer members named \c quot and \c rem.
+ 167:/usr/avr/include/stdlib.h **** */
+ 168:/usr/avr/include/stdlib.h **** extern ldiv_t ldiv(long __num, long __denom) __asm__("__divmodsi4") __ATTR_CONST__;
+ 169:/usr/avr/include/stdlib.h **** 
+ 170:/usr/avr/include/stdlib.h **** /**
+ 171:/usr/avr/include/stdlib.h ****      The qsort() function is a modified partition-exchange sort, or
+ 172:/usr/avr/include/stdlib.h ****      quicksort.
+ 173:/usr/avr/include/stdlib.h **** 
+ 174:/usr/avr/include/stdlib.h ****      The qsort() function sorts an array of \c nmemb objects, the
+ 175:/usr/avr/include/stdlib.h ****      initial member of which is pointed to by \c base.  The size of
+ 176:/usr/avr/include/stdlib.h ****      each object is specified by \c size.  The contents of the array
+ 177:/usr/avr/include/stdlib.h ****      base are sorted in ascending order according to a comparison
+ 178:/usr/avr/include/stdlib.h ****      function pointed to by \c compar, which requires two arguments
+ 179:/usr/avr/include/stdlib.h ****      pointing to the objects being compared.
+ 180:/usr/avr/include/stdlib.h **** 
+ 181:/usr/avr/include/stdlib.h ****      The comparison function must return an integer less than, equal
+ 182:/usr/avr/include/stdlib.h ****      to, or greater than zero if the first argument is considered to
+ 183:/usr/avr/include/stdlib.h ****      be respectively less than, equal to, or greater than the second.
+ 184:/usr/avr/include/stdlib.h **** */
+ 185:/usr/avr/include/stdlib.h **** extern void qsort(void *__base, size_t __nmemb, size_t __size,
+ 186:/usr/avr/include/stdlib.h **** 		  __compar_fn_t __compar);
+ 187:/usr/avr/include/stdlib.h **** 
+ 188:/usr/avr/include/stdlib.h **** /**
+ 189:/usr/avr/include/stdlib.h ****     The strtol() function converts the string in \c nptr to a long
+ 190:/usr/avr/include/stdlib.h ****     value.  The conversion is done according to the given base, which
+ 191:/usr/avr/include/stdlib.h ****     must be between 2 and 36 inclusive, or be the special value 0.
+ 192:/usr/avr/include/stdlib.h **** 
+ 193:/usr/avr/include/stdlib.h ****     The string may begin with an arbitrary amount of white space (as
+ 194:/usr/avr/include/stdlib.h ****     determined by isspace()) followed by a single optional \c '+' or \c '-'
+ 195:/usr/avr/include/stdlib.h ****     sign.  If \c base is zero or 16, the string may then include a
+ 196:/usr/avr/include/stdlib.h ****     \c "0x" prefix, and the number will be read in base 16; otherwise,
+ 197:/usr/avr/include/stdlib.h ****     a zero base is taken as 10 (decimal) unless the next character is
+ 198:/usr/avr/include/stdlib.h ****     \c '0', in which case it is taken as 8 (octal).
+ 199:/usr/avr/include/stdlib.h **** 
+ 200:/usr/avr/include/stdlib.h ****     The remainder of the string is converted to a long value in the
+ 201:/usr/avr/include/stdlib.h ****     obvious manner, stopping at the first character which is not a
+ 202:/usr/avr/include/stdlib.h ****     valid digit in the given base.  (In bases above 10, the letter \c 'A'
+ 203:/usr/avr/include/stdlib.h ****     in either upper or lower case represents 10, \c 'B' represents 11,
+ 204:/usr/avr/include/stdlib.h ****     and so forth, with \c 'Z' representing 35.)
+ 205:/usr/avr/include/stdlib.h **** 
+ 206:/usr/avr/include/stdlib.h ****     If \c endptr is not NULL, strtol() stores the address of the first
+ 207:/usr/avr/include/stdlib.h ****     invalid character in \c *endptr.  If there were no digits at all,
+ 208:/usr/avr/include/stdlib.h ****     however, strtol() stores the original value of \c nptr in \c
+ 209:/usr/avr/include/stdlib.h ****     *endptr.  (Thus, if \c *nptr is not \c '\\0' but \c **endptr is \c '\\0'
+ 210:/usr/avr/include/stdlib.h ****     on return, the entire string was valid.)
+ 211:/usr/avr/include/stdlib.h **** 
+ 212:/usr/avr/include/stdlib.h ****     The strtol() function returns the result of the conversion, unless
+ 213:/usr/avr/include/stdlib.h ****     the value would underflow or overflow.  If no conversion could be
+ 214:/usr/avr/include/stdlib.h ****     performed, 0 is returned.  If an overflow or underflow occurs, \c
+ 215:/usr/avr/include/stdlib.h ****     errno is set to \ref avr_errno "ERANGE" and the function return value
+ 216:/usr/avr/include/stdlib.h ****     is clamped to \c LONG_MIN or \c LONG_MAX, respectively.
+ 217:/usr/avr/include/stdlib.h **** */
+ 218:/usr/avr/include/stdlib.h **** extern long strtol(const char *__nptr, char **__endptr, int __base);
+ 219:/usr/avr/include/stdlib.h **** 
+ 220:/usr/avr/include/stdlib.h **** /**
+ 221:/usr/avr/include/stdlib.h ****     The strtoul() function converts the string in \c nptr to an
+ 222:/usr/avr/include/stdlib.h ****     unsigned long value.  The conversion is done according to the
+ 223:/usr/avr/include/stdlib.h ****     given base, which must be between 2 and 36 inclusive, or be the
+ 224:/usr/avr/include/stdlib.h ****     special value 0.
+ 225:/usr/avr/include/stdlib.h **** 
+ 226:/usr/avr/include/stdlib.h ****     The string may begin with an arbitrary amount of white space (as
+ 227:/usr/avr/include/stdlib.h ****     determined by isspace()) followed by a single optional \c '+' or \c '-'
+ 228:/usr/avr/include/stdlib.h ****     sign.  If \c base is zero or 16, the string may then include a
+ 229:/usr/avr/include/stdlib.h ****     \c "0x" prefix, and the number will be read in base 16; otherwise,
+ 230:/usr/avr/include/stdlib.h ****     a zero base is taken as 10 (decimal) unless the next character is
+ 231:/usr/avr/include/stdlib.h ****     \c '0', in which case it is taken as 8 (octal).
+ 232:/usr/avr/include/stdlib.h **** 
+ 233:/usr/avr/include/stdlib.h ****     The remainder of the string is converted to an unsigned long value
+ 234:/usr/avr/include/stdlib.h ****     in the obvious manner, stopping at the first character which is
+ 235:/usr/avr/include/stdlib.h ****     not a valid digit in the given base.  (In bases above 10, the
+ 236:/usr/avr/include/stdlib.h ****     letter \c 'A' in either upper or lower case represents 10, \c 'B'
+ 237:/usr/avr/include/stdlib.h ****     represents 11, and so forth, with \c 'Z' representing 35.)
+ 238:/usr/avr/include/stdlib.h **** 
+ 239:/usr/avr/include/stdlib.h ****     If \c endptr is not NULL, strtoul() stores the address of the first
+ 240:/usr/avr/include/stdlib.h ****     invalid character in \c *endptr.  If there were no digits at all,
+ 241:/usr/avr/include/stdlib.h ****     however, strtoul() stores the original value of \c nptr in \c
+ 242:/usr/avr/include/stdlib.h ****     *endptr.  (Thus, if \c *nptr is not \c '\\0' but \c **endptr is \c '\\0'
+ 243:/usr/avr/include/stdlib.h ****     on return, the entire string was valid.)
+ 244:/usr/avr/include/stdlib.h **** 
+ 245:/usr/avr/include/stdlib.h ****     The strtoul() function return either the result of the conversion
+ 246:/usr/avr/include/stdlib.h ****     or, if there was a leading minus sign, the negation of the result
+ 247:/usr/avr/include/stdlib.h ****     of the conversion, unless the original (non-negated) value would
+ 248:/usr/avr/include/stdlib.h ****     overflow; in the latter case, strtoul() returns ULONG_MAX, and \c
+ 249:/usr/avr/include/stdlib.h ****     errno is set to \ref avr_errno "ERANGE".  If no conversion could 
+ 250:/usr/avr/include/stdlib.h ****     be performed, 0 is returned.
+ 251:/usr/avr/include/stdlib.h **** */
+ 252:/usr/avr/include/stdlib.h **** extern unsigned long strtoul(const char *__nptr, char **__endptr, int __base);
+ 253:/usr/avr/include/stdlib.h **** 
+ 254:/usr/avr/include/stdlib.h **** /**
+ 255:/usr/avr/include/stdlib.h ****     The atol() function converts the initial portion of the string
+ 256:/usr/avr/include/stdlib.h ****     pointed to by \p s to long integer representation. In contrast to
+ 257:/usr/avr/include/stdlib.h **** 
+ 258:/usr/avr/include/stdlib.h ****         \code strtol(s, (char **)NULL, 10); \endcode
+ 259:/usr/avr/include/stdlib.h **** 
+ 260:/usr/avr/include/stdlib.h ****     this function does not detect overflow (\c errno is not changed and
+ 261:/usr/avr/include/stdlib.h ****     the result value is not predictable), uses smaller memory (flash and
+ 262:/usr/avr/include/stdlib.h ****     stack) and works more quickly.
+ 263:/usr/avr/include/stdlib.h **** */
+ 264:/usr/avr/include/stdlib.h **** extern long atol(const char *__s) __ATTR_PURE__;
+ 265:/usr/avr/include/stdlib.h **** 
+ 266:/usr/avr/include/stdlib.h **** /**
+ 267:/usr/avr/include/stdlib.h ****     The atoi() function converts the initial portion of the string
+ 268:/usr/avr/include/stdlib.h ****     pointed to by \p s to integer representation. In contrast to
+ 269:/usr/avr/include/stdlib.h **** 
+ 270:/usr/avr/include/stdlib.h ****         \code (int)strtol(s, (char **)NULL, 10); \endcode
+ 271:/usr/avr/include/stdlib.h **** 
+ 272:/usr/avr/include/stdlib.h ****     this function does not detect overflow (\c errno is not changed and
+ 273:/usr/avr/include/stdlib.h ****     the result value is not predictable), uses smaller memory (flash and
+ 274:/usr/avr/include/stdlib.h ****     stack) and works more quickly.
+ 275:/usr/avr/include/stdlib.h **** */
+ 276:/usr/avr/include/stdlib.h **** extern int atoi(const char *__s) __ATTR_PURE__;
+ 277:/usr/avr/include/stdlib.h **** 
+ 278:/usr/avr/include/stdlib.h **** /**
+ 279:/usr/avr/include/stdlib.h ****    The exit() function terminates the application.  Since there is no
+ 280:/usr/avr/include/stdlib.h ****    environment to return to, \c status is ignored, and code execution
+ 281:/usr/avr/include/stdlib.h ****    will eventually reach an infinite loop, thereby effectively halting
+ 282:/usr/avr/include/stdlib.h ****    all code processing.  Before entering the infinite loop, interrupts
+ 283:/usr/avr/include/stdlib.h ****    are globally disabled.
+ 284:/usr/avr/include/stdlib.h **** 
+ 285:/usr/avr/include/stdlib.h ****    In a C++ context, global destructors will be called before halting
+ 286:/usr/avr/include/stdlib.h ****    execution.
+ 287:/usr/avr/include/stdlib.h **** */
+ 288:/usr/avr/include/stdlib.h **** extern void exit(int __status) __ATTR_NORETURN__;
+ 289:/usr/avr/include/stdlib.h **** 
+ 290:/usr/avr/include/stdlib.h **** /**
+ 291:/usr/avr/include/stdlib.h ****    The malloc() function allocates \c size bytes of memory.
+ 292:/usr/avr/include/stdlib.h ****    If malloc() fails, a NULL pointer is returned.
+ 293:/usr/avr/include/stdlib.h **** 
+ 294:/usr/avr/include/stdlib.h ****    Note that malloc() does \e not initialize the returned memory to
+ 295:/usr/avr/include/stdlib.h ****    zero bytes.
+ 296:/usr/avr/include/stdlib.h **** 
+ 297:/usr/avr/include/stdlib.h ****    See the chapter about \ref malloc "malloc() usage" for implementation
+ 298:/usr/avr/include/stdlib.h ****    details.
+ 299:/usr/avr/include/stdlib.h **** */
+ 300:/usr/avr/include/stdlib.h **** extern void *malloc(size_t __size) __ATTR_MALLOC__;
+ 301:/usr/avr/include/stdlib.h **** 
+ 302:/usr/avr/include/stdlib.h **** /**
+ 303:/usr/avr/include/stdlib.h ****    The free() function causes the allocated memory referenced by \c
+ 304:/usr/avr/include/stdlib.h ****    ptr to be made available for future allocations.  If \c ptr is
+ 305:/usr/avr/include/stdlib.h ****    NULL, no action occurs.
+ 306:/usr/avr/include/stdlib.h **** */
+ 307:/usr/avr/include/stdlib.h **** extern void free(void *__ptr);
+ 308:/usr/avr/include/stdlib.h **** 
+ 309:/usr/avr/include/stdlib.h **** /**
+ 310:/usr/avr/include/stdlib.h ****    \c malloc() \ref malloc_tunables "tunable".
+ 311:/usr/avr/include/stdlib.h **** */
+ 312:/usr/avr/include/stdlib.h **** extern size_t __malloc_margin;
+ 313:/usr/avr/include/stdlib.h **** 
+ 314:/usr/avr/include/stdlib.h **** /**
+ 315:/usr/avr/include/stdlib.h ****    \c malloc() \ref malloc_tunables "tunable".
+ 316:/usr/avr/include/stdlib.h **** */
+ 317:/usr/avr/include/stdlib.h **** extern char *__malloc_heap_start;
+ 318:/usr/avr/include/stdlib.h **** 
+ 319:/usr/avr/include/stdlib.h **** /**
+ 320:/usr/avr/include/stdlib.h ****    \c malloc() \ref malloc_tunables "tunable".
+ 321:/usr/avr/include/stdlib.h **** */
+ 322:/usr/avr/include/stdlib.h **** extern char *__malloc_heap_end;
+ 323:/usr/avr/include/stdlib.h **** 
+ 324:/usr/avr/include/stdlib.h **** /**
+ 325:/usr/avr/include/stdlib.h ****    Allocate \c nele elements of \c size each.  Identical to calling
+ 326:/usr/avr/include/stdlib.h ****    \c malloc() using <tt>nele * size</tt> as argument, except the
+ 327:/usr/avr/include/stdlib.h ****    allocated memory will be cleared to zero.
+ 328:/usr/avr/include/stdlib.h **** */
+ 329:/usr/avr/include/stdlib.h **** extern void *calloc(size_t __nele, size_t __size) __ATTR_MALLOC__;
+ 330:/usr/avr/include/stdlib.h **** 
+ 331:/usr/avr/include/stdlib.h **** /**
+ 332:/usr/avr/include/stdlib.h ****    The realloc() function tries to change the size of the region
+ 333:/usr/avr/include/stdlib.h ****    allocated at \c ptr to the new \c size value.  It returns a
+ 334:/usr/avr/include/stdlib.h ****    pointer to the new region.  The returned pointer might be the
+ 335:/usr/avr/include/stdlib.h ****    same as the old pointer, or a pointer to a completely different
+ 336:/usr/avr/include/stdlib.h ****    region.
+ 337:/usr/avr/include/stdlib.h **** 
+ 338:/usr/avr/include/stdlib.h ****    The contents of the returned region up to either the old or the new
+ 339:/usr/avr/include/stdlib.h ****    size value (whatever is less) will be identical to the contents of
+ 340:/usr/avr/include/stdlib.h ****    the old region, even in case a new region had to be allocated.
+ 341:/usr/avr/include/stdlib.h **** 
+ 342:/usr/avr/include/stdlib.h ****    It is acceptable to pass \c ptr as NULL, in which case realloc()
+ 343:/usr/avr/include/stdlib.h ****    will behave identical to malloc().
+ 344:/usr/avr/include/stdlib.h **** 
+ 345:/usr/avr/include/stdlib.h ****    If the new memory cannot be allocated, realloc() returns NULL, and
+ 346:/usr/avr/include/stdlib.h ****    the region at \c ptr will not be changed.
+ 347:/usr/avr/include/stdlib.h **** */
+ 348:/usr/avr/include/stdlib.h **** extern void *realloc(void *__ptr, size_t __size) __ATTR_MALLOC__;
+ 349:/usr/avr/include/stdlib.h **** 
+ 350:/usr/avr/include/stdlib.h **** extern double strtod(const char *__nptr, char **__endptr);
+ 351:/usr/avr/include/stdlib.h **** 
+ 352:/usr/avr/include/stdlib.h **** extern double atof(const char *__nptr);
+ 353:/usr/avr/include/stdlib.h **** 
+ 354:/usr/avr/include/stdlib.h **** /** Highest number that can be generated by rand(). */
+ 355:/usr/avr/include/stdlib.h **** #define	RAND_MAX 0x7FFF
+ 356:/usr/avr/include/stdlib.h **** 
+ 357:/usr/avr/include/stdlib.h **** /**
+ 358:/usr/avr/include/stdlib.h ****      The rand() function computes a sequence of pseudo-random integers in the
+ 359:/usr/avr/include/stdlib.h ****      range of 0 to \c RAND_MAX (as defined by the header file <stdlib.h>).
+ 360:/usr/avr/include/stdlib.h **** 
+ 361:/usr/avr/include/stdlib.h ****      The srand() function sets its argument \c seed as the seed for a new
+ 362:/usr/avr/include/stdlib.h ****      sequence of pseudo-random numbers to be returned by rand().  These
+ 363:/usr/avr/include/stdlib.h ****      sequences are repeatable by calling srand() with the same seed value.
+ 364:/usr/avr/include/stdlib.h **** 
+ 365:/usr/avr/include/stdlib.h ****      If no seed value is provided, the functions are automatically seeded with
+ 366:/usr/avr/include/stdlib.h ****      a value of 1.
+ 367:/usr/avr/include/stdlib.h **** 
+ 368:/usr/avr/include/stdlib.h ****      In compliance with the C standard, these functions operate on
+ 369:/usr/avr/include/stdlib.h ****      \c int arguments.  Since the underlying algorithm already uses
+ 370:/usr/avr/include/stdlib.h ****      32-bit calculations, this causes a loss of precision.  See
+ 371:/usr/avr/include/stdlib.h ****      \c random() for an alternate set of functions that retains full
+ 372:/usr/avr/include/stdlib.h ****      32-bit precision.
+ 373:/usr/avr/include/stdlib.h **** */
+ 374:/usr/avr/include/stdlib.h **** extern int rand(void);
+ 375:/usr/avr/include/stdlib.h **** /**
+ 376:/usr/avr/include/stdlib.h ****    Pseudo-random number generator seeding; see rand().
+ 377:/usr/avr/include/stdlib.h **** */
+ 378:/usr/avr/include/stdlib.h **** extern void srand(unsigned int __seed);
+ 379:/usr/avr/include/stdlib.h **** 
+ 380:/usr/avr/include/stdlib.h **** /**
+ 381:/usr/avr/include/stdlib.h ****    Variant of rand() that stores the context in the user-supplied
+ 382:/usr/avr/include/stdlib.h ****    variable located at \c ctx instead of a static library variable
+ 383:/usr/avr/include/stdlib.h ****    so the function becomes re-entrant.
+ 384:/usr/avr/include/stdlib.h **** */
+ 385:/usr/avr/include/stdlib.h **** extern int rand_r(unsigned long *__ctx);
+ 386:/usr/avr/include/stdlib.h **** /*@}*/
+ 387:/usr/avr/include/stdlib.h **** 
+ 388:/usr/avr/include/stdlib.h **** /*@{*/
+ 389:/usr/avr/include/stdlib.h **** /** \name Non-standard (i.e. non-ISO C) functions.
+ 390:/usr/avr/include/stdlib.h ****  \ingroup avr_stdlib
+ 391:/usr/avr/include/stdlib.h **** */
+ 392:/usr/avr/include/stdlib.h **** /**
+ 393:/usr/avr/include/stdlib.h ****    \brief Convert an integer to a string.
+ 394:/usr/avr/include/stdlib.h **** 
+ 395:/usr/avr/include/stdlib.h ****    The function itoa() converts the integer value from \c val into an
+ 396:/usr/avr/include/stdlib.h ****    ASCII representation that will be stored under \c s.  The caller
+ 397:/usr/avr/include/stdlib.h ****    is responsible for providing sufficient storage in \c s.
+ 398:/usr/avr/include/stdlib.h **** 
+ 399:/usr/avr/include/stdlib.h ****    \note The minimal size of the buffer \c s depends on the choice of
+ 400:/usr/avr/include/stdlib.h ****    radix. For example, if the radix is 2 (binary), you need to supply a buffer
+ 401:/usr/avr/include/stdlib.h ****    with a minimal length of 8 * sizeof (int) + 1 characters, i.e. one
+ 402:/usr/avr/include/stdlib.h ****    character for each bit plus one for the string terminator. Using a larger
+ 403:/usr/avr/include/stdlib.h ****    radix will require a smaller minimal buffer size.
+ 404:/usr/avr/include/stdlib.h **** 
+ 405:/usr/avr/include/stdlib.h ****    \warning If the buffer is too small, you risk a buffer overflow.
+ 406:/usr/avr/include/stdlib.h **** 
+ 407:/usr/avr/include/stdlib.h ****    Conversion is done using the \c radix as base, which may be a
+ 408:/usr/avr/include/stdlib.h ****    number between 2 (binary conversion) and up to 36.  If \c radix
+ 409:/usr/avr/include/stdlib.h ****    is greater than 10, the next digit after \c '9' will be the letter
+ 410:/usr/avr/include/stdlib.h ****    \c 'a'.
+ 411:/usr/avr/include/stdlib.h ****     
+ 412:/usr/avr/include/stdlib.h ****     If radix is 10 and val is negative, a minus sign will be prepended.
+ 413:/usr/avr/include/stdlib.h **** 
+ 414:/usr/avr/include/stdlib.h ****    The itoa() function returns the pointer passed as \c s.
+ 415:/usr/avr/include/stdlib.h **** */
+ 416:/usr/avr/include/stdlib.h **** #ifdef  __DOXYGEN__
+ 417:/usr/avr/include/stdlib.h **** extern char *itoa(int val, char *s, int radix);
+ 418:/usr/avr/include/stdlib.h **** #else
+ 419:/usr/avr/include/stdlib.h **** extern __inline__ __ATTR_GNU_INLINE__
+ 420:/usr/avr/include/stdlib.h **** char *itoa (int __val, char *__s, int __radix)
+ 125               		.loc 2 420 7 view .LVU22
+ 126               	.LBE10:
+ 421:/usr/avr/include/stdlib.h **** {
+ 422:/usr/avr/include/stdlib.h ****     if (!__builtin_constant_p (__radix)) {
+ 127               		.loc 2 422 5 view .LVU23
+ 423:/usr/avr/include/stdlib.h **** 	extern char *__itoa (int, char *, int);
+ 424:/usr/avr/include/stdlib.h **** 	return __itoa (__val, __s, __radix);
+ 425:/usr/avr/include/stdlib.h ****     } else if (__radix < 2 || __radix > 36) {
+ 128               		.loc 2 425 12 view .LVU24
+ 129               	.LBB12:
+ 130               	.LBB11:
+ 426:/usr/avr/include/stdlib.h **** 	*__s = 0;
+ 427:/usr/avr/include/stdlib.h **** 	return __s;
+ 428:/usr/avr/include/stdlib.h ****     } else {
+ 429:/usr/avr/include/stdlib.h **** 	extern char *__itoa_ncheck (int, char *, unsigned char);
+ 131               		.loc 2 429 2 view .LVU25
+ 430:/usr/avr/include/stdlib.h **** 	return __itoa_ncheck (__val, __s, __radix);
+ 132               		.loc 2 430 2 view .LVU26
+ 133               		.loc 2 430 9 is_stmt 0 view .LVU27
+ 134 003a 4AE0      		ldi r20,lo8(10)
+ 135 003c BE01      		movw r22,r28
+ 136 003e 6F5F      		subi r22,-1
+ 137 0040 7F4F      		sbci r23,-1
+ 138 0042 90E0      		ldi r25,0
+ 139 0044 0E94 0000 		call __itoa_ncheck
+ 140               	.LVL9:
+ 141               		.loc 2 430 9 view .LVU28
+ 142               	.LBE11:
+ 143               	.LBE12:
+  25:grn_UART.c    **** 	uart_send_string(buffer);
+ 144               		.loc 1 25 2 is_stmt 1 view .LVU29
+ 145 0048 CE01      		movw r24,r28
+ 146 004a 0196      		adiw r24,1
+ 147 004c 0E94 0000 		call uart_send_string
+ 148               	.LVL10:
+ 149               	/* epilogue start */
+  26:grn_UART.c    **** }
+ 150               		.loc 1 26 1 is_stmt 0 view .LVU30
+ 151 0050 2A96      		adiw r28,10
+ 152 0052 0FB6      		in __tmp_reg__,__SREG__
+ 153 0054 F894      		cli
+ 154 0056 DEBF      		out __SP_H__,r29
+ 155 0058 0FBE      		out __SREG__,__tmp_reg__
+ 156 005a CDBF      		out __SP_L__,r28
+ 157 005c DF91      		pop r29
+ 158 005e CF91      		pop r28
+ 159 0060 0895      		ret
+ 160               		.cfi_endproc
+ 161               	.LFE7:
+ 163               	.global	uart_send_u16data
+ 165               	uart_send_u16data:
+ 166               	.LVL11:
+ 167               	.LFB8:
+  27:grn_UART.c    **** void uart_send_u16data(uint16_t d)
+  28:grn_UART.c    **** {
+ 168               		.loc 1 28 1 is_stmt 1 view -0
+ 169               		.cfi_startproc
+ 170               		.loc 1 28 1 is_stmt 0 view .LVU32
+ 171 0062 CF93      		push r28
+ 172               	.LCFI6:
+ 173               		.cfi_def_cfa_offset 3
+ 174               		.cfi_offset 28, -2
+ 175 0064 DF93      		push r29
+ 176               	.LCFI7:
+ 177               		.cfi_def_cfa_offset 4
+ 178               		.cfi_offset 29, -3
+ 179 0066 CDB7      		in r28,__SP_L__
+ 180 0068 DEB7      		in r29,__SP_H__
+ 181               	.LCFI8:
+ 182               		.cfi_def_cfa_register 28
+ 183 006a 2A97      		sbiw r28,10
+ 184               	.LCFI9:
+ 185               		.cfi_def_cfa_offset 14
+ 186 006c 0FB6      		in __tmp_reg__,__SREG__
+ 187 006e F894      		cli
+ 188 0070 DEBF      		out __SP_H__,r29
+ 189 0072 0FBE      		out __SREG__,__tmp_reg__
+ 190 0074 CDBF      		out __SP_L__,r28
+ 191               	/* prologue: function */
+ 192               	/* frame size = 10 */
+ 193               	/* stack size = 12 */
+ 194               	.L__stack_usage = 12
+  29:grn_UART.c    **** 	char buffer[10];
+ 195               		.loc 1 29 2 is_stmt 1 view .LVU33
+  30:grn_UART.c    **** 	
+  31:grn_UART.c    **** 	utoa(d,buffer,10);
+ 196               		.loc 1 31 2 view .LVU34
+ 197               	.LVL12:
+ 198               	.LBB13:
+ 199               	.LBI13:
+ 431:/usr/avr/include/stdlib.h ****     }
+ 432:/usr/avr/include/stdlib.h **** }
+ 433:/usr/avr/include/stdlib.h **** #endif
+ 434:/usr/avr/include/stdlib.h **** 
+ 435:/usr/avr/include/stdlib.h **** /**
+ 436:/usr/avr/include/stdlib.h ****  \ingroup avr_stdlib
+ 437:/usr/avr/include/stdlib.h ****  
+ 438:/usr/avr/include/stdlib.h ****    \brief Convert a long integer to a string.
+ 439:/usr/avr/include/stdlib.h **** 
+ 440:/usr/avr/include/stdlib.h ****    The function ltoa() converts the long integer value from \c val into an
+ 441:/usr/avr/include/stdlib.h ****    ASCII representation that will be stored under \c s.  The caller
+ 442:/usr/avr/include/stdlib.h ****    is responsible for providing sufficient storage in \c s.
+ 443:/usr/avr/include/stdlib.h **** 
+ 444:/usr/avr/include/stdlib.h ****    \note The minimal size of the buffer \c s depends on the choice of
+ 445:/usr/avr/include/stdlib.h ****    radix. For example, if the radix is 2 (binary), you need to supply a buffer
+ 446:/usr/avr/include/stdlib.h ****    with a minimal length of 8 * sizeof (long int) + 1 characters, i.e. one
+ 447:/usr/avr/include/stdlib.h ****    character for each bit plus one for the string terminator. Using a larger
+ 448:/usr/avr/include/stdlib.h ****    radix will require a smaller minimal buffer size.
+ 449:/usr/avr/include/stdlib.h **** 
+ 450:/usr/avr/include/stdlib.h ****    \warning If the buffer is too small, you risk a buffer overflow.
+ 451:/usr/avr/include/stdlib.h **** 
+ 452:/usr/avr/include/stdlib.h ****    Conversion is done using the \c radix as base, which may be a
+ 453:/usr/avr/include/stdlib.h ****    number between 2 (binary conversion) and up to 36.  If \c radix
+ 454:/usr/avr/include/stdlib.h ****    is greater than 10, the next digit after \c '9' will be the letter
+ 455:/usr/avr/include/stdlib.h ****    \c 'a'.
+ 456:/usr/avr/include/stdlib.h **** 
+ 457:/usr/avr/include/stdlib.h ****    If radix is 10 and val is negative, a minus sign will be prepended.
+ 458:/usr/avr/include/stdlib.h **** 
+ 459:/usr/avr/include/stdlib.h ****    The ltoa() function returns the pointer passed as \c s.
+ 460:/usr/avr/include/stdlib.h **** */
+ 461:/usr/avr/include/stdlib.h **** #ifdef  __DOXYGEN__
+ 462:/usr/avr/include/stdlib.h **** extern char *ltoa(long val, char *s, int radix);
+ 463:/usr/avr/include/stdlib.h **** #else
+ 464:/usr/avr/include/stdlib.h **** extern __inline__ __ATTR_GNU_INLINE__
+ 465:/usr/avr/include/stdlib.h **** char *ltoa (long __val, char *__s, int __radix)
+ 466:/usr/avr/include/stdlib.h **** {
+ 467:/usr/avr/include/stdlib.h ****     if (!__builtin_constant_p (__radix)) {
+ 468:/usr/avr/include/stdlib.h **** 	extern char *__ltoa (long, char *, int);
+ 469:/usr/avr/include/stdlib.h **** 	return __ltoa (__val, __s, __radix);
+ 470:/usr/avr/include/stdlib.h ****     } else if (__radix < 2 || __radix > 36) {
+ 471:/usr/avr/include/stdlib.h **** 	*__s = 0;
+ 472:/usr/avr/include/stdlib.h **** 	return __s;
+ 473:/usr/avr/include/stdlib.h ****     } else {
+ 474:/usr/avr/include/stdlib.h **** 	extern char *__ltoa_ncheck (long, char *, unsigned char);
+ 475:/usr/avr/include/stdlib.h **** 	return __ltoa_ncheck (__val, __s, __radix);
+ 476:/usr/avr/include/stdlib.h ****     }
+ 477:/usr/avr/include/stdlib.h **** }
+ 478:/usr/avr/include/stdlib.h **** #endif
+ 479:/usr/avr/include/stdlib.h **** 
+ 480:/usr/avr/include/stdlib.h **** /**
+ 481:/usr/avr/include/stdlib.h ****  \ingroup avr_stdlib
+ 482:/usr/avr/include/stdlib.h **** 
+ 483:/usr/avr/include/stdlib.h ****    \brief Convert an unsigned integer to a string.
+ 484:/usr/avr/include/stdlib.h **** 
+ 485:/usr/avr/include/stdlib.h ****    The function utoa() converts the unsigned integer value from \c val into an
+ 486:/usr/avr/include/stdlib.h ****    ASCII representation that will be stored under \c s.  The caller
+ 487:/usr/avr/include/stdlib.h ****    is responsible for providing sufficient storage in \c s.
+ 488:/usr/avr/include/stdlib.h **** 
+ 489:/usr/avr/include/stdlib.h ****    \note The minimal size of the buffer \c s depends on the choice of
+ 490:/usr/avr/include/stdlib.h ****    radix. For example, if the radix is 2 (binary), you need to supply a buffer
+ 491:/usr/avr/include/stdlib.h ****    with a minimal length of 8 * sizeof (unsigned int) + 1 characters, i.e. one
+ 492:/usr/avr/include/stdlib.h ****    character for each bit plus one for the string terminator. Using a larger
+ 493:/usr/avr/include/stdlib.h ****    radix will require a smaller minimal buffer size.
+ 494:/usr/avr/include/stdlib.h **** 
+ 495:/usr/avr/include/stdlib.h ****    \warning If the buffer is too small, you risk a buffer overflow.
+ 496:/usr/avr/include/stdlib.h **** 
+ 497:/usr/avr/include/stdlib.h ****    Conversion is done using the \c radix as base, which may be a
+ 498:/usr/avr/include/stdlib.h ****    number between 2 (binary conversion) and up to 36.  If \c radix
+ 499:/usr/avr/include/stdlib.h ****    is greater than 10, the next digit after \c '9' will be the letter
+ 500:/usr/avr/include/stdlib.h ****    \c 'a'.
+ 501:/usr/avr/include/stdlib.h **** 
+ 502:/usr/avr/include/stdlib.h ****    The utoa() function returns the pointer passed as \c s.
+ 503:/usr/avr/include/stdlib.h **** */
+ 504:/usr/avr/include/stdlib.h **** #ifdef  __DOXYGEN__
+ 505:/usr/avr/include/stdlib.h **** extern char *utoa(unsigned int val, char *s, int radix);
+ 506:/usr/avr/include/stdlib.h **** #else
+ 507:/usr/avr/include/stdlib.h **** extern __inline__ __ATTR_GNU_INLINE__
+ 508:/usr/avr/include/stdlib.h **** char *utoa (unsigned int __val, char *__s, int __radix)
+ 200               		.loc 2 508 7 view .LVU35
+ 201               	.LBE13:
+ 509:/usr/avr/include/stdlib.h **** {
+ 510:/usr/avr/include/stdlib.h ****     if (!__builtin_constant_p (__radix)) {
+ 202               		.loc 2 510 5 view .LVU36
+ 511:/usr/avr/include/stdlib.h **** 	extern char *__utoa (unsigned int, char *, int);
+ 512:/usr/avr/include/stdlib.h **** 	return __utoa (__val, __s, __radix);
+ 513:/usr/avr/include/stdlib.h ****     } else if (__radix < 2 || __radix > 36) {
+ 203               		.loc 2 513 12 view .LVU37
+ 204               	.LBB15:
+ 205               	.LBB14:
+ 514:/usr/avr/include/stdlib.h **** 	*__s = 0;
+ 515:/usr/avr/include/stdlib.h **** 	return __s;
+ 516:/usr/avr/include/stdlib.h ****     } else {
+ 517:/usr/avr/include/stdlib.h **** 	extern char *__utoa_ncheck (unsigned int, char *, unsigned char);
+ 206               		.loc 2 517 2 view .LVU38
+ 518:/usr/avr/include/stdlib.h **** 	return __utoa_ncheck (__val, __s, __radix);
+ 207               		.loc 2 518 2 view .LVU39
+ 208               		.loc 2 518 9 is_stmt 0 view .LVU40
+ 209 0076 4AE0      		ldi r20,lo8(10)
+ 210 0078 BE01      		movw r22,r28
+ 211 007a 6F5F      		subi r22,-1
+ 212 007c 7F4F      		sbci r23,-1
+ 213 007e 0E94 0000 		call __utoa_ncheck
+ 214               	.LVL13:
+ 215               		.loc 2 518 9 view .LVU41
+ 216               	.LBE14:
+ 217               	.LBE15:
+  32:grn_UART.c    **** 	uart_send_string(buffer);
+ 218               		.loc 1 32 2 is_stmt 1 view .LVU42
+ 219 0082 CE01      		movw r24,r28
+ 220 0084 0196      		adiw r24,1
+ 221 0086 0E94 0000 		call uart_send_string
+ 222               	.LVL14:
+ 223               	/* epilogue start */
+  33:grn_UART.c    **** }
+ 224               		.loc 1 33 1 is_stmt 0 view .LVU43
+ 225 008a 2A96      		adiw r28,10
+ 226 008c 0FB6      		in __tmp_reg__,__SREG__
+ 227 008e F894      		cli
+ 228 0090 DEBF      		out __SP_H__,r29
+ 229 0092 0FBE      		out __SREG__,__tmp_reg__
+ 230 0094 CDBF      		out __SP_L__,r28
+ 231 0096 DF91      		pop r29
+ 232 0098 CF91      		pop r28
+ 233 009a 0895      		ret
+ 234               		.cfi_endproc
+ 235               	.LFE8:
+ 237               	.Letext0:
+ 238               		.file 3 "/usr/avr/include/stdint.h"
+ 239               		.file 4 "/usr/lib/gcc/avr/8.3.0/include/stddef.h"
+ 240               		.file 5 "/usr/avr/include/stdio.h"
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 grn_UART.c
+     /tmp/ccQJG2Nu.s:2      *ABS*:000000000000003e __SP_H__
+     /tmp/ccQJG2Nu.s:3      *ABS*:000000000000003d __SP_L__
+     /tmp/ccQJG2Nu.s:4      *ABS*:000000000000003f __SREG__
+     /tmp/ccQJG2Nu.s:5      *ABS*:0000000000000000 __tmp_reg__
+     /tmp/ccQJG2Nu.s:6      *ABS*:0000000000000001 __zero_reg__
+     /tmp/ccQJG2Nu.s:12     .text:0000000000000000 uart_send_char
+     /tmp/ccQJG2Nu.s:41     .text:000000000000000e uart_send_string
+     /tmp/ccQJG2Nu.s:89     .text:0000000000000026 uart_send_u8data
+     /tmp/ccQJG2Nu.s:165    .text:0000000000000062 uart_send_u16data
+
+UNDEFINED SYMBOLS
+__itoa_ncheck
+__utoa_ncheck
