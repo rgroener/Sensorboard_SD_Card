@@ -37,10 +37,10 @@ Nokia Sensorboard
 #include "uart.h"
 
 
-#define T_RED !(PIND & (1<<PD5)) && (entprell == 0)
+#define T_YELLOW !(PIND & (1<<PD5)) && (entprell == 0)
 #define T_BLUE !(PIND & (1<<PD6)) && (entprell == 0)
 #define T_GREEN !(PIND & (1<<PD2)) && (entprell == 0)
-#define RELOAD_ENTPRELL 80
+#define RELOAD_ENTPRELL 30
 
 #define LED_EIN PORTC |= (1<<PC3)
 #define LED_AUS	PORTC &= ~(1<<PC3);					//LED ausschalten
@@ -64,20 +64,116 @@ uint8_t end_ms100, end_sec, end_min;
 enum state{WAIT, COUNT, TIME, TIME_WAIT,FLIGHT_TIME};
 uint8_t str_len;
 
+uint8_t test=0;
+
 static uint8_t read_line(char* buffer, uint8_t buffer_length);
 static uint32_t strtolong(const char* str);
 static uint8_t find_file_in_dir(struct fat_fs_struct* fs, struct fat_dir_struct* dd, const char* name, struct fat_dir_entry_struct* dir_entry);
 static struct fat_file_struct* open_file_in_dir(struct fat_fs_struct* fs, struct fat_dir_struct* dd, const char* name); 
 static uint8_t print_disk_info(const struct fat_fs_struct* fs);
 
+
 /* Function prototypes */
 static void setup(void);
 
-static void setup(void)
+void sd_card(const uint8_t * sddata, uint8_t close)
 {
-	/* Set up glcd, also sets up SPI and relevent GPIO pins */
-	glcd_init();
-}
+	//when close != 0, sd_card can be closed
+	//else sd_card can be opened or be written
+	
+	static struct partition_struct* partition;
+	static struct fat_fs_struct* fs;
+	static struct fat_dir_struct* dd;
+	static struct fat_file_struct* fd;
+	static uint8_t action=0;
+	
+	#define SD_OPEN  0
+	#define SD_WRITE 1
+	#define SD_CLOSE 2
+	
+	if(close)action=SD_CLOSE;//close sd-card
+	
+	switch(action)
+	{
+		case SD_OPEN:	// setup sd card slot
+						if(!sd_raw_init())
+						{
+							glcd_draw_string_xy(0,0,"Init fail...");
+						}
+
+						// open first partition 
+						partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw_write,sd_raw_write_interval,0);
+						if(!partition)
+						{
+							// If the partition did not open, assume the storage device
+							// is a "superfloppy", i.e. has no MBR.
+							partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw_write,sd_raw_write_interval,-1);
+							if(!partition)
+							{
+								glcd_draw_string_xy(0,0,"part failed...");
+							}
+						} 
+						 /* open file system */
+						fs = fat_open(partition);
+						if(!fs)
+						{
+							glcd_draw_string_xy(0,0,"fs failed...");
+						}
+
+						/* open root directory */
+						struct fat_dir_entry_struct directory;
+						fat_get_dir_entry_of_path(fs, "/", &directory);
+
+						dd = fat_open_dir(fs, &directory);
+						if(!dd)
+						{
+							glcd_draw_string_xy(0,0,"root failed...");
+						}
+
+						/* print some card information as a boot message */
+						print_disk_info(fs);
+						
+						fd = open_file_in_dir(fs, dd, "roman.log");
+						if(!fd)
+						{
+							uart_puts("could not open test.txt\n");
+						}
+						uart_puts("SD is ready...\n");
+						action=SD_WRITE;//sd_card is opened, next step is sd_write
+						break;
+		case SD_WRITE:	/*int32_t file_pos = 0;
+						if(!fat_seek_file(fd, &file_pos, FAT_SEEK_CUR))
+						{
+							uart_puts("file seek errorl\n");
+						}*/
+						// file_pos now contains the absolute file position
+						sprintf(string,"eins");
+						str_len=strlen(string);
+						fat_write_file(fd,(const uint8_t *)string,str_len);
+						sd_raw_sync();
+						sprintf(string,"\nzwei");
+						str_len=strlen(string);
+						fat_write_file(fd,(const uint8_t *)string,str_len);
+						sd_raw_sync();
+						sprintf(string,"\ndrei vier fünf sech sieben acht");
+						str_len=strlen(string);
+						fat_write_file(fd,(const uint8_t *)string,str_len);
+						sd_raw_sync();
+						uart_puts("writing sucessfull\n");
+						break;
+		case SD_CLOSE:	/* close directory */
+						fat_close_dir(dd);
+
+						/* close file system */
+						fat_close(fs);
+
+						/* close partition */
+						partition_close(partition);
+						action=SD_OPEN; //sd_card was closed. Next call is opening again
+						uart_puts("SD is closed...\n");
+						break;
+	}//end of switch
+}//end of sd_card()
 
 ISR (TIMER1_COMPA_vect)
 {
@@ -153,94 +249,26 @@ int main(void)
 	flag_send_index=0;
 	str_len=0;//length of a string
 
-		glcd_tiny_set_font(Font5x7,5,7,32,127);
-		glcd_clear_buffer();
+	glcd_tiny_set_font(Font5x7,5,7,32,127);
+	glcd_clear_buffer();
 
 	BME280_init();
-   BME280_set_filter(BME280_FILTER_16);
+	BME280_set_filter(BME280_FILTER_16);
 	BME280_set_standby(BME280_TSB_10);
-   BME280_set_measure(BME280_OVER_16, BME280_HUM);
-   BME280_set_measure(BME280_OVER_16,  BME280_PRESS);
-   BME280_set_measure(BME280_OVER_16, BME280_TEMP);
-   BME280_set_measuremode(BME280_MODE_NORM);
+	BME280_set_measure(BME280_OVER_16, BME280_HUM);
+	BME280_set_measure(BME280_OVER_16,  BME280_PRESS);
+	BME280_set_measure(BME280_OVER_16, BME280_TEMP);
+	BME280_set_measuremode(BME280_MODE_NORM);
+
+	glcd_clear();
+	/* setup uart */
+	uart_init();
 	
- 		
- 	
-		glcd_clear();
-		/* setup uart */
-		uart_init();
-		// setup sd card slot
-		if(!sd_raw_init())
-		{
-			glcd_draw_string_xy(0,0,"Init fail...");
-		}
-
-		// open first partition 
-		struct partition_struct* partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw_write,sd_raw_write_interval,0);
-
-		if(!partition)
-		{
-			// If the partition did not open, assume the storage device
-			// is a "superfloppy", i.e. has no MBR.
-			partition = partition_open(sd_raw_read,sd_raw_read_interval,sd_raw_write,sd_raw_write_interval,-1);
-			if(!partition)
-			{
-				glcd_draw_string_xy(0,0,"part failed...");
-			}
-		} 
-		 /* open file system */
-		struct fat_fs_struct* fs = fat_open(partition);
-		if(!fs)
-		{
-			glcd_draw_string_xy(0,0,"fs failed...");
-		}
-
-		/* open root directory */
-		struct fat_dir_entry_struct directory;
-		fat_get_dir_entry_of_path(fs, "/", &directory);
-
-		struct fat_dir_struct* dd = fat_open_dir(fs, &directory);
-		if(!dd)
-		{
-			glcd_draw_string_xy(0,0,"root failed...");
-		}
-
-		/* print some card information as a boot message */
-		print_disk_info(fs);
-		
-		struct fat_file_struct* fd = open_file_in_dir(fs, dd, "test.txt");
-		if(!fd)
-		{
-			uart_puts("could not open test.txt\n");
-		}
-		else
-		{
-			sprintf(string,"roman groener");
-			str_len=strlen(string);
-			fat_write_file(fd,string,str_len);
-			sd_raw_sync();
-			sprintf(string,"\nSensor 1  %d; Sensor 2  %d; Sensor 3  %d", 11,22,3);
-			str_len=strlen(string);
-			fat_write_file(fd,string,str_len);
-			sd_raw_sync();
-			sprintf(string,"\nNeue Zeile");
-			str_len=strlen(string);
-			fat_write_file(fd,string,str_len);
-			sd_raw_sync();
-			uart_puts("writing sucessfull\n");
-		}
-		fat_close(fs);
-		partition_close(partition);
-		
-		
-		
-		
-		while(1) 
-		{	
-		
-		  
+	
 	sprintf(string,"string %d",str_len);
 	glcd_draw_string_xy(0,0,string);
+		while(1) 
+		{	
 
 		/*
 			BME280_readout(&temp, &press, &hum);
@@ -316,20 +344,41 @@ int main(void)
 				uart_send_char('\r');
 				uart_send_char('\n');
 			*/
-		
-		if(T_RED)
+		if(T_BLUE && (!entprell))
 		{
-			flag_send=1;
-			LED_AUS;
-			flag_send_index=0;
-		}
-		
-		if(T_BLUE)
-		{
+			entprell=RELOAD_ENTPRELL;
 			LED_EIN;
 			flag_send=0;
 			flag_send_index=1;
+			test++;
+			sprintf(string,"BLUE %d", test);
+			glcd_draw_string_xy(0,10,string);
+			sd_card((const uint8_t *)string,0);
 		}
+		if(T_GREEN && (!entprell))
+		{
+			entprell=RELOAD_ENTPRELL;
+			LED_EIN;
+			flag_send=0;
+			flag_send_index=1;
+			test++;
+			sprintf(string,"GREEN %d", test);
+			glcd_draw_string_xy(0,20,string);
+			
+		}
+		if(T_YELLOW && (!entprell))
+		{
+			entprell=RELOAD_ENTPRELL;
+			flag_send=1;
+			LED_AUS;
+			flag_send_index=0;
+			test++;
+			sprintf(string,"YELLOW %d", test);
+			glcd_draw_string_xy(0,30,string);
+			sd_card((const uint8_t *)string,1);
+		}
+		
+		
 		
 	
 	glcd_write();
@@ -450,4 +499,8 @@ void get_datetime(uint16_t* year, uint8_t* month, uint8_t* day, uint8_t* hour, u
 }
 
 
-
+static void setup(void)
+{
+	/* Set up glcd, also sets up SPI and relevent GPIO pins */
+	glcd_init();
+}
