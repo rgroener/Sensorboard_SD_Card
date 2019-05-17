@@ -5,13 +5,14 @@ Nokia Sensorboard
 * => Read Sensor BME280
 * => Write Sensor Data on Display
 * => Write Sensor Data on USART (formatted for KST plotting with KST)
+* => Simple SD card function added
 * 
 * Pending:
 * 
 * => read / write EEPROM (12C)
 * => read / write RTC (I2C)
 * => logging function
-* 
+* => formatted text to sd_card
 * z
 */
 
@@ -59,12 +60,15 @@ uint16_t vork, nachk;
 uint8_t flag_send, flag_send_index;
 // String für Zahlenausgabe
 char string[40] = "";
+char sd_string[40] = "";
 uint8_t ms, ms10,ms100,sec,min,entprell, state;
 uint8_t end_ms100, end_sec, end_min;
 enum state{WAIT, COUNT, TIME, TIME_WAIT,FLIGHT_TIME};
 uint8_t str_len;
+uint8_t flag_log_on;//logging function activated when 1
 
 uint8_t test=0;
+uint8_t sek_timer=0;
 
 static uint8_t read_line(char* buffer, uint8_t buffer_length);
 static uint32_t strtolong(const char* str);
@@ -133,7 +137,7 @@ void sd_card(const uint8_t * sddata, uint8_t close)
 						/* print some card information as a boot message */
 						print_disk_info(fs);
 						
-						fd = open_file_in_dir(fs, dd, "roman.log");
+						fd = open_file_in_dir(fs, dd, "data.log");
 						if(!fd)
 						{
 							uart_puts("could not open test.txt\n");
@@ -141,25 +145,12 @@ void sd_card(const uint8_t * sddata, uint8_t close)
 						uart_puts("SD is ready...\n");
 						action=SD_WRITE;//sd_card is opened, next step is sd_write
 						break;
-		case SD_WRITE:	/*int32_t file_pos = 0;
-						if(!fat_seek_file(fd, &file_pos, FAT_SEEK_CUR))
-						{
-							uart_puts("file seek errorl\n");
-						}*/
-						// file_pos now contains the absolute file position
-						sprintf(string,"eins");
-						str_len=strlen(string);
-						fat_write_file(fd,(const uint8_t *)string,str_len);
+		case SD_WRITE:	// file_pos now contains the absolute file position
+						//sprintf(string,"eins");
+						str_len=strlen(sddata);
+						fat_write_file(fd,(const uint8_t*)sddata,str_len);
 						sd_raw_sync();
-						sprintf(string,"\nzwei");
-						str_len=strlen(string);
-						fat_write_file(fd,(const uint8_t *)string,str_len);
-						sd_raw_sync();
-						sprintf(string,"\ndrei vier fünf sech sieben acht");
-						str_len=strlen(string);
-						fat_write_file(fd,(const uint8_t *)string,str_len);
-						sd_raw_sync();
-						uart_puts("writing sucessfull\n");
+						//uart_puts("  writing sucessfull\n");
 						break;
 		case SD_CLOSE:	/* close directory */
 						fat_close_dir(dd);
@@ -188,6 +179,7 @@ ISR (TIMER1_COMPA_vect)
 	{
 		ms100=0;
 		sec++;
+		sek_timer=1;
 	}
 	if(sec==60)	//Minute
 	{
@@ -248,6 +240,7 @@ int main(void)
 	flag_send=0;
 	flag_send_index=0;
 	str_len=0;//length of a string
+	flag_log_on=0;
 
 	glcd_tiny_set_font(Font5x7,5,7,32,127);
 	glcd_clear_buffer();
@@ -264,13 +257,11 @@ int main(void)
 	/* setup uart */
 	uart_init();
 	
-	
 	sprintf(string,"string %d",str_len);
-	glcd_draw_string_xy(0,0,string);
+	
 		while(1) 
 		{	
-
-		/*
+		
 			BME280_readout(&temp, &press, &hum);
 				
 
@@ -282,7 +273,34 @@ int main(void)
 				
 			sprintf(string,"hum %lu", hum);
 			glcd_draw_string_xy(0,30,string);
-			*/
+			
+			
+			if((flag_log_on==1)&&(sek_timer==1))//once per second
+			{
+				sek_timer=0;
+				
+				//send / write Temperature
+				vork = temp /100;
+				nachk = temp-vork*100;
+				sprintf(sd_string,"%d.%d\t\t", vork, nachk);
+				uart_puts((const char*)sd_string);
+				sd_card((const char *)sd_string,0);//open / write to sd-card
+				
+				//send / write pressure
+				vork = press/100;
+				nachk = press-vork*100;
+				sprintf(sd_string,"%d.%d\t\ten", vork, nachk);
+				uart_puts((const char*)sd_string);
+				sd_card((const char *)sd_string,0);//open / write to sd-card
+				
+				//send / write humidity
+				vork = hum/1024;
+				nachk = hum-vork*1024;
+				sprintf(sd_string,"%d.%d\n", vork, nachk);
+				uart_puts((const char*)sd_string);
+				sd_card((const char *)sd_string,0);//open / write to sd-card
+			}
+			
 			/*
 			 * 
 			 * "Control characters
@@ -292,7 +310,6 @@ int main(void)
 				$T or $t= tabulator
 				$N or $n= new line"
 			 * */
-			 
 		/*
 					flag_send_index=1;
 					uart_send_char('A');
@@ -314,7 +331,6 @@ int main(void)
 					uart_send_char('\r');
 					uart_send_char('\n');
 				*/
-					 
 				/*Umwandlung in Vorkomma und Nachkommawerte 
 				 * um ueber uart float uebertragen zu können*/
 				 /*
@@ -351,9 +367,18 @@ int main(void)
 			flag_send=0;
 			flag_send_index=1;
 			test++;
-			sprintf(string,"BLUE %d", test);
-			glcd_draw_string_xy(0,10,string);
-			sd_card((const uint8_t *)string,0);
+			flag_log_on=1;//start logging
+			sprintf(string,"LOG = ON");
+			glcd_draw_string_xy(0,40,string);
+			
+			//********* title head ****************
+			sprintf(sd_string,"Messungen BME280\n");
+			uart_puts((const char*)sd_string);
+			sd_card((const char *)sd_string,0);//open / write to sd-card
+			sprintf(sd_string,"Temperatur\tLuftdruck\tFeuchtigkeit\n");
+			uart_puts((const char*)sd_string);
+			sd_card((const char *)sd_string,0);//open / write to sd-card
+			
 		}
 		if(T_GREEN && (!entprell))
 		{
@@ -373,14 +398,11 @@ int main(void)
 			LED_AUS;
 			flag_send_index=0;
 			test++;
-			sprintf(string,"YELLOW %d", test);
-			glcd_draw_string_xy(0,30,string);
-			sd_card((const uint8_t *)string,1);
+			flag_log_on=0;//stop logging
+			sprintf(string,"LOG OFF");
+			glcd_draw_string_xy(0,40,string);
+			sd_card((const uint8_t *)string,1);//close sd-card
 		}
-		
-		
-		
-	
 	glcd_write();
 	}//End of while
 	
@@ -487,7 +509,6 @@ uint8_t print_disk_info(const struct fat_fs_struct* fs)
     return 1;
 }
 
-
 void get_datetime(uint16_t* year, uint8_t* month, uint8_t* day, uint8_t* hour, uint8_t* min, uint8_t* sec)
 {
     *year = 2007;
@@ -497,7 +518,6 @@ void get_datetime(uint16_t* year, uint8_t* month, uint8_t* day, uint8_t* hour, u
     *min = 0;
     *sec = 0;
 }
-
 
 static void setup(void)
 {
